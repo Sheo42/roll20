@@ -2,35 +2,39 @@ var region = "";
 var mois = "";
 
 on("chat:message", function(msg) {
-var cmdRegion = "!region";
-var cmdMois = "!RollClimat";
-var msgTxt = msg.content;
-var msgWho = msg.who;
-var args;
-var skill;
-var roll;
-var temperature;
-
-    //log("message text is " + msgTxt);
-if ((msg.type === "api") && (msgTxt.indexOf(cmdRegion) !== -1))
-{
-    args = msgTxt.replace(cmdRegion,'').trim().toLowerCase();
-    //log("args text is " + args);
-    region = args;
-    sendChat(msgWho, "/w gm &{template:pf_generic} {{name=Mois}} {{ [Abadius](!RollClimat Abadius)   [Calistril](!RollClimat Calistril)   [Pharast](!RollClimat Pharast)  [Gozran](!RollClimat Gozran)  [Desnus](!RollClimat Desnus)   [Sarénith](!RollClimat Sarenith) [Erastus](!RollClimat Erastus)  [Arodus](!RollClimat Arodus)  [Rova](!RollClimat Rova)  [Lamashan](!RollClimat Lamashan)   [Neth](!RollClimat Neth)   [Kuthona](!RollClimat Kuthona)}}");
-
-} else if ((msg.type === "api") && (msgTxt.indexOf(cmdMois) !== -1)) {
-    args = msgTxt.replace(cmdMois,'').trim().toLowerCase();
-    if (args !== "")
-    {
-        mois = args;
-        temperature = defineTemperatureRegion(region, mois);
-        var clim = determinerClimat(region, temperature);
-        sendChat(msgWho, "/w gm " + clim.ligne1);
-        sendChat(msgWho, "/w gm " + clim.ligne2);
-    }
+    var cmdRegion = "!region";
+    var cmdMois = "!RollClimat";
+    var cmdGlobal = "!climat";
+    var msgTxt = msg.content;
+    var msgWho = msg.who;
+    var args;
+    var skill;
+    var roll;
+    var temperature;
     
-}
+    log("message text is " + msgTxt);
+    if ((msg.type === "api") && (msgTxt.indexOf(cmdRegion) !== -1))
+    {
+        args = msgTxt.replace(cmdRegion,'').trim().toLowerCase();
+        //log("args text is " + args);
+        region = args;
+        sendChat(msgWho, "/w gm &{template:pf_generic} {{name=Mois}} {{ [Abadius](!RollClimat Abadius)   [Calistril](!RollClimat Calistril)   [Pharast](!RollClimat Pharast)  [Gozran](!RollClimat Gozran)  [Desnus](!RollClimat Desnus)   [Sarénith](!RollClimat Sarenith) [Erastus](!RollClimat Erastus)  [Arodus](!RollClimat Arodus)  [Rova](!RollClimat Rova)  [Lamashan](!RollClimat Lamashan)   [Neth](!RollClimat Neth)   [Kuthona](!RollClimat Kuthona)}}");
+    
+    } else if ((msg.type === "api") && (msgTxt.indexOf(cmdMois) !== -1)) {
+        args = msgTxt.replace(cmdMois,'').trim().toLowerCase();
+        if (args !== "") {
+            mois = args;
+            temperature = defineTemperatureRegion(region, mois);
+            var clim = determinerClimat(region, temperature);
+            sendChat(msgWho, "/w gm " + clim.ligne1);
+            sendChat(msgWho, "/w gm " + clim.ligne2);
+        }
+        
+    } else if ((msg.type === "api") && (msgTxt.indexOf(cmdGlobal) !== -1)) {
+        if (args !== "") {
+            sendChat(msgWho, "/w gm &{template:pf_generic}  {{name=BlindRolls }} {{ [Tres Froid](!region tres froid)}} {{ [Froid](!region Froid)}}  {{ [Tempere](!region Tempere)}} {{ [Chaud](!region Chaud)}} {{ [Tres Chaud](!region Tres Chaud)}}");
+        }
+    }
 });
 
 //compute temperature with month and region
