@@ -1,1 +1,1 @@
-/w gm &{template:pf_generic}  {{name=BlindRolls }} {{ [Tres Froid](!region Tres Froid)}} {{ [Froid](!region Froid)}}  {{ [Tempere](!region Tempere)}} {{ [Chaud](!region Chaud)}} {{ [Tres Chaud](!region Tres Chaud)}}
+!climat
