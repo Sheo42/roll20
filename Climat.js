@@ -152,7 +152,7 @@ function determinerClimat(p_region, p_temperature) {
                 log("Valeur de regionReduit inconnue : " + regionReduite);
                 break;
         }
-    } else if (roll > 90 && roll <= 91) {
+    } else if (roll > 90 && roll <= 99) {
         var tot =  randomInteger(4) + randomInteger(4) - 1;
         ret.ligne1 = "Tempête : les vents sont violents (50 à 80 km/h) et la visibilité diminuée de 75 %. Une tempête sévit pendant " + tot + "heures.";
         ret.ligne2 = "Temperature = " + temp + ", la nuit = " + temperatureNuit;
