@@ -1,0 +1,5 @@
+!token-mod --ids @{selected|token_id} --set currentside|2
+!token-mod --ids @{selected|token_id} --set showplayers_name|no
+!token-mod --ids @{selected|token_id} --set showplayers_bar1|no
+!token-mod --ids @{selected|token_id} --set showplayers_bar2|no
+!token-mod --ids @{selected|token_id} --set showplayers_bar3|no
