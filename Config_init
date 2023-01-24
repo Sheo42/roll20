@@ -1,0 +1,8 @@
+!group-init --del-group 1
+!group-init --add-group --bare init --tie-Breaker init|current
+(Optional)
+!group-init-config --set-dice-count|1
+!group-init-config --set-max-decimal|2
+!group-init-config --set-roller|Individual-Roll
+!group-init-config --sort-option|Descending
+!group-init-config --toggle-replace-roll
