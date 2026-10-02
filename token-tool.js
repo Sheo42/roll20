@@ -122,7 +122,20 @@ on('ready', () => {
   // ---- HP diagnostics (Pathfinder Community Sheet) -------------------------
 
   const num = (v) => parseInt(v, 10) || 0;
-  const attr = (cid, name, which) => getAttrByName(cid, name, which);
+
+  // One single pass over all attributes. getAttrByName rescans every attribute of the
+  // game on each call; with a dozen calls per character that is far too slow in a big
+  // game and trips Roll20's "possible infinite loop" guard (which disables all scripts).
+  const indexAttributes = (charIds) => {
+    const wanted = new Set(charIds);
+    const byChar = {};
+    findObjs({ _type: 'attribute' }).forEach((a) => {
+      const cid = a.get('_characterid');
+      if (!wanted.has(cid)) return;
+      (byChar[cid] = byChar[cid] || {})[String(a.get('name')).toLowerCase()] = a;
+    });
+    return byChar;
+  };
 
   // Max HP as the sheet computes it (PFHealth.updateMaxHPLookup):
   //   ability mod x level + class HP + HP formula misc + 5 x Energy Drain (+ mythic HP)
@@ -133,18 +146,24 @@ on('ready', () => {
     );
     if (!chars.length) return reply(msg, 'No player-controlled characters found. Try !hpcheck all.');
 
+    const index = indexAttributes(chars.map((c) => c.id));
+
     chars.forEach((c) => {
-      const id = c.id;
-      const cur = num(attr(id, 'HP'));
-      const max = num(attr(id, 'HP', 'max'));
-      const level = num(attr(id, 'level'));
-      const abilityMod = num(attr(id, 'HP-ability-mod'));
-      const classHp = num(attr(id, 'total-hp'));
-      const formulaMod = num(attr(id, 'HP-formula-mod'));
-      const drained = num(attr(id, 'condition-Drained'));
-      const mythicHp = num(attr(id, 'mythic-adventures-show')) ? num(attr(id, 'total-mythic-hp')) : 0;
-      const temp = num(attr(id, 'HP-temp'));
-      const incOn = num(attr(id, 'increase_hp')) ? 'on' : 'off';
+      const mine = index[c.id] || {};
+      const cur = (n) => (mine[n.toLowerCase()] ? mine[n.toLowerCase()].get('current') : undefined);
+      const hpAttr = mine.hp;
+
+      const hp = num(cur('HP'));
+      const max = hpAttr ? num(hpAttr.get('max')) : 0;
+      const level = num(cur('level'));
+      const abilityMod = num(cur('HP-ability-mod'));
+      const classHp = num(cur('total-hp'));
+      const formulaMod = num(cur('HP-formula-mod'));
+      const drained = num(cur('condition-Drained'));
+      const mythicHp = num(cur('mythic-adventures-show')) ? num(cur('total-mythic-hp')) : 0;
+      const temp = num(cur('HP-temp'));
+      const incRaw = cur('increase_hp');
+      const incOn = incRaw === undefined ? 'on (sheet default)' : num(incRaw) ? 'on' : 'off';
 
       const expected = abilityMod * level + classHp + formulaMod + 5 * drained + mythicHp;
       const diff = max - expected;
@@ -152,7 +171,7 @@ on('ready', () => {
 
       reply(
         msg,
-        `${c.get('name')}: HP ${cur}/${max}, formula gives ${expected} ` +
+        `${c.get('name')}: HP ${hp}/${max}, formula gives ${expected} ` +
           `(${abilityMod}x${level} + ${classHp} + ${formulaMod} + 5x${drained}${mythicHp ? ' + ' + mythicHp : ''}), ` +
           `temp ${temp}, HP follows max changes: ${incOn} -> ${verdict}`
       );
