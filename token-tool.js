@@ -5,6 +5,10 @@
 //   !where                           -> position of the selected token(s)
 //   !move <name> <direction> [n]     -> move a token n squares (default 1)
 //   !move <direction> [n]            -> move the selected token(s)
+//   !hpcheck [all]                   -> audit: compares each PC's stored max HP with the
+//                                       Pathfinder Community Sheet formula (all = include NPCs)
+//   !hplog on|off|status             -> whispers to the GM every change to HP, temp HP,
+//                                       Energy Drain and token bars, with timestamps
 //
 // Directions: left right up down upleft upright downleft downright
 // Short forms: l r u d ul ur dl dr
@@ -115,6 +119,91 @@ on('ready', () => {
     reply(msg, `Moved ${count} ${dirWord}. ${lines.join(' | ')}`);
   };
 
+  // ---- HP diagnostics (Pathfinder Community Sheet) -------------------------
+
+  const num = (v) => parseInt(v, 10) || 0;
+  const attr = (cid, name, which) => getAttrByName(cid, name, which);
+
+  // Max HP as the sheet computes it (PFHealth.updateMaxHPLookup):
+  //   ability mod x level + class HP + HP formula misc + 5 x Energy Drain (+ mythic HP)
+  const handleHpCheck = (msg, args) => {
+    const all = args.some((a) => a.toLowerCase() === 'all');
+    const chars = findObjs({ _type: 'character' }).filter(
+      (c) => all || (c.get('controlledby') || '').length > 0
+    );
+    if (!chars.length) return reply(msg, 'No player-controlled characters found. Try !hpcheck all.');
+
+    chars.forEach((c) => {
+      const id = c.id;
+      const cur = num(attr(id, 'HP'));
+      const max = num(attr(id, 'HP', 'max'));
+      const level = num(attr(id, 'level'));
+      const abilityMod = num(attr(id, 'HP-ability-mod'));
+      const classHp = num(attr(id, 'total-hp'));
+      const formulaMod = num(attr(id, 'HP-formula-mod'));
+      const drained = num(attr(id, 'condition-Drained'));
+      const mythicHp = num(attr(id, 'mythic-adventures-show')) ? num(attr(id, 'total-mythic-hp')) : 0;
+      const temp = num(attr(id, 'HP-temp'));
+      const incOn = num(attr(id, 'increase_hp')) ? 'on' : 'off';
+
+      const expected = abilityMod * level + classHp + formulaMod + 5 * drained + mythicHp;
+      const diff = max - expected;
+      const verdict = diff === 0 ? 'OK' : `MISMATCH (stored max is ${diff > 0 ? '+' : ''}${diff} vs formula)`;
+
+      reply(
+        msg,
+        `${c.get('name')}: HP ${cur}/${max}, formula gives ${expected} ` +
+          `(${abilityMod}x${level} + ${classHp} + ${formulaMod} + 5x${drained}${mythicHp ? ' + ' + mythicHp : ''}), ` +
+          `temp ${temp}, HP follows max changes: ${incOn} -> ${verdict}`
+      );
+    });
+  };
+
+  state.TokenTool = state.TokenTool || { hplog: false };
+
+  const stamp = () => new Date().toISOString().slice(17, 23); // SS.mmm
+  const gmLog = (text) => sendChat(API, `/w gm HPLOG ${stamp()} ${text}`);
+  const charName = (id) => {
+    const c = getObj('character', id);
+    return c ? c.get('name') : id;
+  };
+  const WATCHED = /^(hp|hp-temp|condition-drained|non-lethal-damage)$/i;
+
+  const handleHpLog = (msg, args) => {
+    const mode = (args[0] || 'status').toLowerCase();
+    if (mode === 'on') state.TokenTool.hplog = true;
+    else if (mode === 'off') state.TokenTool.hplog = false;
+    reply(msg, `HP log is ${state.TokenTool.hplog ? 'ON' : 'OFF'}. Usage: !hplog on|off|status`);
+  };
+
+  on('change:attribute', (obj, prev) => {
+    if (!state.TokenTool.hplog) return;
+    const name = obj.get('name');
+    if (!WATCHED.test(name)) return;
+    const cur = obj.get('current');
+    const max = obj.get('max');
+    if (cur === prev.current && max === prev.max) return;
+    const maxPart = name.toLowerCase() === 'hp' ? ` (max ${prev.max} -> ${max})` : '';
+    gmLog(`${charName(obj.get('characterid'))} attribute ${name}: ${prev.current} -> ${cur}${maxPart}`);
+  });
+
+  on('change:graphic', (obj, prev) => {
+    if (!state.TokenTool.hplog) return;
+    const cid = obj.get('represents');
+    if (!cid) return;
+    const page = getObj('page', obj.get('_pageid'));
+    [1, 2, 3].forEach((n) => {
+      const v = `bar${n}_value`;
+      const m = `bar${n}_max`;
+      if (obj.get(v) !== prev[v] || obj.get(m) !== prev[m]) {
+        gmLog(
+          `token ${obj.get('name') || charName(cid)} on page ${page ? page.get('name') : '?'} bar${n}: ` +
+            `${prev[v]}/${prev[m]} -> ${obj.get(v)}/${obj.get(m)}`
+        );
+      }
+    });
+  });
+
   on('chat:message', (msg) => {
     if (msg.type !== 'api') return;
     if (!playerIsGM(msg.playerid)) return;
@@ -123,7 +212,9 @@ on('ready', () => {
     const cmd = tokens.shift().toLowerCase();
     if (cmd === '!where') return handleWhere(msg, tokens);
     if (cmd === '!move') return handleMove(msg, tokens);
+    if (cmd === '!hpcheck') return handleHpCheck(msg, tokens);
+    if (cmd === '!hplog') return handleHpLog(msg, tokens);
   });
 
-  log(`${API} ready: !where, !move`);
+  log(`${API} ready: !where, !move, !hpcheck, !hplog`);
 });
