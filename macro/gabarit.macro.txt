@@ -1,0 +1,1 @@
+!gabarit lancer @{selected|token_id} ?{Forme|Cercle,burst|Cône droit,conedroit|Cône diagonal,conediag|Ligne,ligne|Émanation,emanation} ?{Taille|1.5 m / 1 case,1c|3 m / 2 cases,2c|4.5 m / 3 cases,3c|6 m / 4 cases,4c|7.5 m / 5 cases,5c|9 m / 6 cases,6c|12 m / 8 cases,8c|15 m / 10 cases,10c|18 m / 12 cases,12c|24 m / 16 cases,16c|30 m / 20 cases,20c|36 m / 24 cases,24c}

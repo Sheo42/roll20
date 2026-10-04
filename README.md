@@ -33,3 +33,38 @@ time, with `could not find top macro for 0` repeating in the browser console. Ca
 true and an empty or missing type is read as type "0" by the sheet worker (`getTopOfMenu`). Run
 `!abilitycheck <character>`, then `!abilityfix <character>` (dry run first). A separate note: PFCompanion's
 "Mook Numbering" can wrongly number PC tokens (`Name 1`); see `!tokeninfo` and `!tokenwatch`.
+
+## Gabarits de zones d'effet (Pathfinder 1e)
+
+`scripts/gabarit.js` trace sur la carte les zones d'effet (boule de feu, cône, ligne, émanation) selon les règles
+officielles de Pathfinder 1e : le contour suit exactement les bordures des cases touchées (décompte des cases,
+une diagonale sur deux compte double), pas un cercle approximatif. Les tailles sont données en cases, en pieds ou en
+mètres et sont converties en cases : l'échelle de la carte n'a aucune influence (5 ft = 1,5 m = 1 case).
+
+**Installation**
+1. Coller `scripts/gabarit.js` dans un nouveau script API (Game Settings > API Scripts), enregistrer.
+2. Importer `macro/viseur.png` dans sa bibliothèque Roll20 (pas depuis le Marketplace), le placer sur la carte, le
+   sélectionner puis taper `!gabarit viseurimg` (MJ). Sans cela, le script utilise une image de secours teintée en rouge.
+3. Créer une macro « Gabarit », visible par tous, avec le contenu de `macro/gabarit.macro.txt`.
+
+**Utilisation (joueur)** : sélectionner son token, cliquer sur « Gabarit », choisir la forme et la taille dans les
+listes. Un Viseur (un par gabarit, de la couleur du gabarit) apparaît près du personnage.
+- Cercle : le cercle est centré sur le Viseur.
+- Cône droit, cône diagonal, ligne : le gabarit part du Viseur. On le tourne (touche E + molette, par pas de 45°)
+  pour choisir la direction ; la rotation s'aimante sur les directions valides.
+- Émanation : part des bords de la case du lanceur.
+- Plusieurs gabarits peuvent rester en même temps. « Effacer » dans le message reçu, ou supprimer le Viseur.
+
+| Commande | Effet |
+| --- | --- |
+| `!gabarit lancer <id lanceur> <forme> <taille> [couleur=feu] [duree=60]` | Crée le gabarit et son Viseur. Formes : `burst`, `conedroit`, `conediag`, `ligne`, `emanation`. Taille : `4c` (cases), `6m`, `20ft` ou `20`. |
+| `!gabarit clear [gN]` | Efface un gabarit, ou tous ceux du joueur. |
+| `!gabarit clear tout` | MJ : efface tous les gabarits. |
+| `!gabarit viseurimg` | MJ : enregistre le token sélectionné comme image du Viseur. |
+
+**Tests** : `node tests/gabarit.test.js` (Node, sans dépendance) lance 214 vérifications : conversion des tailles,
+formes et nombres de cases, contours, puis le flux complet avec un faux Roll20. Ils n'ont pas remplacé un essai en
+campagne réelle.
+
+**Dossiers** : `scripts/` (scripts API), `tests/` (tests Node des scripts), `macro/` (macros et images associées).
+Les scripts plus anciens restent à la racine.
