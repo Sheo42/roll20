@@ -1,66 +1,68 @@
 # roll20
 My roll20 shit
 
+[Version française](README_fr.md)
 
-## Gabarits de zones d'effet (Pathfinder 1e)
+## Area-of-effect templates (Pathfinder 1e)
 
-`scripts/gabarit.js` trace sur la carte les zones d'effet (boule de feu, cône, ligne, émanation) selon les règles
-officielles de Pathfinder 1e : le contour suit exactement les bordures des cases touchées (décompte des cases,
-une diagonale sur deux compte double), pas un cercle approximatif. Les tailles sont données en cases, en pieds ou en
-mètres et sont converties en cases : l'échelle de la carte n'a aucune influence (5 ft = 1,5 m = 1 case).
+`scripts/gabarit.js` draws area-of-effect templates on the map (burst, cone, line, emanation) following the official
+Pathfinder 1e rules: the outline follows the exact borders of the squares touched (square counting, every second
+diagonal counts double), not an approximate circle. Sizes can be given in squares, feet or meters and are converted to
+squares, so the map scale has no influence (5 ft = 1.5 m = 1 square).
 
-![Exemple : quatre gabarits en même temps](macro/gabarit-exemple.png)
+![Example: four templates at once](macro/gabarit-exemple.png)
 
-*Quatre gabarits en même temps sur une carte en mètres : cône droit de 18 m (rouge), cône diagonal de 6 m (vert), cône diagonal de 4,5 m (bleu) et cercle de 6 m (violet). Chacun a son Viseur, dont la flèche donne la direction.*
+*Four templates at once on a map in meters: straight 18 m cone (red), diagonal 6 m cone (green), diagonal 4.5 m cone (blue) and 6 m burst (purple). Each has its own Aimer, whose arrow shows the direction.*
 
 **Installation**
-1. Coller `scripts/gabarit.js` dans un nouveau script API (Game Settings > API Scripts), enregistrer.
-2. Importer `macro/viseur.png` dans sa bibliothèque Roll20 (pas depuis le Marketplace), le placer sur la carte, le
-   sélectionner puis taper `!gabarit viseurimg` (MJ). Sans cela, le script utilise une image de secours teintée en rouge.
-3. Créer une macro « Gabarit », visible par tous, avec le contenu de `macro/gabarit.macro.txt`.
+1. Paste `scripts/gabarit.js` into a new API script (Game Settings > API Scripts) and save.
+2. Import `macro/viseur.png` into your Roll20 library (not from the Marketplace), place it on the map, select it, then
+   type `!gabarit viseurimg` (GM). Without this, the script uses a fallback image tinted red.
+3. Create a macro named "Gabarit", visible to all, with the content of `macro/gabarit.macro.txt`.
 
-**Utilisation (joueur)** : sélectionner son token, cliquer sur « Gabarit », choisir la forme et la taille dans les
-listes. Un Viseur (un par gabarit, de la couleur du gabarit) apparaît près du personnage.
-- Cercle : le cercle est centré sur le Viseur.
-- Cône droit, cône diagonal, ligne : le gabarit part du Viseur. On le tourne (touche E + molette, par pas de 45°)
-  pour choisir la direction ; la rotation s'aimante sur les directions valides.
-- Émanation : part des bords de la case du lanceur.
-- Plusieurs gabarits peuvent rester en même temps. « Effacer » dans le message reçu, ou supprimer le Viseur.
+**Use (player)**: select your token, click "Gabarit", then pick the shape and size from the lists. An Aimer (one per
+template, in the template's color) appears next to the character.
+- Burst: the circle is centered on the Aimer.
+- Straight cone, diagonal cone, line: the template starts from the Aimer. Rotate it (E key + mouse wheel, in 45° steps)
+  to choose the direction; the rotation snaps to valid directions.
+- Emanation: starts from the edges of the caster's square.
+- Several templates can stay on the map at the same time. Use "Effacer" (clear) in the message you received, or delete the Aimer.
 
-| Commande | Effet |
+| Command | Effect |
 | --- | --- |
-| `!gabarit lancer <id lanceur> <forme> <taille> [couleur=feu] [duree=60]` | Crée le gabarit et son Viseur. Formes : `burst`, `conedroit`, `conediag`, `ligne`, `emanation`. Taille : `4c` (cases), `6m`, `20ft` ou `20`. |
-| `!gabarit clear [gN]` | Efface un gabarit, ou tous ceux du joueur. |
-| `!gabarit clear tout` | MJ : efface tous les gabarits. |
-| `!gabarit viseurimg` | MJ : enregistre le token sélectionné comme image du Viseur. |
+| `!gabarit lancer <caster id> <shape> <size> [color=feu] [duree=60]` | Creates the template and its Aimer. Shapes: `burst`, `conedroit`, `conediag`, `ligne`, `emanation`. Size: `4c` (squares), `6m`, `20ft` or `20`. |
+| `!gabarit clear [gN]` | Clears one template, or all of the player's templates. |
+| `!gabarit clear tout` | GM: clears all templates. |
+| `!gabarit viseurimg` | GM: saves the selected token as the Aimer image. |
 
-**Tests** : `node tests/gabarit.test.js` (Node, sans dépendance) lance 214 vérifications : conversion des tailles,
-formes et nombres de cases, contours, puis le flux complet avec un faux Roll20. Ils n'ont pas remplacé un essai en
-campagne réelle.
+**Tests**: `node tests/gabarit.test.js` (Node, no dependency) runs 214 checks: size conversion, shapes and square
+counts, outlines, then the full flow with a fake Roll20. They are no substitute for a try-out in a real campaign.
 
-## Météo aléatoire (Climat)
+## Random weather (Climat)
 
-`scripts/Climat.js` tire une météo au hasard, par niveau de chaleur (très froid, froid, tempéré, chaud, très chaud) plutôt que
-par région, pour servir aussi hors de Golarion. Chaque jour est découpé en 4 phases (matin, après-midi, soir, nuit), chacune
-avec sa température. Les phénomènes (pluie, neige, brouillard, grêle, orage, tempête de neige, blizzard, ouragan, tornade,
-tempête de sable, trombes d'eau) ont des prémices, une heure de début et une durée tirée d'après la page Climat du wiki
-Pathfinder-FR. Ils peuvent déborder sur les jours suivants. Les vagues de chaleur ou de froid et le vent du désert durent 3 jours.
-Si un phénomène tiré dépasse le nombre de jours demandés, la période est prolongée jusqu'à sa fin (5 jours au plus) et la carte
-l'indique. Le script ne gère aucune mécanique de jeu, seulement le texte et les températures. Il ne garde aucun état.
+`scripts/Climat.js` draws random weather by heat level (very cold, cold, temperate, hot, very hot) rather than by
+region, so it also works outside Golarion. Each day is split into 4 phases (morning, afternoon, evening, night), each
+with its own temperature. Phenomena (rain, snow, fog, hail, thunderstorm, snowstorm, blizzard, hurricane, tornado,
+sandstorm, torrential rain) have warning signs, a start time and a duration drawn from the Climat page of the
+Pathfinder-FR wiki. They can carry over onto the following days. Heat waves, cold waves and the desert wind last 3 days.
+If a drawn phenomenon runs past the number of days requested, the period is extended until it ends (5 days at most) and
+the card says so. The script handles no game mechanics, only text and temperatures. It keeps no state.
 
-**Installation** : coller `scripts/Climat.js` (et seulement lui, pas le fichier de tests) dans un nouveau script API, enregistrer.
-Créer la macro « Climat » avec le contenu de `macro/Climat.macro.txt` (`!climat`).
+**Installation**: paste `scripts/Climat.js` (and only that file, not the test file) into a new API script and save.
+Create the "Climat" macro with the content of `macro/Climat.macro.txt` (`!climat`).
 
-**Utilisation (MJ)** : cliquer sur « Climat », choisir le niveau de chaleur, puis un mois (un jour) ou « Plusieurs jours » (1 à 14).
+**Use (GM)**: click "Climat", choose the heat level, then a month (one day) or "Plusieurs jours" (several days, 1 to 14).
 
-| Commande | Effet |
+| Command | Effect |
 | --- | --- |
-| `!climat` | Boutons de niveau de chaleur. |
-| `!region <niveau>` | Boutons des mois pour ce niveau. |
-| `!RollClimat <niveau> <mois> [jours]` | Tire la météo (ex. `!RollClimat froid neth 3`). L'ordre des arguments est libre. |
+| `!climat` | Heat level buttons. |
+| `!region <level>` | Month buttons for that level. |
+| `!RollClimat <level> <month> [days]` | Draws the weather (e.g. `!RollClimat froid neth 3`). Argument order is free. |
 
-**Tests** : `node tests/Climat.test.js` (Node, sans dépendance) lance 305 vérifications : dés scriptés, propriétés statistiques
-sur des dizaines de milliers de jours, puis le flux complet avec un faux Roll20. Ils n'ont pas remplacé un essai en partie réelle.
+The level ids are `tresfroid`, `froid`, `tempere`, `chaud` and `treschaud`, and months use their Golarion names (Abadius, Calistril, Pharast...).
+
+**Tests**: `node tests/Climat.test.js` (Node, no dependency) runs 305 checks: scripted dice, statistical properties over
+tens of thousands of days, then the full flow with a fake Roll20. They are no substitute for a try-out in a real game.
 
 ## Character tools (API scripts, GM only)
 
@@ -92,5 +94,6 @@ true and an empty or missing type is read as type "0" by the sheet worker (`getT
 `!abilitycheck <character>`, then `!abilityfix <character>` (dry run first). A separate note: PFCompanion's
 "Mook Numbering" can wrongly number PC tokens (`Name 1`); see `!tokeninfo` and `!tokenwatch`.
 
-**Dossiers** : `scripts/` (scripts API), `tests/` (tests Node des scripts), `macro/` (macros et images associées).
-Les macros sont les fichiers `*.macro.txt` : leur contenu se colle tel quel dans une macro Roll20. L'inventaire de ce que fait chaque macro et des scripts dont elle dépend est dans [`macro/README.md`](macro/README.md).
+**Folders**: `scripts/` (API scripts), `tests/` (Node tests of the scripts), `macro/` (macros and related images).
+The macros are the `*.macro.txt` files: their content is pasted as is into a Roll20 macro. What each macro does and
+which scripts it depends on is listed in [`macro/README.md`](macro/README.md) (in French).
