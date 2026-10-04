@@ -61,6 +61,8 @@ Créer la macro « Climat » avec le contenu de `macro/Climat.macro.txt` (`!clim
 | `!region <niveau>` | Boutons des mois pour ce niveau. |
 | `!RollClimat <niveau> <mois> [jours]` | Tire la météo (ex. `!RollClimat froid neth 3`). L'ordre des arguments est libre. |
 
+Les identifiants de niveau sont `tresfroid`, `froid`, `tempere`, `chaud` et `treschaud` ; les mois portent leurs noms golarions (Abadius, Calistril, Pharast...).
+
 **Tests** : `node tests/Climat.test.js` (Node, sans dépendance) lance 305 vérifications : dés scriptés, propriétés statistiques
 sur des dizaines de milliers de jours, puis le flux complet avec un faux Roll20. Ils n'ont pas remplacé un essai en partie réelle.
 
