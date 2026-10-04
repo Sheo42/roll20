@@ -168,6 +168,37 @@ describe('Géométrie : lignes', () => {
   check(eq(g.casesLigne([770, 769.5], 0, 6, 70), S([[11, 10], [12, 10], [13, 10], [14, 10], [15, 10], [16, 10]])), 'ligne droite de 6 cases : la rangée entière');
 });
 
+describe('Géométrie : lignes du manuel (formes de référence, 30 ft = 6 cases)', () => {
+  // forme normalisée : colonnes de gauche à droite, rangées de BAS en haut, première case en (0,0)
+  const forme = (set) => {
+    const a = [...set].map((k) => { const [i, j] = k.split(',').map(Number); return [i, -j]; });
+    const mi = Math.min(...a.map((c) => c[0])), mj = Math.min(...a.map((c) => c[1]));
+    return a.map((c) => [c[0] - mi, c[1] - mj]).sort((p, q) => p[1] - q[1] || p[0] - q[0]).map((c) => c.join(',')).join(' ');
+  };
+  const deg = Math.PI / 180;
+  // angle mesuré depuis la verticale (vers le haut), vers la droite ; origine = intersection de grille
+  const ligne = (a, n = 6) => g.casesLigne([500, 500], (-90 + a) * deg, n, 100);
+  const L1 = '0,0 0,1 0,2 0,3 0,4 0,5';
+  const L2 = '0,0 0,1 0,2 1,3 1,4 1,5';
+  const L3 = '0,0 0,1 1,1 1,2 1,3 2,3';
+  const L4 = '0,0 1,1 2,2 3,3';
+  check(forme(ligne(0.0001)) === L1, 'ligne droite : 6 cases en colonne (1re ligne du manuel)');
+  check(forme(ligne(Math.atan(1 / 3) / deg)) === L2, 'ligne à 18,4° (pente 1/3) : 3 cases puis 3 cases décalées (2e ligne du manuel)');
+  check(forme(ligne(30)) === L3, 'ligne à 30° : 2-3-1 cases en escalier (3e ligne du manuel)');
+  check([27, 29, 31, 33].every((a) => forme(ligne(a)) === L3), 'la 3e forme est la même de 26,6° à 33,6°');
+  check(forme(ligne(45)) === L4, 'ligne diagonale : 4 cases en escalier (4e ligne du manuel)');
+  // une ligne qui n'est pas diagonale compte toujours exactement N cases, quel que soit l'angle
+  let mauvais = [];
+  for (let a = 0.25; a < 90; a += 0.25) { // 0° et 90° : exactement sur une frontière de cases, voir les tests d'axe
+    if (Math.abs(a - 45) < 1e-9) continue;
+    [1, 3, 6, 12].forEach((n) => { if (ligne(a, n).size !== n) mauvais.push(`${a}°/${n}`); });
+  }
+  check(mauvais.length === 0, 'ligne oblique ou droite : exactement N cases à tous les angles (de 0,25° à 89,75°, pas de 0,25°)' + (mauvais.length ? ' — écarts : ' + mauvais.slice(0, 5).join(' ') : ''));
+  // symétrie : le même angle vers la gauche donne la forme miroir
+  const miroir = (set) => forme(new Set([...set].map((k) => { const [i, j] = k.split(',').map(Number); return (-i - 1) + ',' + j; })));
+  check([10, 18, 30, 40].every((a) => forme(ligne(-a)) === miroir(ligne(a))), 'angle vers la gauche = forme miroir');
+});
+
 describe('Géométrie : émanation', () => {
   const um = { 1: 8, 2: 20, 3: 36, 4: 60 };
   Object.entries(um).forEach(([n, v]) => check(g.casesEmanation(0, 0, 0, 0, +n).size === v, `émanation de ${n} cases autour d'un token 1x1 : ${v} cases`));

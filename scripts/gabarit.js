@@ -1,6 +1,7 @@
 /*
  * gabarit.js — Gabarits de zones d'effet (Pathfinder 1e) pour l'API Roll20
- * Version 1.1 — plusieurs gabarits peuvent rester en même temps sur la carte,
+ * Version 1.2 — lignes obliques à N cases exactement (formes du manuel) ;
+ *               v1.1 : plusieurs gabarits peuvent rester en même temps sur la carte,
  *               chacun avec son propre Viseur, sa couleur et son bouton Effacer ;
  *               cônes droits / diagonaux ; le cône et la ligne PARTENT du Viseur,
  *               direction choisie en le TOURNANT.
@@ -188,36 +189,47 @@
     return set;
   }
 
-  // vrai si le segment (x0,y0)-(x1,y1) traverse le rectangle sur une longueur > 0
+  // paramètre d'entrée t (0..1) du segment (x0,y0)-(x1,y1) dans le rectangle,
+  // ou -1 s'il le traverse sur une longueur nulle
   function segmentTraverse(x0, y0, x1, y1, xmin, ymin, xmax, ymax) {
     let t0 = 0, t1 = 1;
     const dx = x1 - x0, dy = y1 - y0;
     const p = [-dx, dx, -dy, dy];
     const q = [x0 - xmin, xmax - x0, y0 - ymin, ymax - y0];
     for (let k = 0; k < 4; k++) {
-      if (p[k] === 0) { if (q[k] <= 0) return false; }
+      if (p[k] === 0) { if (q[k] <= 0) return -1; }
       else {
         const r = q[k] / p[k];
-        if (p[k] < 0) { if (r > t1) return false; if (r > t0) t0 = r; }
-        else { if (r < t0) return false; if (r < t1) t1 = r; }
+        if (p[k] < 0) { if (r > t1) return -1; if (r > t0) t0 = r; }
+        else { if (r < t0) return -1; if (r < t1) t1 = r; }
       }
     }
-    return (t1 - t0) * Math.hypot(dx, dy) > 1e-3;
+    return (t1 - t0) * Math.hypot(dx, dy) > 1e-3 ? t0 : -1;
   }
 
-  // Ligne : origine en pixels (O), angle en radians, casePx = taille d'une case
+  // Ligne : origine en pixels (O), angle en radians, casePx = taille d'une case.
+  // Comme dans le manuel : une ligne droite compte N cases ; une ligne en diagonale
+  // exacte suit la règle « une diagonale sur deux compte double » (30 ft = 4 cases) ;
+  // une ligne oblique garde les N premières cases traversées, dans l'ordre du trajet.
   function casesLigne(O, angle, N, casePx) {
     const ox = Math.round(O[0] / casePx), oy = Math.round(O[1] / casePx);
-    const L = N * casePx * 1.05;
-    const x1 = O[0] + L * Math.cos(angle), y1 = O[1] + L * Math.sin(angle);
-    const set = new Set();
+    const ux = Math.cos(angle), uy = Math.sin(angle);
+    const diagonale = Math.abs(Math.abs(ux) - Math.abs(uy)) < 1e-6;
+    const L = N * casePx * 2;
+    const x1 = O[0] + L * ux, y1 = O[1] + L * uy;
+    const touchees = [];
     for (let i = ox - N - 1; i <= ox + N; i++) {
       for (let j = oy - N - 1; j <= oy + N; j++) {
-        if (cout(idxAbs(i, ox), idxAbs(j, oy)) > N) continue;
-        if (segmentTraverse(O[0], O[1], x1, y1, i * casePx, j * casePx, (i + 1) * casePx, (j + 1) * casePx)) {
-          set.add(cle(i, j));
-        }
+        if (diagonale && cout(idxAbs(i, ox), idxAbs(j, oy)) > N) continue;
+        const t = segmentTraverse(O[0], O[1], x1, y1, i * casePx, j * casePx, (i + 1) * casePx, (j + 1) * casePx);
+        if (t >= 0) touchees.push([t, i, j]);
       }
+    }
+    touchees.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);
+    const set = new Set();
+    for (const [, i, j] of touchees) {
+      if (!diagonale && set.size >= N) break;
+      set.add(cle(i, j));
     }
     return set;
   }
