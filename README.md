@@ -1,9 +1,6 @@
 # roll20
 My roll20 shit
 
-Copy/paste scripts/Climat.js into the API.
-Use !climat in the chat to start it.
-
 
 ## Gabarits de zones d'effet (Pathfinder 1e)
 
@@ -40,6 +37,30 @@ listes. Un Viseur (un par gabarit, de la couleur du gabarit) apparaît près du 
 **Tests** : `node tests/gabarit.test.js` (Node, sans dépendance) lance 214 vérifications : conversion des tailles,
 formes et nombres de cases, contours, puis le flux complet avec un faux Roll20. Ils n'ont pas remplacé un essai en
 campagne réelle.
+
+## Météo aléatoire (Climat)
+
+`scripts/Climat.js` tire une météo au hasard, par niveau de chaleur (très froid, froid, tempéré, chaud, très chaud) plutôt que
+par région, pour servir aussi hors de Golarion. Chaque jour est découpé en 4 phases (matin, après-midi, soir, nuit), chacune
+avec sa température. Les phénomènes (pluie, neige, brouillard, grêle, orage, tempête de neige, blizzard, ouragan, tornade,
+tempête de sable, trombes d'eau) ont des prémices, une heure de début et une durée tirée d'après la page Climat du wiki
+Pathfinder-FR. Ils peuvent déborder sur les jours suivants. Les vagues de chaleur ou de froid et le vent du désert durent 3 jours.
+Si un phénomène tiré dépasse le nombre de jours demandés, la période est prolongée jusqu'à sa fin (5 jours au plus) et la carte
+l'indique. Le script ne gère aucune mécanique de jeu, seulement le texte et les températures. Il ne garde aucun état.
+
+**Installation** : coller `scripts/Climat.js` (et seulement lui, pas le fichier de tests) dans un nouveau script API, enregistrer.
+Créer la macro « Climat » avec le contenu de `macro/Climat.macro.txt` (`!climat`).
+
+**Utilisation (MJ)** : cliquer sur « Climat », choisir le niveau de chaleur, puis un mois (un jour) ou « Plusieurs jours » (1 à 14).
+
+| Commande | Effet |
+| --- | --- |
+| `!climat` | Boutons de niveau de chaleur. |
+| `!region <niveau>` | Boutons des mois pour ce niveau. |
+| `!RollClimat <niveau> <mois> [jours]` | Tire la météo (ex. `!RollClimat froid neth 3`). L'ordre des arguments est libre. |
+
+**Tests** : `node tests/Climat.test.js` (Node, sans dépendance) lance 305 vérifications : dés scriptés, propriétés statistiques
+sur des dizaines de milliers de jours, puis le flux complet avec un faux Roll20. Ils n'ont pas remplacé un essai en partie réelle.
 
 ## Character tools (API scripts, GM only)
 
