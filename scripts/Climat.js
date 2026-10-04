@@ -1,6 +1,7 @@
 /*
  * Climat.js — météo aléatoire (Pathfinder 1e, calendrier de Golarion) pour l'API Roll20
- * Version 2.0 — sans état global, météo cohérente avec la température, mode multi-jours.
+ * Version 3.0 — la journée est découpée en 4 phases ; les phénomènes ont une heure de
+ *               début, des prémices et peuvent déborder sur les jours suivants.
  *
  * UTILISATION (MJ)
  *   !climat                       5 boutons de niveau de chaleur
@@ -11,38 +12,57 @@
  *                                   !RollClimat tresfroid kuthona 7
  *   Niveaux : tresfroid, froid, tempere, chaud, treschaud (accents et espaces
  *   acceptés : « très froid »). Le niveau est passé dans la commande : le script
- *   ne retient rien entre deux appels (plus de variable globale).
+ *   ne retient rien entre deux appels.
  *   Plusieurs jours : de 1 à 14, dans le même mois (pour un voyage à cheval sur deux
  *   mois, lancer le second mois à part).
  *
- * TEMPÉRATURE DU JOUR
- *   base du mois (-10 à 15 °C) + écart du niveau + aléa du jour
- *     très froid : d10 - 10   froid : d10 - 5   tempéré : 0   chaud : d10 + 5
- *     très chaud : d10 + 10   (l'écart est tiré UNE fois par série de jours)
- *     aléa du jour : 2d4 - 5, soit de -3 à +3 °C (voir ALEA_JOUR)
- *   Une vague de chaleur / de froid ajoute / retire 5 °C au jour ET à la nuit.
- *   La nuit vaut le jour moins un d10.
+ * LA JOURNÉE EN 4 PHASES
+ *   Matin (6-12 h) · Après-midi (12-18 h) · Soir (18-24 h) · Nuit (0-6 h)
+ *   Chaque jour s'affiche sur une ligne : la température et l'état de chaque phase.
+ *     Jour 2 - Matin (-9 °C) : calme · Après-midi (-6 °C) : prémices (ciel plombé,
+ *     le vent forcit) · Soir (-9 °C) : blizzard · Nuit (-15 °C) : blizzard
+ *   Quand un phénomène naît, une seconde ligne en donne les règles (vents, durée...).
+ *
+ * TEMPÉRATURE
+ *   Jour (maximum, après-midi) = base du mois (-10 à 15 °C) + écart du niveau + aléa
+ *     écart du niveau : très froid d10 - 10 · froid d10 - 5 · tempéré 0 · chaud d10 + 5
+ *                       très chaud d10 + 10   (tiré UNE fois par série de jours)
+ *     aléa du jour : 2d4 - 5, soit de -3 à +3 °C
+ *   Nuit (minimum) = jour moins un d10. Une vague de chaleur / de froid ajoute / retire
+ *   5 °C au jour ET à la nuit.
+ *   Entre les deux : matin = nuit + 40 % de l'écart jour-nuit, soir = nuit + 60 %.
  *
  * ÉVÉNEMENT DU JOUR (d100)
  *    1 - 70   temps calme
  *   71 - 80   froid : vague de chaleur 30 % / de froid 70 %   tempéré : 50 % / 50 %
- *             désert : vent
+ *             désert : vent (toute la journée)
  *   81 - 90   froid et tempéré : brouillard 30 %, pluie ou neige 60 %,
  *             grêle ou neige fondue 10 %   désert : vent
- *   91 - 99   tempête de 1 à 7 h (vents 50 à 80 km/h, visibilité -75 %)
- *   100       froid et tempéré : violente tempête   désert : trombes d'eau (2 à 8 h)
+ *   91 - 99   tempête de 1 à 7 h (2d4 - 1) : tempête de sable en désert, tempête de
+ *             neige s'il gèle, sinon orage (foudre ; 10 % de tornade)
+ *   100       froid et tempéré : violente tempête   désert : trombes d'eau (2d4 h)
  *   « Désert » = niveau « très chaud ». « Chaud » se traite comme « tempéré ».
+ *   Durées (page « Climat » de Pathfinder-FR) : pluie, neige, neige fondue, brouillard
+ *   2d4 h ; grêle d20 minutes puis 1d4 h de pluie ; cyclone d6 h ; blizzard d3 jours et
+ *   1d3 x 30 cm de neige ; ouragan 24 ou 48 h d'impact ; tornade d6 x 10 minutes.
  *
- * COHÉRENCE AVEC LA TEMPÉRATURE (température du jour, vague comprise)
- *   neige si <= 0 °C, sinon pluie ; neige fondue si <= 3 °C, sinon grêle
- *   violente tempête : blizzard si <= 0 °C ; cyclone de 1 à 19 °C ;
- *                      ouragan ou tornade (1 chance sur 2) à partir de 20 °C
- *   Les seuils sont les constantes TEMP_* ci-dessous.
+ * PHÉNOMÈNES DANS LA JOURNÉE
+ *   Un phénomène commence à une phase tirée au hasard (le brouillard : toujours le
+ *   matin ; orage et tornade : après-midi ou soir). S'il commence après le matin, la
+ *   phase précédente affiche ses prémices. Sa durée en heures donne le nombre de phases
+ *   qu'il occupe (6 h par phase) : un blizzard de 2 jours déborde donc sur le lendemain.
+ *   Tant qu'un phénomène est en cours au lever, le jour n'a pas de nouveau tirage : le
+ *   phénomène EST l'événement du jour, et la fin de journée est calme une fois fini.
+ *   La neige ou la pluie d'une phase dépend de SA température : une pluie qui dure
+ *   jusqu'au soir peut virer en neige.
+ *   Type de violente tempête (selon le maximum du jour) : blizzard si <= 0 °C, cyclone de
+ *   1 à 19 °C, ouragan ou tornade (1 chance sur 2) à partir de 20 °C. Grêle si > 3 °C,
+ *   neige fondue sinon. Seuils : constantes TEMP_* ci-dessous.
  *
  * CONTINUITÉ ENTRE LES JOURS
- *   Après un jour agité (d100 > 70), le d100 du lendemain est tiré deux fois et on
- *   garde le plus haut : le mauvais temps tend à durer. Une vague qui suit une vague
- *   va dans le même sens.
+ *   Après un jour agité (d100 > 70, ou phénomène en cours), le d100 du lendemain est tiré
+ *   deux fois et on garde le plus haut : le mauvais temps tend à durer. Une vague qui suit
+ *   une vague va dans le même sens.
  *
  * Le script est un seul fichier, sans dépendance. Les tirages passent par une
  * fonction « rng(faces) » : randomInteger dans Roll20, un faux dé dans les tests.
@@ -52,10 +72,11 @@
 
   // ===================== RÉGLAGES =====================
   const MAX_JOURS = 14;      // plafond du mode multi-jours
-  const TEMP_GEL = 0;        // <= : neige, blizzard
+  const TEMP_GEL = 0;        // <= : neige, blizzard, tempête de neige
   const TEMP_GRESIL = 3;     // <= : neige fondue (sinon grêle)
   const TEMP_ORAGE = 20;     // >= : ouragan ou tornade (sinon cyclone)
   const VAGUE = 5;           // écart d'une vague de chaleur / de froid, en °C
+  const HEURES_PHASE = 6;    // durée d'une phase de la journée
 
   // ===================== DONNÉES =====================
   const MOIS = [
@@ -82,6 +103,30 @@
     { id: 'chaud',     nom: 'Chaud',      profil: 'tempere', de10: true,  decalage: 5 },
     { id: 'treschaud', nom: 'Très chaud', profil: 'desert',  de10: true,  decalage: 10 }
   ];
+
+  // fraction : part de l'écart nuit -> jour atteinte pendant la phase
+  const PHASES = [
+    { nom: 'Matin',      fraction: 0.4 },   //  6 - 12 h
+    { nom: 'Après-midi', fraction: 1 },     // 12 - 18 h : maximum du jour
+    { nom: 'Soir',       fraction: 0.6 },   // 18 - 24 h
+    { nom: 'Nuit',       fraction: 0 }      //  0 -  6 h : minimum
+  ];
+  const NB_PHASES = PHASES.length;
+
+  // signes avant-coureurs, affichés dans la phase qui précède le phénomène
+  const PREMICES = {
+    blizzard: 'ciel plombé, le vent forcit',
+    cyclone: 'ciel qui s’assombrit, le vent monte',
+    ouragan: 'ciel bas, air lourd, le vent monte',
+    tornade: 'ciel verdâtre, air lourd, grand calme',
+    tempeteneige: 'ciel qui se couvre, le vent se lève',
+    orage: 'air lourd, gros nuages sombres',
+    sable: 'horizon voilé de poussière, le vent se lève',
+    trombes: 'ciel chargé de nuages noirs'
+  };
+
+  // évènements qui créent un phénomène posé dans la grille (les autres durent la journée)
+  const CATS_PHENOMENE = ['precipitation', 'tempete', 'violente', 'trombes'];
 
   // ===================== LOGIQUE PURE =====================
   function rngParDefaut(faces) { return Math.floor(Math.random() * faces) + 1; }
@@ -142,88 +187,212 @@
     return profil === 'desert' ? { cat: 'trombes' } : { cat: 'violente' };
   }
 
-  function decrirePrecipitation(tj, rng) {
-    const jet = rng(100);
-    if (jet <= 30) return 'Brouillard pendant ' + nb(rng(4) + rng(4), 'heure') + '.';
-    if (jet <= 90) {
-      return (tj <= TEMP_GEL ? 'Neige' : 'Pluie') + ' pendant ' + nb(rng(4) + rng(4), 'heure') + '.';
-    }
-    return (tj <= TEMP_GRESIL ? 'Neige fondue' : 'Grêle') + ' pendant ' + nb(rng(20), 'minute') + '.';
+  // Température de chaque phase (Matin, Après-midi, Soir, Nuit), entre la nuit tn et le jour tj.
+  function temperaturesPhases(tj, tn) {
+    return PHASES.map((p) => tn + Math.round(p.fraction * (tj - tn)));
   }
 
-  function decrireViolente(tj, rng) {
-    const vents = 'les vents dépassent 80 km/h (voir la section sur les vents)';
-    if (tj <= TEMP_GEL) {
-      const neige = rng(3) * 10;
-      const jours = rng(3);
-      return 'Violente tempête (blizzard) : ' + vents + ', avec d’importantes chutes de neige (' + neige +
-        ' cm). Le blizzard persiste pendant ' + nb(jours, 'jour') + '.';
-    }
-    if (tj < TEMP_ORAGE) {
-      return 'Violente tempête (cyclone) : ' + vents + '. Le cyclone persiste pendant ' +
-        nb(rng(6), 'heure') + '.';
-    }
-    if (rng(2) === 1) {
-      return 'Violente tempête (ouragan) : ' + vents + ', avec des trombes d’eau (voir « Précipitations »). ' +
-        'Un ouragan peut parfois durer jusqu’à une semaine, mais il aura principalement de l’impact sur les ' +
-        'personnages de vingt-quatre à quarante-huit heures, le temps que sa partie centrale traverse la région ' +
-        'où se trouve le groupe.';
-    }
-    return 'Violente tempête (tornade) : ' + vents + '. Sa durée de vie est extrêmement réduite : ' +
-      nb(rng(6) * 10, 'minute') + '. Généralement, elle se forme dans le cadre d’un orage. ' +
-      'Voir les sections sur les tempêtes et sur les vents.';
+  // Un phénomène : type, durée en heures, nombre de phases occupées, texte de règles, prémices.
+  function phenomene(type, heures, texte, extra) {
+    return Object.assign({
+      type: type,
+      heures: heures,
+      longueur: Math.max(1, Math.ceil(heures / HEURES_PHASE)),
+      texte: texte,
+      premices: PREMICES[type] || null
+    }, extra || {});
   }
 
-  // Texte de l'évènement. tj : température du jour, vague comprise.
-  function decrireEvenement(evt, profil, tj, rng) {
-    switch (evt.cat) {
-      case 'calme':
-        return 'Rien de particulier, temps calme.';
-      case 'vague':
-        return evt.sens > 0 ? 'Vague de chaleur (+' + VAGUE + ' °C).' : 'Vague de froid (-' + VAGUE + ' °C).';
-      case 'vent':
-        return 'Venteux : vent ' + (evt.fort ? 'important (30 à 50 km/h).' : 'moyen (15 à 30 km/h).');
-      case 'precipitation':
-        return decrirePrecipitation(tj, rng);
-      case 'tempete': {
-        const genre = profil === 'desert' ? ' de sable' : (tj <= TEMP_GEL ? ' de neige' : '');
-        return 'Tempête' + genre + ' : les vents sont violents (50 à 80 km/h) et la visibilité diminuée de 75 %. ' +
-          'Une tempête sévit pendant ' + nb(rng(4) + rng(4) - 1, 'heure') + '.';
+  // Tire la nature et la durée du phénomène. tj : maximum du jour (vague comprise).
+  // Ordre des dés : voir chaque cas. La phase de départ est tirée à part (phaseDepart).
+  function creerPhenomene(cat, profil, tj, rng) {
+    switch (cat) {
+      case 'precipitation': {
+        const jet = rng(100);
+        if (jet <= 30) {
+          const h = rng(4) + rng(4);
+          return phenomene('brouillard', h, 'Brouillard pendant ' + nb(h, 'heure') + '.');
+        }
+        if (jet <= 90) {
+          const h = rng(4) + rng(4);
+          return phenomene('precip', h, 'Précipitations pendant ' + nb(h, 'heure') +
+            ' (neige quand il gèle, pluie sinon).');
+        }
+        if (tj <= TEMP_GRESIL) {
+          const h = rng(4) + rng(4);
+          return phenomene('fondue', h, 'Neige fondue pendant ' + nb(h, 'heure') + '.');
+        }
+        const minutes = rng(20);
+        const h = rng(4);
+        return phenomene('grele', h, 'Grêle pendant ' + nb(minutes, 'minute') + ', puis pluie pendant ' +
+          nb(h, 'heure') + '.');
       }
-      case 'trombes':
-        return 'Trombes d’eau : semblables à la pluie (voir « Précipitations »), mais leur violence est telle ' +
-          'qu’elles limitent le champ de vision comme le brouillard. Elles peuvent provoquer des inondations ' +
-          '(voir Milieu aquatique). Les trombes d’eau durent pendant ' + nb(rng(4) + rng(4), 'heure') + '.';
-      case 'violente':
-        return decrireViolente(tj, rng);
+      case 'tempete': {
+        const h = rng(4) + rng(4) - 1;
+        const vents = ' : les vents sont violents (50 à 80 km/h) et la visibilité diminuée de 75 %.';
+        if (profil === 'desert') {
+          return phenomene('sable', h, 'Tempête de sable' + vents + ' Elle dure ' + nb(h, 'heure') + '.');
+        }
+        if (tj <= TEMP_GEL) {
+          return phenomene('tempeteneige', h, 'Tempête de neige' + vents + ' Elle dure ' + nb(h, 'heure') + '.');
+        }
+        let texte = 'Orage' + vents + ' Il dure ' + nb(h, 'heure') +
+          '. Foudre : un impact par minute pendant la première heure.';
+        let tornade = false;
+        if (rng(10) === 1) {                                  // 10 % : l'orage tourne en tornade
+          texte += ' L’orage vire à la tornade pendant ' + nb(rng(6) * 10, 'minute') + '.';
+          tornade = true;
+        }
+        return phenomene('orage', h, texte, { tornade: tornade });
+      }
+      case 'violente': {
+        const vents = 'les vents dépassent 80 km/h (voir la section sur les vents)';
+        if (tj <= TEMP_GEL) {
+          const neige = rng(3) * 30;
+          const jours = rng(3);
+          return phenomene('blizzard', jours * 24, 'Violente tempête (blizzard) : ' + vents +
+            ', avec d’importantes chutes de neige (' + neige + ' cm au total). Le blizzard dure ' +
+            nb(jours, 'jour') + '.');
+        }
+        if (tj < TEMP_ORAGE) {
+          const h = rng(6);
+          return phenomene('cyclone', h, 'Violente tempête (cyclone) : ' + vents + '. Le cyclone dure ' +
+            nb(h, 'heure') + '.');
+        }
+        if (rng(2) === 1) {
+          const h = rng(2) * 24;
+          return phenomene('ouragan', h, 'Violente tempête (ouragan) : ' + vents +
+            ', avec des trombes d’eau (voir « Précipitations »). Un ouragan peut parfois durer jusqu’à une ' +
+            'semaine, mais il aura principalement de l’impact sur les personnages pendant ' + h +
+            ' heures, le temps que sa partie centrale traverse la région où se trouve le groupe.');
+        }
+        const m = rng(6) * 10;
+        return phenomene('tornade', m / 60, 'Violente tempête (tornade) : ' + vents +
+          '. Sa durée de vie est extrêmement réduite : ' + nb(m, 'minute') + '. Généralement, elle se ' +
+          'forme dans le cadre d’un orage. Voir les sections sur les tempêtes et sur les vents.');
+      }
+      case 'trombes': {
+        const h = rng(4) + rng(4);
+        return phenomene('trombes', h, 'Trombes d’eau : semblables à la pluie (voir « Précipitations »), ' +
+          'mais leur violence est telle qu’elles limitent le champ de vision comme le brouillard. Elles ' +
+          'peuvent provoquer des inondations (voir Milieu aquatique). Les trombes d’eau durent pendant ' +
+          nb(h, 'heure') + '.');
+      }
       default:
-        return 'Évènement inconnu : ' + evt.cat;
+        throw new Error('Évènement sans phénomène : ' + cat);
     }
   }
 
-  const formaterTemperatures = (tj, tn) => 'Température : ' + tj + ' °C, la nuit : ' + tn + ' °C.';
+  // Phase de départ (0 = matin ... 3 = nuit). Le brouillard se lève le matin, sans dé ;
+  // orage et tornade arrivent l'après-midi ou le soir ; le reste, n'importe quand.
+  function phaseDepart(ph, rng) {
+    if (ph.type === 'brouillard') return 0;
+    if (ph.type === 'orage' || ph.type === 'tornade') return rng(2);   // 1 ou 2
+    return rng(NB_PHASES) - 1;
+  }
+
+  // Nom du phénomène dans une phase, selon la température de CETTE phase.
+  function etiquette(ph, temperature) {
+    switch (ph.type) {
+      case 'blizzard':
+      case 'cyclone':
+      case 'ouragan':
+      case 'tornade': return ph.type;
+      case 'tempeteneige': return 'tempête de neige';
+      case 'sable': return 'tempête de sable';
+      case 'orage': return ph.tornade ? 'orage et tornade' : 'orage';
+      case 'trombes': return 'trombes d’eau';
+      case 'brouillard': return 'brouillard';
+      case 'precip': return temperature <= TEMP_GEL ? 'neige' : 'pluie';
+      case 'fondue': return 'neige fondue';
+      case 'grele': return 'grêle, puis pluie';
+      default: return ph.type;
+    }
+  }
+
+  // Pose un phénomène dans la grille (4 cases par jour), avec ses prémices si ce n'est pas le matin.
+  function placer(grille, debut, ph) {
+    ph.debut = debut;
+    ph.fin = debut + ph.longueur - 1;
+    for (let c = debut; c <= ph.fin && c < grille.length; c++) grille[c] = { ph: ph, role: 'actif' };
+    if (ph.premices && debut % NB_PHASES >= 1 && grille[debut - 1] === null) {
+      grille[debut - 1] = { ph: ph, role: 'premices' };
+    }
+  }
+
+  // Évènement qui dure toute la journée : sert de préfixe à la ligne du jour (températures déjà corrigées).
+  function texteEvenementJour(evt) {
+    if (evt.cat === 'vague') {
+      return evt.sens > 0 ? 'Vague de chaleur (+' + VAGUE + ' °C)' : 'Vague de froid (-' + VAGUE + ' °C)';
+    }
+    return 'Venteux : vent ' + (evt.fort ? 'important (30 à 50 km/h)' : 'moyen (15 à 30 km/h)');
+  }
 
   // ctx : { profil, base, ecart }. precedent : le résultat de la veille (ou null).
-  // Ordre des tirages : aléa du jour (2 d4), d100 (+ un second d100 si la veille était agitée),
-  // dés propres à l'évènement, d10 de la nuit, dés du texte.
-  function genererJour(numero, ctx, rng, precedent) {
+  // grille : une case par phase de toute la série (null = calme) ; partagée entre les jours
+  // pour que les phénomènes débordent. Sans grille, le jour est isolé.
+  // Ordre des tirages : aléa du jour (2 d4) ; d100 (+ un second si la veille était agitée), sauf si
+  // un phénomène est en cours au lever ; dés de l'évènement (sens de la vague, intensité du vent) ;
+  // d10 de la nuit ; si un phénomène naît : sa nature et sa durée (creerPhenomene), puis sa phase de départ.
+  function genererJour(numero, ctx, rng, precedent, grille) {
+    const g = grille || new Array(NB_PHASES).fill(null);
+    const debutJour = (numero - 1) * NB_PHASES;
     const aleaJour = rng(4) + rng(4) - 5;
-    let jet = rng(100);
-    if (precedent && precedent.agite) jet = Math.max(jet, rng(100));
-    const evt = tirerEvenement(ctx.profil, jet, rng, precedent);
+    const enCours = g[debutJour] && g[debutJour].role === 'actif';
+
+    let jet = null;
+    let evt;
+    if (enCours) {
+      evt = { cat: 'suite' };                  // le phénomène en cours est l'évènement du jour
+    } else {
+      jet = rng(100);
+      if (precedent && precedent.agite) jet = Math.max(jet, rng(100));
+      evt = tirerEvenement(ctx.profil, jet, rng, precedent);
+    }
     const delta = evt.cat === 'vague' ? VAGUE * evt.sens : 0;
     const tj = ctx.base + ctx.ecart + aleaJour + delta;
-    const tn = tj - rng(10);                          // calculée après la vague : elle la subit aussi
+    const tn = tj - rng(10);                   // calculée après la vague : elle la subit aussi
+    const temps = temperaturesPhases(tj, tn);
+
+    let description = '';
+    let tag = '';
+    if (evt.cat === 'vague' || evt.cat === 'vent') {
+      tag = texteEvenementJour(evt);
+    } else if (CATS_PHENOMENE.indexOf(evt.cat) !== -1) {
+      const ph = creerPhenomene(evt.cat, ctx.profil, tj, rng);
+      placer(g, debutJour + phaseDepart(ph, rng), ph);
+      description = ph.texte;
+    }
+
+    const phases = PHASES.map((p, i) => {
+      const c = g[debutJour + i];
+      let etat = 'calme';
+      if (c && c.role === 'premices') {
+        etat = 'prémices (' + c.ph.premices + ')';
+      } else if (c) {
+        etat = etiquette(c.ph, temps[i]);
+        if (debutJour + i === g.length - 1 && c.ph.fin > g.length - 1) etat += ' (se poursuit)';
+      }
+      return { nom: p.nom, temperature: temps[i], etat: etat };
+    });
+
+    // Une journée sans phénomène ne répète pas « calme » quatre fois.
+    const tousCalmes = phases.every((p) => p.etat === 'calme');
+    const detail = phases.map((p) => p.nom + ' (' + p.temperature + ' °C)' + (tousCalmes ? '' : ' : ' + p.etat)).join(' · ');
+    const prefixe = tag || (tousCalmes ? 'Calme toute la journée' : '');
+
     return {
       jour: numero,
       jet: jet,
       cat: evt.cat,
       sens: evt.sens,
-      agite: jet > 70,
+      agite: enCours ? true : jet > 70,
       temperatureJour: tj,
       temperatureNuit: tn,
-      ligne1: decrireEvenement(evt, ctx.profil, tj, rng),
-      ligne2: formaterTemperatures(tj, tn)
+      phases: phases,
+      tag: tag,
+      description: description,
+      ligne: prefixe ? prefixe + ' - ' + detail : detail
     };
   }
 
@@ -233,12 +402,14 @@
     const mois = trouverMois(moisId);
     if (!region) throw new Error('Région inconnue : ' + regionId);
     if (!mois) throw new Error('Mois inconnu : ' + moisId);
+    const n = limiterJours(jours);
     const ecart = region.de10 ? r(10) + region.decalage : 0;   // tiré une seule fois pour la série
     const ctx = { profil: region.profil, base: mois.base, ecart: ecart };
+    const grille = new Array(n * NB_PHASES).fill(null);
     const liste = [];
     let precedent = null;
-    for (let i = 1; i <= limiterJours(jours); i++) {
-      precedent = genererJour(i, ctx, r, precedent);
+    for (let i = 1; i <= n; i++) {
+      precedent = genererJour(i, ctx, r, precedent, grille);
       liste.push(precedent);
     }
     return { region: region, mois: mois, ecart: ecart, jours: liste };
@@ -264,9 +435,11 @@
   function carteResultat(meteo) {
     const n = meteo.jours.length;
     const titre = 'Climat - ' + meteo.region.nom + ' - ' + meteo.mois.nom + (n > 1 ? ' - ' + nb(n, 'jour') : '');
-    const lignes = n === 1
-      ? [meteo.jours[0].ligne1, meteo.jours[0].ligne2]
-      : meteo.jours.map((j) => 'Jour ' + j.jour + ' : ' + j.ligne1 + ' ' + j.ligne2);
+    const lignes = [];
+    meteo.jours.forEach((j) => {
+      lignes.push((n > 1 ? 'Jour ' + j.jour + ' - ' : '') + j.ligne);
+      if (j.description) lignes.push(j.description);
+    });
     return CARTE + '{{name=' + titre + '}} ' + lignes.map((l) => '{{ ' + l + '}}').join(' ');
   }
 
@@ -287,8 +460,9 @@
 
   if (typeof module !== 'undefined') {
     module.exports = {
-      MAX_JOURS, MOIS, REGIONS, normaliser, analyserArguments, tirerEvenement, decrireEvenement,
-      genererJour, genererMeteo, carteRegions, carteMois, carteResultat, traiterCommande
+      MAX_JOURS, PHASES, MOIS, REGIONS, normaliser, analyserArguments, tirerEvenement, temperaturesPhases,
+      creerPhenomene, phaseDepart, etiquette, genererJour, genererMeteo, carteRegions, carteMois,
+      carteResultat, traiterCommande
     };
   }
   if (typeof on !== 'function') return; // hors Roll20 : on s'arrête ici

@@ -7,11 +7,12 @@
  * Aucune dépendance : Node.js suffit, Roll20 n'est pas nécessaire.
  * Trois niveaux de tests :
  *   - logique pure avec des dés SCRIPTÉS : on impose chaque tirage (« le d100 vaut 85,
- *     le d10 vaut 3 ») et on vérifie le texte et les températures. Le faux dé refuse
- *     une valeur hors de ses faces et un dé tiré en trop ;
+ *     le d10 vaut 3 ») et on vérifie les phases, les textes et les températures. Le faux
+ *     dé refuse une valeur hors de ses faces et un dé tiré en trop ;
  *   - propriétés sur des milliers de tirages (générateur pseudo-aléatoire à graine
  *     fixe, donc résultat identique à chaque lancement) : bornes de température,
- *     cohérence neige / pluie / blizzard, proportions de la table, persistance ;
+ *     cohérence neige / pluie / blizzard, prémices, débordement d'un jour sur l'autre,
+ *     proportions de la table, persistance ;
  *   - flux complet : le script est chargé dans un FAUX Roll20 (module vm) et on lui
  *     envoie de vraies commandes « !climat », « !region », « !RollClimat ».
  *
@@ -72,15 +73,25 @@ function graine(seed) {
   return (faces) => Math.floor(alea() * faces) + 1;
 }
 const equilibre = (s) => (s.match(/\(/g) || []).length === (s.match(/\)/g) || []).length;
-const REGION = (id) => C.REGIONS.find((r) => r.id === id);
+const INTERDITS = /undefined|NaN|\{\{|\}\}|\[|\]|@|%\{|=|\|/;
+const NB = C.PHASES.length;
 
-// Texte de l'évènement pour une catégorie, une température et des dés donnés.
-const texte = (evt, profil, tj, des) => {
+// phénomène créé avec des dés scriptés, qui doivent tous être consommés
+const cree = (cat, profil, tj, des) => {
   const rng = scripte(des);
-  const t = C.decrireEvenement(evt, profil, tj, rng);
-  if (rng.reste() !== 0) throw new Error('dés non consommés : ' + rng.reste() + ' (' + t + ')');
-  return t;
+  const ph = C.creerPhenomene(cat, profil, tj, rng);
+  if (rng.reste() !== 0) throw new Error('dés non consommés : ' + rng.reste());
+  return ph;
 };
+// jour créé avec des dés scriptés, qui doivent tous être consommés
+const jour = (numero, ctx, des, precedent, grille) => {
+  const rng = scripte(des);
+  const j = C.genererJour(numero, ctx, rng, precedent || null, grille);
+  if (rng.reste() !== 0) throw new Error('dés non consommés : ' + rng.reste());
+  return j;
+};
+const etats = (j) => j.phases.map((p) => p.etat);
+const temperatures = (j) => j.phases.map((p) => p.temperature);
 
 // ================================================================ DONNÉES
 describe('Données du calendrier et des niveaux', () => {
@@ -95,6 +106,7 @@ describe('Données du calendrier et des niveaux', () => {
     'd10-10 d10-5 0+0 d10+5 d10+10', 'écarts : d10-10, d10-5, aucun, d10+5, d10+10');
   check(C.REGIONS.map((r) => r.profil).join(' ') === 'froid froid tempere tempere desert',
     'profils : très froid et froid = froid, chaud = tempéré, très chaud = désert');
+  check(C.PHASES.map((p) => p.nom).join(' ') === 'Matin Après-midi Soir Nuit', 'quatre phases : matin, après-midi, soir, nuit');
 });
 
 // ================================================================ ARGUMENTS
@@ -145,135 +157,251 @@ describe('Vagues de chaleur et de froid', () => {
   check(ev('froid', [31]).sens === -1, 'froid : d100 = 31 -> froid (70 %)');
   check(ev('tempere', [50]).sens === 1, 'tempéré : d100 = 50 -> chaleur');
   check(ev('tempere', [51]).sens === -1, 'tempéré : d100 = 51 -> froid');
-  const rng = scripte([]);   // aucun dé permis : une vague qui continue ne tire rien
-  check(C.tirerEvenement('froid', 75, rng, { cat: 'vague', sens: -1 }).sens === -1, 'vague qui suit une vague de froid : même sens, sans dé');
-  check(C.tirerEvenement('tempere', 75, scripte([]), { cat: 'vague', sens: 1 }).sens === 1, 'vague qui suit une vague de chaleur : même sens');
+  check(C.tirerEvenement('froid', 75, scripte([]), { cat: 'vague', sens: -1 }).sens === -1,
+    'vague qui suit une vague de froid : même sens, sans dé');
+  check(C.tirerEvenement('tempere', 75, scripte([]), { cat: 'vague', sens: 1 }).sens === 1,
+    'vague qui suit une vague de chaleur : même sens');
   check(ev('tempere', [50], { cat: 'calme' }).sens === 1 && ev('tempere', [51], { cat: 'calme' }).sens === -1,
     'veille calme : le sens est tiré normalement (50 -> chaleur, 51 -> froid)');
 });
 
-// ================================================================ TEXTES
-describe('Vent du désert (ancien défaut : priorité d’opérateurs)', () => {
-  const vent = (des) => texte({ cat: 'vent', fort: des[0] === 2 }, 'desert', 30, []);
-  const t1 = C.tirerEvenement('desert', 75, scripte([1]));
-  const t2 = C.tirerEvenement('desert', 75, scripte([2]));
-  check(t1.cat === 'vent' && t1.fort === false, 'd2 = 1 -> vent moyen');
-  check(t2.cat === 'vent' && t2.fort === true, 'd2 = 2 -> vent important');
-  const m = texte(t1, 'desert', 30, []);
-  const f = texte(t2, 'desert', 30, []);
-  check(m === 'Venteux : vent moyen (15 à 30 km/h).', 'texte du vent moyen : ' + m);
-  check(f === 'Venteux : vent important (30 à 50 km/h).', 'texte du vent important : ' + f);
-  check(m !== f, 'les deux intensités sortent bien (avant : toujours « moyen »)');
-  check(vent([1]).startsWith('Venteux : ') && vent([2]).startsWith('Venteux : '), 'préfixe « Venteux : » présent dans les deux cas');
+// ================================================================ TEMPÉRATURES DANS LA JOURNÉE
+describe('Température de chaque phase', () => {
+  check(C.temperaturesPhases(10, 0).join(',') === '4,10,6,0', 'jour 10, nuit 0 : matin 4, après-midi 10, soir 6, nuit 0');
+  check(C.temperaturesPhases(5, 4).join(',') === '4,5,5,4', 'écart d’un seul degré : 4, 5, 5, 4');
+  check(C.temperaturesPhases(-5, -15).join(',') === '-11,-5,-9,-15', 'températures négatives : -11, -5, -9, -15');
+  const rng = graine(4);
+  let ok = true;
+  for (let i = 0; i < 2000; i++) {
+    const tn = rng(60) - 40;
+    const tj = tn + rng(10);
+    const t = C.temperaturesPhases(tj, tn);
+    if (t[1] !== tj || t[3] !== tn || !(t[3] <= t[0] && t[0] <= t[2] && t[2] <= t[1])) ok = false;
+  }
+  check(ok, 'toujours : nuit <= matin <= soir <= après-midi, après-midi = jour, nuit = nuit (2 000 tirages)');
 });
 
-describe('Précipitations selon la température', () => {
-  const p = (tj, des) => texte({ cat: 'precipitation' }, 'tempere', tj, des);
-  check(p(10, [30, 2, 3]) === 'Brouillard pendant 5 heures.', 'd100 = 30 : brouillard, 2d4 heures');
-  check(p(-8, [30, 1, 1]) === 'Brouillard pendant 2 heures.', 'le brouillard ne dépend pas de la température');
-  check(p(0, [31, 1, 1]) === 'Neige pendant 2 heures.', '0 °C : neige');
-  check(p(-15, [90, 4, 4]) === 'Neige pendant 8 heures.', '-15 °C, d100 = 90 : neige, 8 heures');
-  check(p(1, [31, 1, 1]) === 'Pluie pendant 2 heures.', '1 °C : pluie');
-  check(p(25, [60, 2, 2]) === 'Pluie pendant 4 heures.', '25 °C : pluie');
-  check(p(3, [91, 12]) === 'Neige fondue pendant 12 minutes.', '3 °C, d100 = 91 : neige fondue, d20 minutes');
-  check(p(-4, [100, 20]) === 'Neige fondue pendant 20 minutes.', '-4 °C, d100 = 100 : neige fondue');
-  check(p(4, [91, 12]) === 'Grêle pendant 12 minutes.', '4 °C : grêle');
-  check(p(22, [100, 1]) === 'Grêle pendant 1 minute.', 'singulier : 1 minute');
+// ================================================================ CRÉATION DES PHÉNOMÈNES
+describe('Précipitations', () => {
+  const p = (tj, des) => cree('precipitation', 'tempere', tj, des);
+  let ph = p(10, [30, 2, 3]);
+  check(ph.type === 'brouillard' && ph.heures === 5 && ph.longueur === 1, 'd100 = 30 : brouillard, 2d4 = 5 heures, 1 phase');
+  check(ph.texte === 'Brouillard pendant 5 heures.', 'texte du brouillard : ' + ph.texte);
+  check(ph.premices === null, 'pas de prémices pour un brouillard');
+  ph = p(-8, [31, 1, 1]);
+  check(ph.type === 'precip' && ph.heures === 2, 'd100 = 31 : précipitations, 2 heures');
+  check(ph.texte === 'Précipitations pendant 2 heures (neige quand il gèle, pluie sinon).', 'texte : ' + ph.texte);
+  check(p(25, [31, 1, 1]).type === 'precip', 'même type à 25 °C (neige ou pluie se décide phase par phase)');
+  ph = p(10, [90, 4, 4]);
+  check(ph.heures === 8 && ph.longueur === 2, 'd100 = 90, 4 + 4 : 8 heures, 2 phases');
+  ph = p(3, [91, 1, 1]);
+  check(ph.type === 'fondue' && ph.texte === 'Neige fondue pendant 2 heures.', '3 °C, d100 = 91 : neige fondue 2d4 heures : ' + ph.texte);
+  check(p(-4, [100, 4, 3]).type === 'fondue', '-4 °C, d100 = 100 : neige fondue');
+  ph = p(4, [91, 12, 3]);
+  check(ph.type === 'grele' && ph.heures === 3, '4 °C : grêle');
+  check(ph.texte === 'Grêle pendant 12 minutes, puis pluie pendant 3 heures.', 'grêle d20 minutes puis 1d4 heures de pluie : ' + ph.texte);
+  check(p(20, [100, 1, 1]).texte === 'Grêle pendant 1 minute, puis pluie pendant 1 heure.', 'singulier : 1 minute, 1 heure');
+  check(ph.premices === null, 'pas de prémices pour la grêle');
 });
 
-describe('Tempête (91 à 99)', () => {
-  const t = (profil, tj, des) => texte({ cat: 'tempete' }, profil, tj, des);
-  check(t('tempere', 12, [1, 1]).endsWith('Une tempête sévit pendant 1 heure.'), '2d4 - 1 = 1 heure (singulier)');
-  check(t('tempere', 12, [4, 4]).endsWith('pendant 7 heures.'), '2d4 - 1 = 7 heures au maximum');
-  check(t('tempere', 12, [2, 3]).includes('pendant 4 heures.'), 'espace avant « heures » (ancien défaut : « 4heures »)');
-  check(t('tempere', 12, [2, 2]).includes('vents sont violents (50 à 80 km/h)') &&
-    t('tempere', 12, [2, 2]).includes('visibilité diminuée de 75 %'), 'vents 50 à 80 km/h, visibilité -75 %');
-  check(t('tempere', 12, [2, 2]).startsWith('Tempête :'), 'tempête ordinaire');
-  check(t('froid', -3, [2, 2]).startsWith('Tempête de neige :'), 'tempête de neige quand il gèle');
-  check(t('desert', 38, [2, 2]).startsWith('Tempête de sable :'), 'tempête de sable en désert');
+describe('Tempêtes (91 à 99) : sable, neige ou orage', () => {
+  let ph = cree('tempete', 'desert', 38, [2, 3]);
+  check(ph.type === 'sable' && ph.heures === 4, 'désert : tempête de sable, 2d4 - 1 = 4 heures');
+  check(ph.texte.startsWith('Tempête de sable :') && ph.texte.includes('Elle dure 4 heures.'), 'texte du sable : ' + ph.texte);
+  check(ph.texte.includes('vents sont violents (50 à 80 km/h)') && ph.texte.includes('visibilité diminuée de 75 %'),
+    'vents 50 à 80 km/h, visibilité -75 %');
+  ph = cree('tempete', 'froid', 0, [4, 4]);
+  check(ph.type === 'tempeteneige' && ph.heures === 7 && ph.longueur === 2, '0 °C : tempête de neige, 7 heures au maximum, 2 phases');
+  ph = cree('tempete', 'tempere', 1, [1, 1, 5]);
+  check(ph.type === 'orage' && ph.heures === 1 && ph.tornade === false, '1 °C : orage, 1 heure au minimum, pas de tornade (d10 = 5)');
+  check(ph.texte.startsWith('Orage :') && ph.texte.includes('Il dure 1 heure.') && ph.texte.includes('Foudre'),
+    'texte de l’orage : ' + ph.texte);
+  ph = cree('tempete', 'tempere', 15, [2, 2, 1, 6]);
+  check(ph.tornade === true && ph.texte.includes('vire à la tornade pendant 60 minutes'), 'd10 = 1 : l’orage vire à la tornade (d6 x 10 minutes)');
+  check(cree('tempete', 'tempere', 15, [2, 2, 2]).tornade === false, 'd10 = 2 : pas de tornade (1 chance sur 10)');
+  [ph, cree('tempete', 'desert', 30, [1, 1]), cree('tempete', 'froid', -5, [1, 1])].forEach((x, i) =>
+    check(equilibre(x.texte), 'parenthèses équilibrées, texte ' + (i + 1)));
 });
 
 describe('Violente tempête (100) : un seul phénomène, choisi par la température', () => {
-  const v = (tj, des) => texte({ cat: 'violente' }, 'tempere', tj, des);
-  const bliz = v(0, [3, 2]);
-  check(bliz.startsWith('Violente tempête (blizzard)') && bliz.includes('30 cm') && bliz.includes('2 jours'),
-    '0 °C : blizzard, neige 30 cm, 2 jours');
-  check(v(-20, [1, 1]).includes('10 cm') && v(-20, [1, 1]).includes('1 jour.'), 'blizzard minimal : 10 cm, 1 jour');
-  const cyc = v(1, [6]);
-  check(cyc.startsWith('Violente tempête (cyclone)') && cyc.includes('6 heures'), '1 °C : cyclone, d6 heures');
-  check(v(19, [1]).includes('(cyclone)') && v(19, [1]).includes('1 heure.'), '19 °C : encore un cyclone');
-  const ou = v(20, [1]);
-  check(ou.startsWith('Violente tempête (ouragan)') && ou.includes('vingt-quatre à quarante-huit heures'),
-    '20 °C, d2 = 1 : ouragan');
-  const to = v(35, [2, 6]);
-  check(to.startsWith('Violente tempête (tornade)') && to.includes('60 minutes'), '35 °C, d2 = 2 : tornade, d6 x 10 minutes');
-  check(v(35, [2, 1]).includes('10 minutes'), 'tornade minimale : 10 minutes');
-  check(!/blizzard/.test(v(20, [1])) && !/tornade/.test(ou) && !/cyclone/.test(to), 'un seul phénomène par texte');
-  [bliz, cyc, ou, to].forEach((s, i) => check(equilibre(s), 'parenthèses équilibrées (ancien défaut : « minutes) » orphelin), texte ' + (i + 1)));
+  let ph = cree('violente', 'froid', 0, [3, 2]);
+  check(ph.type === 'blizzard' && ph.heures === 48 && ph.longueur === 8, '0 °C : blizzard de 2 jours = 48 heures = 8 phases');
+  check(ph.texte.startsWith('Violente tempête (blizzard)') && ph.texte.includes('90 cm') && ph.texte.includes('2 jours'),
+    'neige 1d3 x 30 cm (ici 90 cm), 2 jours : ' + ph.texte);
+  ph = cree('violente', 'froid', -20, [1, 1]);
+  check(ph.heures === 24 && ph.longueur === 4 && ph.texte.includes('30 cm') && ph.texte.includes('1 jour.'),
+    'blizzard minimal : 30 cm, 1 jour = 4 phases');
+  ph = cree('violente', 'tempere', 1, [6]);
+  check(ph.type === 'cyclone' && ph.heures === 6 && ph.longueur === 1 && ph.texte.includes('6 heures'), '1 °C : cyclone, d6 heures');
+  check(cree('violente', 'tempere', 19, [1]).type === 'cyclone', '19 °C : encore un cyclone');
+  ph = cree('violente', 'tempere', 20, [1, 2]);
+  check(ph.type === 'ouragan' && ph.heures === 48 && ph.longueur === 8, '20 °C, d2 = 1 : ouragan, impact 48 heures');
+  check(cree('violente', 'tempere', 20, [1, 1]).heures === 24, 'ouragan : impact de 24 heures aussi');
+  ph = cree('violente', 'tempere', 35, [2, 6]);
+  check(ph.type === 'tornade' && ph.longueur === 1 && ph.texte.includes('60 minutes'), '35 °C, d2 = 2 : tornade, d6 x 10 minutes, 1 phase');
+  check(cree('violente', 'tempere', 35, [2, 1]).texte.includes('10 minutes'), 'tornade minimale : 10 minutes');
+  ['blizzard', 'cyclone', 'ouragan', 'tornade'].forEach((t) => {
+    const x = { blizzard: cree('violente', 'froid', -1, [1, 1]), cyclone: cree('violente', 'tempere', 5, [3]),
+      ouragan: cree('violente', 'tempere', 25, [1, 1]), tornade: cree('violente', 'tempere', 25, [2, 3]) }[t];
+    check(equilibre(x.texte), 'parenthèses équilibrées (ancien défaut : « minutes) » orphelin), ' + t);
+    check(x.premices !== null, 'prémices prévues pour ' + t);
+  });
 });
 
 describe('Trombes d’eau en désert (100)', () => {
-  const t = (des) => texte({ cat: 'trombes' }, 'desert', 30, des);
-  check(t([1, 1]).endsWith('pendant 2 heures.'), '2d4 : minimum 2 heures');
-  check(t([4, 4]).endsWith('pendant 8 heures.'), '2d4 : maximum 8 heures');
-  check(equilibre(t([2, 2])), 'parenthèses équilibrées');
+  check(cree('trombes', 'desert', 30, [1, 1]).texte.endsWith('pendant 2 heures.'), '2d4 : minimum 2 heures');
+  const ph = cree('trombes', 'desert', 30, [4, 4]);
+  check(ph.texte.endsWith('pendant 8 heures.') && ph.longueur === 2, '2d4 : maximum 8 heures, 2 phases');
+  check(equilibre(ph.texte) && ph.premices !== null, 'parenthèses équilibrées, prémices prévues');
+  let erreur = '';
+  try { C.creerPhenomene('calme', 'froid', 0, scripte([])); } catch (e) { erreur = e.message; }
+  check(/sans phénomène/.test(erreur), 'catégorie sans phénomène : exception claire');
 });
 
-describe('Vagues : texte', () => {
-  check(texte({ cat: 'vague', sens: 1 }, 'froid', 5, []) === 'Vague de chaleur (+5 °C).', 'vague de chaleur');
-  check(texte({ cat: 'vague', sens: -1 }, 'froid', 5, []) === 'Vague de froid (-5 °C).', 'vague de froid');
-  check(texte({ cat: 'calme' }, 'froid', 5, []) === 'Rien de particulier, temps calme.', 'temps calme');
+describe('Phase de départ et noms par phase', () => {
+  check(C.phaseDepart({ type: 'brouillard' }, scripte([])) === 0, 'le brouillard se lève le matin, sans dé');
+  check(C.phaseDepart({ type: 'orage' }, scripte([1])) === 1 && C.phaseDepart({ type: 'orage' }, scripte([2])) === 2,
+    'orage : après-midi (d2 = 1) ou soir (d2 = 2)');
+  check(C.phaseDepart({ type: 'tornade' }, scripte([1])) === 1 && C.phaseDepart({ type: 'tornade' }, scripte([2])) === 2,
+    'tornade : après-midi ou soir');
+  check([1, 2, 3, 4].map((d) => C.phaseDepart({ type: 'blizzard' }, scripte([d]))).join(',') === '0,1,2,3',
+    'blizzard : d4 = 1 à 4 -> matin, après-midi, soir, nuit');
+  check(C.etiquette({ type: 'precip' }, 0) === 'neige' && C.etiquette({ type: 'precip' }, 1) === 'pluie',
+    'précipitations : neige à 0 °C, pluie à 1 °C');
+  check(C.etiquette({ type: 'fondue' }, 20) === 'neige fondue' && C.etiquette({ type: 'grele' }, -9) === 'grêle, puis pluie',
+    'neige fondue et grêle ne dépendent pas de la phase');
+  check(C.etiquette({ type: 'orage', tornade: true }, 10) === 'orage et tornade' && C.etiquette({ type: 'orage' }, 10) === 'orage',
+    'orage avec ou sans tornade');
+  check(C.etiquette({ type: 'sable' }, 40) === 'tempête de sable' && C.etiquette({ type: 'tempeteneige' }, -5) === 'tempête de neige' &&
+    C.etiquette({ type: 'trombes' }, 30) === 'trombes d’eau' && C.etiquette({ type: 'blizzard' }, -9) === 'blizzard',
+    'autres noms');
 });
 
 // ================================================================ UN JOUR
 describe('Température du jour et de la nuit', () => {
   const ctx = { profil: 'tempere', base: 10, ecart: 3 };
-  let rng = scripte([4, 4, 50, 7]);
-  let j = C.genererJour(1, ctx, rng, null);
-  check(rng.reste() === 0, 'ordre des dés : aléa (2d4), d100, d10 de nuit');
+  let j = jour(1, ctx, [4, 4, 50, 7]);
   check(j.temperatureJour === 16, 'jour = base 10 + écart 3 + aléa (4+4-5 = 3) = 16');
   check(j.temperatureNuit === 9, 'nuit = jour - d10 = 16 - 7 = 9');
-  check(j.ligne2 === 'Température : 16 °C, la nuit : 9 °C.', 'ligne des températures : ' + j.ligne2);
-  check(j.cat === 'calme' && j.agite === false, 'd100 = 50 : calme, pas agité');
+  check(temperatures(j).join(',') === '12,16,13,9', 'phases : 12, 16, 13, 9');
+  check(etats(j).every((e) => e === 'calme') && j.cat === 'calme' && j.agite === false, 'd100 = 50 : calme, pas agité');
+  check(j.ligne === 'Calme toute la journée - Matin (12 °C) · Après-midi (16 °C) · Soir (13 °C) · Nuit (9 °C)',
+    'journée calme sur une ligne : ' + j.ligne);
 
-  const nuitSansVague = C.genererJour(1, { profil: 'froid', base: 0, ecart: -4 }, scripte([3, 2, 50, 4]), null);
-  check(nuitSansVague.temperatureJour === -4 && nuitSansVague.temperatureNuit === -8, 'sans vague : jour -4, nuit -8');
-  const chaleur = C.genererJour(1, { profil: 'froid', base: 0, ecart: -4 }, scripte([3, 2, 75, 10, 4]), null);
+  const sans = jour(1, { profil: 'froid', base: 0, ecart: -4 }, [3, 2, 50, 4]);
+  check(sans.temperatureJour === -4 && sans.temperatureNuit === -8, 'sans vague : jour -4, nuit -8');
+  const chaleur = jour(1, { profil: 'froid', base: 0, ecart: -4 }, [3, 2, 75, 10, 4]);
   check(chaleur.cat === 'vague' && chaleur.sens === 1, 'd100 = 75, d100 = 10 : vague de chaleur');
   check(chaleur.temperatureJour === 1, 'la vague de chaleur ajoute 5 °C au jour (-4 + 5)');
   check(chaleur.temperatureNuit === -3, 'et à la nuit (ancien défaut : la nuit ne changeait pas) : 1 - 4 = -3');
-  check(chaleur.temperatureNuit - nuitSansVague.temperatureNuit === 5, 'même d10 de nuit : écart de 5 °C exactement');
-  const froid = C.genererJour(1, { profil: 'tempere', base: 5, ecart: 0 }, scripte([3, 2, 75, 51, 2]), null);
+  check(chaleur.temperatureNuit - sans.temperatureNuit === 5, 'même d10 de nuit : écart de 5 °C exactement');
+  check(temperatures(chaleur).join(',') === '-1,1,-1,-3', 'toutes les phases subissent la vague : -1, 1, -1, -3');
+  check(chaleur.tag === 'Vague de chaleur (+5 °C)' && chaleur.description === '', 'la vague est un préfixe de la ligne du jour');
+  check(chaleur.ligne.startsWith('Vague de chaleur (+5 °C) - Matin (-1 °C) · Après-midi (1 °C)'), 'ligne : ' + chaleur.ligne);
+  const froid = jour(1, { profil: 'tempere', base: 5, ecart: 0 }, [3, 2, 75, 51, 2]);
   check(froid.sens === -1 && froid.temperatureJour === 0 && froid.temperatureNuit === -2, 'vague de froid : jour 0, nuit -2');
-  check(froid.ligne1 === 'Vague de froid (-5 °C).', 'texte de la vague de froid');
-  const nuitMin = C.genererJour(1, ctx, scripte([3, 3, 10, 1]), null);
+  check(froid.tag === 'Vague de froid (-5 °C)', 'texte de la vague de froid');
+  const nuitMin = jour(1, ctx, [3, 3, 10, 1]);
   check(nuitMin.temperatureNuit === nuitMin.temperatureJour - 1, 'la nuit est au moins 1 °C plus froide que le jour');
+});
+
+describe('Vent du désert (ancien défaut : priorité d’opérateurs)', () => {
+  const ctx = { profil: 'desert', base: 15, ecart: 15 };
+  const moyen = jour(1, ctx, [3, 2, 85, 1, 4]);
+  const fort = jour(1, ctx, [3, 2, 85, 2, 4]);
+  check(moyen.tag === 'Venteux : vent moyen (15 à 30 km/h)', 'd2 = 1 : ' + moyen.tag);
+  check(fort.tag === 'Venteux : vent important (30 à 50 km/h)', 'd2 = 2 : ' + fort.tag);
+  check(moyen.tag !== fort.tag, 'les deux intensités sortent bien (avant : toujours « moyen »)');
+  check(moyen.tag.startsWith('Venteux : ') && fort.tag.startsWith('Venteux : '), 'préfixe « Venteux : » présent dans les deux cas');
+  check(etats(fort).every((e) => e === 'calme') && fort.ligne.startsWith('Venteux : vent important'), 'le vent dure toute la journée');
+});
+
+describe('Phénomène dans la journée : prémices, phase de départ', () => {
+  const tempere = { profil: 'tempere', base: 10, ecart: 0 };
+  // orage au soir (d2 = 2), 3 heures
+  let j = jour(1, tempere, [3, 2, 95, 4, 2, 2, 5, 2]);
+  check(etats(j).join(' | ') === 'calme | prémices (air lourd, gros nuages sombres) | orage | calme',
+    'orage le soir : prémices l’après-midi : ' + etats(j).join(' | '));
+  check(j.cat === 'tempete' && j.agite === true && j.description.startsWith('Orage :'), 'catégorie tempête, jour agité, règles en seconde ligne');
+  check(temperatures(j).join(',') === '8,10,8,6', 'températures des phases : 8, 10, 8, 6');
+  // orage l'après-midi (d2 = 1) : prémices le matin
+  j = jour(1, tempere, [3, 2, 95, 4, 2, 2, 5, 1]);
+  check(etats(j).join(' | ') === 'prémices (air lourd, gros nuages sombres) | orage | calme | calme', 'orage l’après-midi : prémices le matin');
+  // blizzard d'un jour qui commence au lever : pas de prémices, toute la journée
+  const froid = { profil: 'froid', base: -10, ecart: 0 };
+  j = jour(1, froid, [3, 2, 100, 5, 1, 1, 1]);
+  check(etats(j).join(' | ') === 'blizzard | blizzard | blizzard | blizzard', 'blizzard déjà là au lever : toute la journée, sans prémices');
+  check(!/se poursuit/.test(j.ligne), 'un blizzard de 24 h qui finit avec la journée ne « se poursuit » pas');
+  check(j.ligne.startsWith('Matin (-13 °C) : blizzard · Après-midi (-10 °C) : blizzard'), 'ligne : ' + j.ligne.slice(0, 80));
+  // blizzard de 2 jours qui commence le soir, sur un seul jour demandé
+  j = jour(1, froid, [3, 2, 100, 5, 1, 2, 3]);
+  check(etats(j).join(' | ') === 'calme | prémices (ciel plombé, le vent forcit) | blizzard | blizzard (se poursuit)',
+    'blizzard de 2 jours à partir du soir : « se poursuit » : ' + etats(j).join(' | '));
+  check(j.description.includes('2 jours') && j.description.includes('30 cm'), 'règles : 2 jours, 30 cm');
+  // brouillard : toujours le matin, sans dé de départ
+  j = jour(1, tempere, [3, 2, 85, 4, 30, 1, 1]);
+  check(etats(j).join(' | ') === 'brouillard | calme | calme | calme', 'brouillard : le matin, sans prémices');
+  check(j.description === 'Brouillard pendant 2 heures.', 'description : ' + j.description);
+  // précipitation qui commence l'après-midi
+  j = jour(1, tempere, [3, 2, 85, 4, 50, 2, 3, 2]);
+  check(etats(j).join(' | ') === 'calme | pluie | calme | calme', 'pluie l’après-midi (5 heures, une seule phase)');
+});
+
+describe('La neige ou la pluie suit la température de la phase', () => {
+  // 7 heures de précipitations = 2 phases : après-midi (juste au-dessus de 0) puis soir (sous 0)
+  const ctx = { profil: 'froid', base: -4, ecart: 0 };
+  const j = jour(1, ctx, [3, 2, 85, 8, 50, 4, 3, 2]);
+  check(temperatures(j).join(',') === '-9,-4,-7,-12', 'températures : -9, -4, -7, -12 (jour -4, nuit -12)');
+  check(etats(j).join(' | ') === 'calme | neige | neige | calme', 'sous 0 °C toute la journée : neige');
+  const doux = jour(1, { profil: 'froid', base: 2, ecart: 0 }, [3, 2, 85, 8, 50, 4, 3, 2]);
+  check(temperatures(doux).join(',') === '-3,2,-1,-6', 'jour 2 °C, nuit -6 : -3, 2, -1, -6');
+  check(etats(doux).join(' | ') === 'calme | pluie | neige | calme', 'pluie l’après-midi qui vire en neige le soir');
 });
 
 describe('Persistance d’un jour sur l’autre', () => {
   const ctx = { profil: 'tempere', base: 10, ecart: 0 };
   const agite = { agite: true, cat: 'calme' };
-  let rng = scripte([3, 2, 40, 85, 2, 50, 2, 3]);
-  let j = C.genererJour(2, ctx, rng, agite);
-  check(rng.reste() === 0, 'veille agitée : le d100 est tiré deux fois');
-  check(j.jet === 85 && j.cat === 'precipitation' && j.agite === true, 'on garde le plus haut (85)');
-  check(j.ligne1 === 'Pluie pendant 5 heures.', 'précipitation à 10 °C : ' + j.ligne1);
-  rng = scripte([3, 2, 85, 2, 50, 2, 3]);
-  j = C.genererJour(2, ctx, rng, { agite: false, cat: 'calme' });
-  check(rng.reste() === 0 && j.jet === 85, 'veille calme : un seul d100');
-  rng = scripte([3, 2, 20, 90, 2, 50, 2, 3]);
-  j = C.genererJour(2, ctx, rng, agite);
+  let j = jour(2, ctx, [3, 2, 40, 85, 2, 50, 2, 3, 2], agite, new Array(8).fill(null));
+  check(j.jet === 85 && j.cat === 'precipitation' && j.agite === true, 'veille agitée : deux d100 (40 et 85), on garde le plus haut');
+  check(etats(j).join(' | ') === 'calme | pluie | calme | calme', 'précipitation à 10 °C : ' + etats(j).join(' | '));
+  j = jour(2, ctx, [3, 2, 85, 2, 50, 2, 3, 2], { agite: false, cat: 'calme' }, new Array(8).fill(null));
+  check(j.jet === 85, 'veille calme : un seul d100');
+  j = jour(2, ctx, [3, 2, 20, 90, 2, 50, 2, 3, 2], agite, new Array(8).fill(null));
   check(j.jet === 90, 'le second d100 peut aussi être gardé (90 > 20)');
-  rng = scripte([3, 2, 80, 30, 10, 4]);
-  j = C.genererJour(2, ctx, rng, agite);
-  check(j.jet === 80 && j.cat === 'vague' && rng.reste() === 0, 'le plus haut peut être le premier (80 > 30)');
-  rng = scripte([3, 2, 75, 72, 5]);
-  j = C.genererJour(2, ctx, rng, { agite: true, cat: 'vague', sens: -1 });
-  check(rng.reste() === 0 && j.cat === 'vague' && j.sens === -1, 'vague après vague de froid : même sens, aucun dé de sens');
-  check(j.ligne1 === 'Vague de froid (-5 °C).', 'texte de la vague prolongée');
+  j = jour(1, ctx, [3, 2, 80, 30, 10, 4], agite);
+  check(j.jet === 80 && j.cat === 'vague', 'le plus haut peut être le premier (80 > 30)');
+  j = jour(1, ctx, [3, 2, 75, 72, 5], { agite: true, cat: 'vague', sens: -1 });
+  check(j.cat === 'vague' && j.sens === -1 && j.tag === 'Vague de froid (-5 °C)', 'vague après vague de froid : même sens, aucun dé de sens');
 });
 
 // ================================================================ UNE SÉRIE
+describe('Débordement d’un phénomène sur les jours suivants', () => {
+  // très froid, Abadius : écart d10 - 10 = 4 - 10 = -6, base -10, aléa 0 -> jour -16 °C
+  // J1 : d100 = 100, blizzard de 2 jours (48 h = 8 phases) qui commence au soir (phase 3)
+  // J2 : phénomène en cours au lever -> aucun d100 ; J3 : idem jusqu'au milieu de l'après-midi
+  let rng = scripte([4, 3, 2, 100, 5, 2, 2, 3, 3, 2, 3, 3, 2, 4]);
+  let m = C.genererMeteo('tresfroid', 'abadius', 3, rng);
+  check(rng.reste() === 0, 'jours 2 et 3 : aucun d100 tiré (le blizzard est l’évènement du jour)');
+  check(m.ecart === -6, 'écart du niveau tiré une fois : -6');
+  const [j1, j2, j3] = m.jours;
+  check(etats(j1).join(' | ') === 'calme | prémices (ciel plombé, le vent forcit) | blizzard | blizzard', 'jour 1 : prémices, puis blizzard le soir et la nuit');
+  check(etats(j2).join(' | ') === 'blizzard | blizzard | blizzard | blizzard', 'jour 2 : blizzard toute la journée');
+  check(etats(j3).join(' | ') === 'blizzard | blizzard | calme | calme', 'jour 3 : le blizzard se termine à la fin de l’après-midi, puis calme');
+  check(j2.cat === 'suite' && j3.cat === 'suite', 'jours 2 et 3 : catégorie « suite »');
+  check(j2.jet === null && j2.description === '' && j2.tag === '', 'jour 2 : ni d100, ni nouvelle description');
+  check(j2.agite === true && j3.agite === true, 'jours en suite : agités');
+  check(j1.description.includes('2 jours') && j1.description.includes('60 cm'), 'règles données une seule fois, le jour 1 : ' + j1.description.slice(0, 80));
+  check(j2.temperatureJour === -16 && j2.temperatureNuit === -19 && j3.temperatureNuit === -20,
+    'les températures continuent de varier : jour 2 nuit -19, jour 3 nuit -20');
+  check(!/se poursuit/.test(m.jours.map((j) => j.ligne).join(' ')), 'sur 3 jours, le blizzard finit dans la série : pas de « se poursuit »');
+
+  // même blizzard, mais 2 jours demandés : il dépasse la série
+  rng = scripte([4, 3, 2, 100, 5, 2, 2, 3, 3, 2, 3]);
+  m = C.genererMeteo('tresfroid', 'abadius', 2, rng);
+  check(rng.reste() === 0 && etats(m.jours[1]).join(' | ') === 'blizzard | blizzard | blizzard | blizzard (se poursuit)',
+    'série de 2 jours : « se poursuit » sur la dernière phase');
+});
+
 describe('Série de jours', () => {
   // tempéré : pas de d10 d'écart
   let rng = scripte([3, 2, 50, 4]);
@@ -322,8 +450,7 @@ describe('Série de jours', () => {
 // ================================================================ PROPRIÉTÉS SUR DES MILLIERS DE TIRAGES
 describe('Bornes et sorties saines sur tous les mois et tous les niveaux', () => {
   const rng = graine(2026);
-  let jours = 0, mauvais = 0, bornes = 0, interdits = 0, nuit = 0;
-  const INTERDITS = /undefined|NaN|\{\{|\}\}|\[|\]|@|%\{|=|\|/;
+  let jours = 0, mauvais = 0, bornes = 0, interdits = 0, nuit = 0, phasesFaux = 0, parentheses = 0;
   C.REGIONS.forEach((r) => C.MOIS.forEach((mo) => {
     const mini = mo.base + (r.de10 ? 1 + r.decalage : 0) - 3 - 5;
     const maxi = mo.base + (r.de10 ? 10 + r.decalage : 0) + 3 + 5;
@@ -333,8 +460,10 @@ describe('Bornes et sorties saines sur tous les mois et tous les niveaux', () =>
         if (!Number.isInteger(j.temperatureJour) || !Number.isInteger(j.temperatureNuit)) mauvais++;
         if (j.temperatureJour < mini || j.temperatureJour > maxi) bornes++;
         if (j.temperatureNuit < j.temperatureJour - 10 || j.temperatureNuit > j.temperatureJour - 1) nuit++;
-        if (INTERDITS.test(j.ligne1) || INTERDITS.test(j.ligne2)) interdits++;
-        if (!equilibre(j.ligne1)) interdits++;
+        const t = temperatures(j);
+        if (j.phases.length !== NB || t[1] !== j.temperatureJour || t[3] !== j.temperatureNuit ||
+          !(t[3] <= t[0] && t[0] <= t[2] && t[2] <= t[1])) phasesFaux++;
+        [j.ligne, j.description, j.tag].forEach((s) => { if (INTERDITS.test(s)) interdits++; if (!equilibre(s)) parentheses++; });
       });
     }
   }));
@@ -342,39 +471,74 @@ describe('Bornes et sorties saines sur tous les mois et tous les niveaux', () =>
   check(mauvais === 0, 'températures toujours entières (jamais NaN)');
   check(bornes === 0, 'température du jour toujours dans [base + écart mini - 8, base + écart maxi + 8]');
   check(nuit === 0, 'nuit toujours entre jour - 10 et jour - 1');
-  check(interdits === 0, 'aucun « undefined », « NaN », « = », « }} », crochet ou parenthèse orpheline dans les textes');
+  check(phasesFaux === 0, '4 phases, après-midi = jour, nuit = nuit, nuit <= matin <= soir <= après-midi');
+  check(interdits === 0, 'aucun « undefined », « NaN », « = », « }} », crochet ou barre dans les textes');
+  check(parentheses === 0, 'aucune parenthèse orpheline');
 });
 
-describe('Cohérence texte / température sur 5 000 jours par niveau', () => {
+describe('Cohérence du texte avec la température et les phases (5 régions, 12 mois)', () => {
   const rng = graine(7);
-  const vus = { neige: 0, pluie: 0, neigeFondue: 0, grele: 0, blizzard: 0, cyclone: 0, ouragan: 0, tornade: 0, sable: 0 };
   const faux = [];
-  C.REGIONS.forEach((r) => {
-    for (let k = 0; k < 5000 / C.MAX_JOURS * 3; k++) {
-      C.genererMeteo(r.id, C.MOIS[k % 12].id, C.MAX_JOURS, rng).jours.forEach((j) => {
-        const tj = j.temperatureJour, t = j.ligne1;
-        if (/^Neige pendant/.test(t)) { vus.neige++; if (tj > 0) faux.push('neige à ' + tj); }
-        if (/^Pluie pendant/.test(t)) { vus.pluie++; if (tj <= 0) faux.push('pluie à ' + tj); }
-        if (/^Neige fondue/.test(t)) { vus.neigeFondue++; if (tj > 3) faux.push('neige fondue à ' + tj); }
-        if (/^Grêle/.test(t)) { vus.grele++; if (tj <= 3) faux.push('grêle à ' + tj); }
-        if (/\(blizzard\)/.test(t)) { vus.blizzard++; if (tj > 0) faux.push('blizzard à ' + tj); }
-        if (/\(cyclone\)/.test(t)) { vus.cyclone++; if (tj <= 0 || tj >= 20) faux.push('cyclone à ' + tj); }
-        if (/\(ouragan\)/.test(t)) { vus.ouragan++; if (tj < 20) faux.push('ouragan à ' + tj); }
-        if (/\(tornade\)/.test(t)) { vus.tornade++; if (tj < 20) faux.push('tornade à ' + tj); }
-        if (/^Tempête de sable/.test(t)) { vus.sable++; if (r.profil !== 'desert') faux.push('sable hors désert'); }
-        if (/^Tempête de neige/.test(t) && tj > 0) faux.push('tempête de neige à ' + tj);
+  const vus = { neige: 0, pluie: 0, neigeFondue: 0, grele: 0, blizzard: 0, cyclone: 0, ouragan: 0, tornade: 0,
+    sable: 0, orage: 0, suite: 0, premices: 0, brouillard: 0 };
+  const premier = (j, re) => j.phases.findIndex((p) => re.test(p.etat));
+  C.REGIONS.forEach((r) => C.MOIS.forEach((mo) => {
+    for (let k = 0; k < 20; k++) {
+      const m = C.genererMeteo(r.id, mo.id, C.MAX_JOURS, rng);
+      m.jours.forEach((j, i) => {
+        const tj = j.temperatureJour, d = j.description;
+        // neige / pluie : selon la température de la phase elle-même
+        j.phases.forEach((p) => {
+          if (p.etat === 'neige') { vus.neige++; if (p.temperature > 0) faux.push('neige à ' + p.temperature); }
+          if (p.etat === 'pluie') { vus.pluie++; if (p.temperature <= 0) faux.push('pluie à ' + p.temperature); }
+          if (/^prémices/.test(p.etat)) vus.premices++;
+        });
+        // type de phénomène : selon le maximum du jour
+        if (/^Neige fondue/.test(d)) { vus.neigeFondue++; if (tj > 3) faux.push('neige fondue à ' + tj); }
+        if (/^Grêle/.test(d)) { vus.grele++; if (tj <= 3) faux.push('grêle à ' + tj); }
+        if (/\(blizzard\)/.test(d)) { vus.blizzard++; if (tj > 0) faux.push('blizzard à ' + tj); }
+        if (/\(cyclone\)/.test(d)) { vus.cyclone++; if (tj <= 0 || tj >= 20) faux.push('cyclone à ' + tj); }
+        if (/\(ouragan\)/.test(d)) { vus.ouragan++; if (tj < 20) faux.push('ouragan à ' + tj); }
+        if (/\(tornade\)/.test(d)) { vus.tornade++; if (tj < 20) faux.push('tornade à ' + tj); }
+        if (/^Tempête de sable/.test(d)) { vus.sable++; if (r.profil !== 'desert') faux.push('sable hors désert'); }
+        if (/^Orage/.test(d)) { vus.orage++; if (tj <= 0 || r.profil === 'desert') faux.push('orage à ' + tj + ' en ' + r.profil); }
+        if (/^Tempête de neige/.test(d) && (tj > 0 || r.profil === 'desert')) faux.push('tempête de neige à ' + tj);
+        // heures de départ
+        if (/^Brouillard/.test(d)) { vus.brouillard++; if (j.phases[0].etat !== 'brouillard') faux.push('brouillard hors du matin'); }
+        if (/^Orage|\(tornade\)/.test(d)) {
+          const idx = premier(j, /^(orage|tornade)/);
+          if (idx !== 1 && idx !== 2) faux.push('orage ou tornade en phase ' + idx);
+        }
+        // prémices : juste avant le phénomène, jamais avant le matin, jamais seules
+        j.phases.forEach((p, n) => {
+          if (/^prémices/.test(p.etat)) {
+            const suivant = j.phases[n + 1];
+            if (!suivant || suivant.etat === 'calme' || /^prémices/.test(suivant.etat)) faux.push('prémices sans phénomène derrière');
+          }
+        });
+        // débordement : un jour « suite » suit un jour dont la dernière phase était active
+        if (j.cat === 'suite') {
+          vus.suite++;
+          const veille = m.jours[i - 1];
+          if (i === 0) faux.push('suite le premier jour');
+          else if (veille.phases[NB - 1].etat === 'calme' || /^prémices/.test(veille.phases[NB - 1].etat)) faux.push('suite après une nuit calme');
+          if (j.jet !== null || j.description !== '' || j.tag !== '') faux.push('suite avec d100 ou description');
+          if (j.phases[0].etat === 'calme') faux.push('suite avec un matin calme');
+        } else if (j.jet === null) faux.push('jour sans d100 hors suite');
       });
     }
-  });
+  }));
   check(faux.length === 0, 'aucune incohérence' + (faux.length ? ' : ' + faux.slice(0, 5).join(' ; ') : ''));
   check(vus.neige > 0 && vus.pluie > 0, 'neige (' + vus.neige + ') et pluie (' + vus.pluie + ') se produisent toutes deux');
   check(vus.neigeFondue > 0 && vus.grele > 0, 'neige fondue (' + vus.neigeFondue + ') et grêle (' + vus.grele + ') aussi');
   check(vus.blizzard > 0 && vus.cyclone > 0, 'blizzard (' + vus.blizzard + ') et cyclone (' + vus.cyclone + ') sont atteignables');
   check(vus.ouragan > 0 && vus.tornade > 0, 'ouragan (' + vus.ouragan + ') et tornade (' + vus.tornade + ') sont atteignables');
-  check(vus.sable > 0, 'tempête de sable en désert (' + vus.sable + ')');
+  check(vus.sable > 0 && vus.orage > 0 && vus.brouillard > 0, 'sable (' + vus.sable + '), orage (' + vus.orage + '), brouillard (' + vus.brouillard + ')');
+  check(vus.suite > 0, 'des jours « suite » apparaissent (' + vus.suite + ') : les phénomènes longs débordent');
+  check(vus.premices > 0, 'des prémices apparaissent (' + vus.premices + ')');
 });
 
-describe('Proportions de la table d100 (jours sans veille agitée)', () => {
+describe('Proportions de la table d100 et heures de départ (jours isolés)', () => {
   const rng = graine(99);
   const N = 30000;
   const ctx = { profil: 'tempere', base: 10, ecart: 0 };
@@ -397,9 +561,35 @@ describe('Proportions de la table d100 (jours sans veille agitée)', () => {
 
   const dsrt = { profil: 'desert', base: 15, ecart: 15 };
   let fort = 0, vents = 0;
-  for (let i = 0; i < N; i++) { const j = C.genererJour(1, dsrt, rng, null); if (j.cat === 'vent') { vents++; if (/important/.test(j.ligne1)) fort++; } }
+  for (let i = 0; i < N; i++) { const j = C.genererJour(1, dsrt, rng, null); if (j.cat === 'vent') { vents++; if (/important/.test(j.tag)) fort++; } }
   check(proche(fort / vents, 0.5, 0.03), 'désert : vent important ~ 50 % des vents : ' + (100 * fort / vents).toFixed(1) + ' %');
   check(proche(vents / N, 0.20, 0.012), 'désert : vent sur 71 à 90, soit ~ 20 % des jours : ' + (100 * vents / N).toFixed(1) + ' %');
+
+  // heure de départ des tempêtes de neige : uniforme sur les 4 phases
+  const gel = { profil: 'froid', base: -10, ecart: 0 };
+  const depart = [0, 0, 0, 0];
+  let tempetes = 0;
+  for (let i = 0; i < N; i++) {
+    const j = C.genererJour(1, gel, rng, null);
+    if (j.cat === 'tempete') { tempetes++; depart[j.phases.findIndex((x) => x.etat === 'tempête de neige')]++; }
+  }
+  check(depart.every((d) => proche(d / tempetes, 0.25, 0.04)), 'tempête de neige : départ uniforme matin / après-midi / soir / nuit : ' +
+    depart.map((d) => (100 * d / tempetes).toFixed(0) + ' %').join(', '));
+  // orage : après-midi ou soir uniquement, moitié-moitié
+  const orages = [0, 0, 0, 0];
+  let nbOrages = 0;
+  for (let i = 0; i < N; i++) {
+    const j = C.genererJour(1, ctx, rng, null);
+    if (j.cat === 'tempete') { nbOrages++; orages[j.phases.findIndex((x) => /^orage/.test(x.etat))]++; }
+  }
+  check(orages[0] === 0 && orages[3] === 0 && proche(orages[1] / nbOrages, 0.5, 0.05),
+    'orage : jamais le matin ni la nuit, ~ 50 % l’après-midi : ' + (100 * orages[1] / nbOrages).toFixed(0) + ' %');
+  const durees = { tornade: 0 };
+  for (let i = 0; i < 60000; i++) {
+    const j = C.genererJour(1, ctx, rng, null);
+    if (j.cat === 'tempete') { if (/tornade/.test(j.description)) durees.tornade++; }
+  }
+  check(proche(durees.tornade / (60000 * 0.09), 0.10, 0.03), 'orage : ~ 10 % virent à la tornade : ' + (100 * durees.tornade / (60000 * 0.09)).toFixed(1) + ' %');
 });
 
 describe('Persistance : le mauvais temps dure', () => {
@@ -408,8 +598,8 @@ describe('Persistance : le mauvais temps dure', () => {
   let apresAgite = 0, agiteApresAgite = 0, apresCalme = 0, agiteApresCalme = 0;
   for (let i = 0; i < 80000; i++) {
     const veille = C.genererJour(1, ctx, rng, null);
-    const jour = C.genererJour(2, ctx, rng, veille);
-    if (veille.agite) { apresAgite++; if (jour.agite) agiteApresAgite++; } else { apresCalme++; if (jour.agite) agiteApresCalme++; }
+    const lendemain = C.genererJour(2, ctx, rng, veille, new Array(2 * NB).fill(null));
+    if (veille.agite) { apresAgite++; if (lendemain.agite) agiteApresAgite++; } else { apresCalme++; if (lendemain.agite) agiteApresCalme++; }
   }
   const pa = agiteApresAgite / apresAgite, pc = agiteApresCalme / apresCalme;
   check(proche(pc, 0.30, 0.012), 'après un jour calme : ~ 30 % de jours agités : ' + (100 * pc).toFixed(1) + ' %');
@@ -439,13 +629,24 @@ describe('Boutons et cartes', () => {
   check(/name=Mois - Froid/.test(cm), 'titre rappelant le niveau');
   check(!/Calistril\]\(!RollClimat Calistril/.test(cm), 'plus de bouton sans niveau (ancien : !RollClimat Calistril)');
 
-  const un = C.carteResultat(C.genererMeteo('froid', 'abadius', 1, graine(3)));
-  check(lignes(un).length === 3, 'un jour : titre + 2 lignes (évènement, températures)');
+  // une ligne par jour, plus une ligne de règles pour chaque phénomène qui naît
+  const compte = (meteo) => 1 + meteo.jours.length + meteo.jours.filter((j) => j.description).length;
+  const m1 = C.genererMeteo('froid', 'abadius', 1, graine(3));
+  const un = C.carteResultat(m1);
+  check(lignes(un).length === compte(m1), 'un jour : titre + ligne du jour + règles éventuelles (' + lignes(un).length + ')');
   check(/name=Climat - Froid - Abadius\}\}/.test(un), 'titre un jour : niveau et mois');
-  const sept = C.carteResultat(C.genererMeteo('tresfroid', 'kuthona', 7, graine(3)));
-  check(lignes(sept).length === 8, 'sept jours : titre + 7 lignes');
+  check(!/\{\{ Jour 1 - /.test(un), 'un seul jour : pas de préfixe « Jour 1 - »');
+  const m7 = C.genererMeteo('tresfroid', 'kuthona', 7, graine(3));
+  const sept = C.carteResultat(m7);
+  check(lignes(sept).length === compte(m7), 'sept jours : titre + 7 lignes + règles (' + lignes(sept).length + ')');
   check(/name=Climat - Très froid - Kuthona - 7 jours\}\}/.test(sept), 'titre multi-jours avec le nombre de jours');
-  check(/\{\{ Jour 7 : /.test(sept) && /\{\{ Jour 1 : /.test(sept), 'chaque ligne commence par « Jour N : »');
+  check(/\{\{ Jour 7 - /.test(sept) && /\{\{ Jour 1 - /.test(sept), 'chaque ligne de jour commence par « Jour N - »');
+  check(reste(sept) === '/w gm &{template:pf_generic}', 'rien en dehors des {{ }}');
+  const m14 = C.genererMeteo('chaud', 'rova', 14, graine(8));
+  const rangees = lignes(C.carteResultat(m14)).map((l) => l.slice(2, -2));
+  check(rangees.length === compte(m14), '14 jours : ' + rangees.length + ' lignes (titre + 14 jours + règles)');
+  check(rangees[0].startsWith('name=') && rangees.slice(1).every((l) => !INTERDITS.test(l)),
+    '14 jours : aucun caractère interdit dans les lignes (seul le titre contient « name= »)');
 });
 
 describe('Commandes', () => {
@@ -512,7 +713,7 @@ describe('Flux complet dans un faux Roll20', () => {
   w.envoyes.length = 0;
   w.dire('!RollClimat froid abadius');
   check(w.envoyes.length === 1, '!RollClimat froid abadius : une seule carte (avant : deux chuchotements)');
-  check(/Température : -?\d+ °C, la nuit : -?\d+ °C/.test(w.envoyes[0].texte), 'la carte donne les températures');
+  check(/Matin \(-?\d+ °C\)/.test(w.envoyes[0].texte) && /Nuit \(-?\d+ °C\)/.test(w.envoyes[0].texte), 'la carte donne la température de chaque phase');
   check(!/NaN|undefined/.test(w.envoyes[0].texte), 'ni NaN ni undefined');
 
   w.envoyes.length = 0;
@@ -544,7 +745,7 @@ describe('Flux complet dans un faux Roll20', () => {
   deux.dire('!RollClimat tresfroid abadius');
   deux.dire('!RollClimat treschaud abadius');
   const t1 = deux.envoyes[0].texte, t2 = deux.envoyes[1].texte;
-  const temp = (s) => parseInt(s.match(/Température : (-?\d+)/)[1], 10);
+  const temp = (s) => parseInt(s.match(/Après-midi \((-?\d+) °C\)/)[1], 10);
   // très froid en Abadius : au plus -10 + 0 + 3 + 5 = -2 °C, donc toujours négatif ; très chaud : au moins -7 °C
   check(temp(t1) < 0 && temp(t2) > temp(t1),
     'très froid puis très chaud, même mois, deux niveaux bien distincts : ' + temp(t1) + ' °C puis ' + temp(t2) + ' °C');
