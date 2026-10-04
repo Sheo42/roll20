@@ -13,6 +13,9 @@
  *   Niveaux : tresfroid, froid, tempere, chaud, treschaud (accents et espaces
  *   acceptés : « très froid »). Le niveau est passé dans la commande : le script
  *   ne retient rien entre deux appels.
+ *   Prolongation : si un phénomène tiré (vague de chaleur ou de froid, vent du désert, blizzard,
+ *     ouragan...) dépasse le dernier jour demandé, la période est allongée jusqu'à sa fin (5 jours
+ *     au plus) ; la carte l'indique. Ces jours ajoutés n'ont ni d100 ni nouveau phénomène.
  *   Plusieurs jours : de 1 à 14, dans le même mois (pour un voyage à cheval sur deux
  *   mois, lancer le second mois à part).
  *
@@ -74,6 +77,7 @@
   'use strict';
 
   // ===================== RÉGLAGES =====================
+  const JOURS_SUPPLEMENTAIRES = 5; // plafond de la prolongation automatique
   const MAX_JOURS = 14;      // plafond du mode multi-jours
   const TEMP_GEL = 0;        // <= : neige, blizzard, tempête de neige
   const TEMP_GRESIL = 3;     // <= : neige fondue (sinon grêle)
@@ -322,6 +326,8 @@
   function placer(grille, debut, ph) {
     ph.debut = debut;
     ph.fin = debut + ph.longueur - 1;
+    // grille extensible (genererMeteo) : elle s'allonge pour contenir tout le phénomène, dans la limite fixée
+    if (grille.limite) while (grille.length <= ph.fin && grille.length < grille.limite) grille.push(null);
     for (let c = debut; c <= ph.fin && c < grille.length; c++) grille[c] = { ph: ph, role: 'actif' };
     if (ph.premices && debut % NB_PHASES >= 1 && grille[debut - 1] === null) {
       grille[debut - 1] = { ph: ph, role: 'premices' };
@@ -424,13 +430,17 @@
     const ecart = region.de10 ? r(10) + region.decalage : 0;   // tiré une seule fois pour la série
     const ctx = { profil: region.profil, base: mois.base, ecart: ecart };
     const grille = new Array(n * NB_PHASES).fill(null);
+    grille.limite = (n + JOURS_SUPPLEMENTAIRES) * NB_PHASES;
     const liste = [];
     let precedent = null;
-    for (let i = 1; i <= n; i++) {
+    // La période est prolongée tant qu'un phénomène, une vague ou un vent tiré déborde sur le jour suivant.
+    for (let i = 1; i <= n + JOURS_SUPPLEMENTAIRES; i++) {
+      const c = grille[(i - 1) * NB_PHASES];
+      if (i > n && !(c && c.role === 'actif')) break;
       precedent = genererJour(i, ctx, r, precedent, grille);
       liste.push(precedent);
     }
-    return { region: region, mois: mois, ecart: ecart, jours: liste };
+    return { region: region, mois: mois, ecart: ecart, demandes: n, jours: liste };
   }
 
   // ===================== MESSAGES (texte prêt pour sendChat) =====================
@@ -454,6 +464,8 @@
     const n = meteo.jours.length;
     const titre = 'Climat - ' + meteo.region.nom + ' - ' + meteo.mois.nom + (n > 1 ? ' - ' + nb(n, 'jour') : '');
     const lignes = [];
+    const ajoutes = n - (meteo.demandes || n);
+    if (ajoutes > 0) lignes.push('Période prolongée de ' + nb(ajoutes, 'jour') + ' : un phénomène se poursuit.');
     meteo.jours.forEach((j) => {
       lignes.push((n > 1 ? 'Jour ' + j.jour + ' - ' : '') + j.ligne);
       if (j.description) lignes.push(j.description);

@@ -401,11 +401,22 @@ describe('Débordement d’un phénomène sur les jours suivants', () => {
     'les températures continuent de varier : jour 2 nuit -19, jour 3 nuit -20');
   check(!/se poursuit/.test(m.jours.map((j) => j.ligne).join(' ')), 'sur 3 jours, le blizzard finit dans la série : pas de « se poursuit »');
 
-  // même blizzard, mais 2 jours demandés : il dépasse la série
-  rng = scripte([4, 3, 2, 100, 5, 2, 2, 3, 3, 2, 3]);
+  // même blizzard, mais 2 jours demandés : la période est prolongée d'un jour (aléa 2d4 + d10 de nuit seulement)
+  rng = scripte([4, 3, 2, 100, 5, 2, 2, 3, 3, 2, 3, 3, 2, 4]);
   m = C.genererMeteo('tresfroid', 'abadius', 2, rng);
-  check(rng.reste() === 0 && etats(m.jours[1]).join(' | ') === 'blizzard | blizzard | blizzard | blizzard (se poursuit)',
-    'série de 2 jours : « se poursuit » sur la dernière phase');
+  check(rng.reste() === 0 && m.jours.length === 3 && m.demandes === 2, 'série de 2 jours : prolongée à 3 jours sans d100 (dés tous consommés)');
+  check(etats(m.jours[2]).join(' | ') === 'blizzard | blizzard | calme | calme' && m.jours[2].suite, 'le jour ajouté contient la fin du blizzard');
+  check(!/se poursuit/.test(m.jours.map((j) => j.ligne).join(' ')), 'plus de « se poursuit » : la période a été prolongée');
+
+  // 1 seul jour demandé, blizzard commencé le soir : 3 jours affichés
+  rng = scripte([4, 3, 2, 100, 5, 2, 2, 3, 3, 2, 3, 3, 2, 4]);
+  m = C.genererMeteo('tresfroid', 'abadius', 1, rng);
+  check(rng.reste() === 0 && m.jours.length === 3 && m.demandes === 1, '1 jour demandé, blizzard de 2 jours : 3 jours affichés');
+  const carte = C.carteResultat(m);
+  check(/name=Climat - Très froid - Abadius - 3 jours\}\}/.test(carte) && /Période prolongée de 2 jours/.test(carte) && /\{\{ Jour 3 - /.test(carte),
+    'carte : 3 jours, mention de la prolongation, lignes « Jour N - »');
+  check(!/Période prolongée/.test(C.carteResultat(C.genererMeteo('tresfroid', 'abadius', 3, scripte([4, 3, 2, 100, 5, 2, 2, 3, 3, 2, 3, 3, 2, 4])))),
+    'aucune mention quand la série n’est pas prolongée');
 });
 
 describe('Vague de chaleur, de froid et vent : 3 jours', () => {
@@ -429,7 +440,7 @@ describe('Vague de chaleur, de froid et vent : 3 jours', () => {
   check(j4.ligne.startsWith('Calme toute la journée - Matin'), 'jour 4 : journée calme');
 
   // une nouvelle vague juste après va dans le même sens, sans dé de sens
-  rng = scripte([5, 3, 2, 75, 10, 4, 4, 4, 2, 2, 2, 1, 3, 2, 75, 3]);
+  rng = scripte([5, 3, 2, 75, 10, 4, 4, 4, 2, 2, 2, 1, 3, 2, 75, 3, 3, 2, 4, 3, 2, 4]);
   m = C.genererMeteo('froid', 'neth', 4, rng);
   check(rng.reste() === 0 && m.jours[3].tag === 'Vague de chaleur (+5 °C), jour 1 sur 3' && !m.jours[3].suite,
     'une vague qui suit une vague va dans le même sens (chaleur), sans dé de sens');
@@ -442,10 +453,24 @@ describe('Vague de chaleur, de froid et vent : 3 jours', () => {
     'vent important sur 3 jours : ' + m.jours.map((j) => j.tag).join(' / '));
   check(m.jours.every((j) => j.temperatureJour === 35 && j.temperatureNuit === 31), 'le vent ne change pas la température (35 °C, nuit 31 °C)');
 
-  // série plus courte que la vague : la numérotation s'arrête là où la série s'arrête
-  rng = scripte([10, 3, 2, 85, 2, 4, 3, 2, 4]);
+  // série plus courte que la vague : la période est prolongée jusqu'au jour 3 sur 3
+  rng = scripte([10, 3, 2, 85, 2, 4, 3, 2, 4, 3, 2, 4]);
   m = C.genererMeteo('treschaud', 'arodus', 2, rng);
-  check(m.jours[1].tag.endsWith('jour 2 sur 3'), 'série de 2 jours : « jour 2 sur 3 » sur le dernier jour affiché');
+  check(rng.reste() === 0 && m.jours.length === 3 && m.jours[2].tag.endsWith('jour 3 sur 3'), 'série de 2 jours : prolongée jusqu’à « jour 3 sur 3 »');
+
+  // le cas signalé : 1 seul jour demandé, vague de froid tirée -> 3 jours
+  rng = scripte([5, 3, 2, 75, 80, 4, 3, 2, 4, 3, 2, 4]);
+  m = C.genererMeteo('froid', 'neth', 1, rng);
+  check(rng.reste() === 0 && m.jours.length === 3 && m.demandes === 1 && m.jours[0].tag.startsWith('Vague de froid') &&
+    m.jours[2].tag === 'Vague de froid (-5 °C), jour 3 sur 3', '1 jour demandé + vague de froid : jours 2 et 3 ajoutés');
+  // vague au 2e jour d'une série de 2 : 2 jours ajoutés
+  rng = scripte([5, 3, 2, 50, 4, 3, 2, 75, 80, 4, 3, 2, 4, 3, 2, 4]);
+  m = C.genererMeteo('froid', 'neth', 2, rng);
+  check(rng.reste() === 0 && m.jours.length === 4, 'vague tirée le dernier jour demandé : 2 jours ajoutés');
+  // jour calme : aucune prolongation
+  rng = scripte([5, 3, 2, 50, 4]);
+  m = C.genererMeteo('froid', 'neth', 1, rng);
+  check(rng.reste() === 0 && m.jours.length === 1, 'jour calme : pas de prolongation');
 });
 
 describe('Série de jours', () => {
@@ -513,7 +538,7 @@ describe('Bornes et sorties saines sur tous les mois et tous les niveaux', () =>
       });
     }
   }));
-  check(jours === 5 * 12 * 40 * C.MAX_JOURS, jours + ' jours simulés');
+  check(jours >= 5 * 12 * 40 * C.MAX_JOURS && jours <= 5 * 12 * 40 * (C.MAX_JOURS + 5), jours + ' jours simulés (14 demandés + prolongations)');
   check(mauvais === 0, 'températures toujours entières (jamais NaN)');
   check(bornes === 0, 'température du jour toujours dans [base + écart mini - 8, base + écart maxi + 8]');
   check(nuit === 0, 'nuit toujours entre jour - 10 et jour - 1');
@@ -698,7 +723,7 @@ describe('Boutons et cartes', () => {
   check(!/Calistril\]\(!RollClimat Calistril/.test(cm), 'plus de bouton sans niveau (ancien : !RollClimat Calistril)');
 
   // une ligne par jour, plus une ligne de règles pour chaque phénomène qui naît
-  const compte = (meteo) => 1 + meteo.jours.length + meteo.jours.filter((j) => j.description).length;
+  const compte = (meteo) => 1 + meteo.jours.length + meteo.jours.filter((j) => j.description).length + (meteo.jours.length > meteo.demandes ? 1 : 0);
   const m1 = C.genererMeteo('froid', 'abadius', 1, graine(3));
   const un = C.carteResultat(m1);
   check(lignes(un).length === compte(m1), 'un jour : titre + ligne du jour + règles éventuelles (' + lignes(un).length + ')');
@@ -707,7 +732,7 @@ describe('Boutons et cartes', () => {
   const m7 = C.genererMeteo('tresfroid', 'kuthona', 7, graine(3));
   const sept = C.carteResultat(m7);
   check(lignes(sept).length === compte(m7), 'sept jours : titre + 7 lignes + règles (' + lignes(sept).length + ')');
-  check(/name=Climat - Très froid - Kuthona - 7 jours\}\}/.test(sept), 'titre multi-jours avec le nombre de jours');
+  check(new RegExp('name=Climat - Très froid - Kuthona - ' + m7.jours.length + ' jours\\}\\}').test(sept) && m7.jours.length >= 7, 'titre multi-jours avec le nombre de jours');
   check(/\{\{ Jour 7 - /.test(sept) && /\{\{ Jour 1 - /.test(sept), 'chaque ligne de jour commence par « Jour N - »');
   check(reste(sept) === '/w gm &{template:pf_generic}', 'rien en dehors des {{ }}');
   const m14 = C.genererMeteo('chaud', 'rova', 14, graine(8));
@@ -736,7 +761,7 @@ describe('Commandes', () => {
   const r = t('!RollClimat', 'froid abadius');
   check(r.length === 1 && /name=Climat - Froid - Abadius\}\}/.test(r[0]), '!RollClimat froid abadius -> une carte');
   check(t('!rollclimat', 'froid abadius')[0] === r[0], 'commande insensible à la casse');
-  check(/7 jours/.test(t('!RollClimat', 'froid abadius 7')[0]), '!RollClimat froid abadius 7 -> 7 jours');
+  check(/- \d+ jours\}\}/.test(t('!RollClimat', 'froid abadius 7')[0]), '!RollClimat froid abadius 7 -> série de 7 jours ou plus');
   check(t('!gabarit', 'lancer') === null, 'commande d’un autre script : ignorée');
   check(t('!climatologie', '') === null, '« !climatologie » n’est pas « !climat »');
   check(t('', '') === null && t(undefined, '') === null, 'commande vide : ignorée');
