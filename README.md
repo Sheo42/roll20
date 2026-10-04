@@ -12,6 +12,10 @@ officielles de Pathfinder 1e : le contour suit exactement les bordures des cases
 une diagonale sur deux compte double), pas un cercle approximatif. Les tailles sont données en cases, en pieds ou en
 mètres et sont converties en cases : l'échelle de la carte n'a aucune influence (5 ft = 1,5 m = 1 case).
 
+![Exemple : quatre gabarits en même temps](macro/gabarit-exemple.png)
+
+*Quatre gabarits en même temps sur une carte en mètres : cône droit de 18 m (rouge), cône diagonal de 6 m (vert), cône diagonal de 4,5 m (bleu) et cercle de 6 m (violet). Chacun a son Viseur, dont la flèche donne la direction.*
+
 **Installation**
 1. Coller `scripts/gabarit.js` dans un nouveau script API (Game Settings > API Scripts), enregistrer.
 2. Importer `macro/viseur.png` dans sa bibliothèque Roll20 (pas depuis le Marketplace), le placer sur la carte, le
