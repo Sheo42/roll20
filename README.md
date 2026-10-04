@@ -68,4 +68,4 @@ true and an empty or missing type is read as type "0" by the sheet worker (`getT
 "Mook Numbering" can wrongly number PC tokens (`Name 1`); see `!tokeninfo` and `!tokenwatch`.
 
 **Dossiers** : `scripts/` (scripts API), `tests/` (tests Node des scripts), `macro/` (macros et images associées).
-Les macros sont les fichiers `*.macro.txt` : leur contenu se colle tel quel dans une macro Roll20.
+Les macros sont les fichiers `*.macro.txt` : leur contenu se colle tel quel dans une macro Roll20. L'inventaire de ce que fait chaque macro et des scripts dont elle dépend est dans [`macro/README.md`](macro/README.md).
