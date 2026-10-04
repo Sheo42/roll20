@@ -35,7 +35,9 @@
  * ÉVÉNEMENT DU JOUR (d100)
  *    1 - 70   temps calme
  *   71 - 80   froid : vague de chaleur 30 % / de froid 70 %   tempéré : 50 % / 50 %
- *             désert : vent (toute la journée)
+ *             désert : vent
+ *             Une vague et le vent durent 3 jours (JOURS_VAGUE) : les jours 2 et 3 n'ont
+ *             pas de nouveau tirage et la ligne du jour indique « jour 2 sur 3 ».
  *   81 - 90   froid et tempéré : brouillard 30 %, pluie ou neige 60 %,
  *             grêle ou neige fondue 10 %   désert : vent
  *   91 - 99   tempête de 1 à 7 h (2d4 - 1) : tempête de sable en désert, tempête de
@@ -47,9 +49,9 @@
  *   1d3 x 30 cm de neige ; ouragan 24 ou 48 h d'impact ; tornade d6 x 10 minutes.
  *
  * PHÉNOMÈNES DANS LA JOURNÉE
- *   Un phénomène commence à une phase tirée au hasard (le brouillard : toujours le
- *   matin ; orage et tornade : après-midi ou soir). S'il commence après le matin, la
- *   phase précédente affiche ses prémices. Sa durée en heures donne le nombre de phases
+ *   Un phénomène commence à une phase tirée au hasard (le brouillard : le matin ou le
+ *   soir, une chance sur deux). S'il commence après le matin, la phase précédente
+ *   affiche ses prémices. Sa durée en heures donne le nombre de phases
  *   qu'il occupe (6 h par phase) : un blizzard de 2 jours déborde donc sur le lendemain.
  *   Tant qu'un phénomène est en cours au lever, le jour n'a pas de nouveau tirage : le
  *   phénomène EST l'événement du jour, et la fin de journée est calme une fois fini.
@@ -61,8 +63,9 @@
  *
  * CONTINUITÉ ENTRE LES JOURS
  *   Après un jour agité (d100 > 70, ou phénomène en cours), le d100 du lendemain est tiré
- *   deux fois et on garde le plus haut : le mauvais temps tend à durer. Une vague qui suit
- *   une vague va dans le même sens.
+ *   deux fois et on garde le plus haut : le mauvais temps tend à durer. Les jours d'une
+ *   vague ou de vent ne comptent pas comme agités (ce sont des temps stables). Une vague
+ *   qui suit une vague va dans le même sens.
  *
  * Le script est un seul fichier, sans dépendance. Les tirages passent par une
  * fonction « rng(faces) » : randomInteger dans Roll20, un faux dé dans les tests.
@@ -77,6 +80,7 @@
   const TEMP_ORAGE = 20;     // >= : ouragan ou tornade (sinon cyclone)
   const VAGUE = 5;           // écart d'une vague de chaleur / de froid, en °C
   const HEURES_PHASE = 6;    // durée d'une phase de la journée
+  const JOURS_VAGUE = 3;     // durée d'une vague de chaleur / de froid et du vent du désert
 
   // ===================== DONNÉES =====================
   const MOIS = [
@@ -283,13 +287,15 @@
     }
   }
 
-  // Phase de départ (0 = matin ... 3 = nuit). Le brouillard se lève le matin, sans dé ;
-  // orage et tornade arrivent l'après-midi ou le soir ; le reste, n'importe quand.
+  // Phase de départ (0 = matin ... 3 = nuit). Le brouillard se forme le matin ou le soir
+  // (une chance sur deux) ; tout le reste peut arriver à n'importe quelle phase.
   function phaseDepart(ph, rng) {
-    if (ph.type === 'brouillard') return 0;
-    if (ph.type === 'orage' || ph.type === 'tornade') return rng(2);   // 1 ou 2
+    if (ph.type === 'brouillard') return rng(2) === 1 ? 0 : 2;
     return rng(NB_PHASES) - 1;
   }
+
+  // Vague de chaleur / de froid et vent du désert : ils durent JOURS_VAGUE jours, sans phases.
+  const estJournalier = (ph) => ph.type === 'vague' || ph.type === 'vent';
 
   // Nom du phénomène dans une phase, selon la température de CETTE phase.
   function etiquette(ph, temperature) {
@@ -302,6 +308,8 @@
       case 'sable': return 'tempête de sable';
       case 'orage': return ph.tornade ? 'orage et tornade' : 'orage';
       case 'trombes': return 'trombes d’eau';
+      case 'vague':
+      case 'vent': return 'calme';          // le jour est calme : la vague ou le vent figure en tête de ligne
       case 'brouillard': return 'brouillard';
       case 'precip': return temperature <= TEMP_GEL ? 'neige' : 'pluie';
       case 'fondue': return 'neige fondue';
@@ -320,30 +328,32 @@
     }
   }
 
-  // Évènement qui dure toute la journée : sert de préfixe à la ligne du jour (températures déjà corrigées).
-  function texteEvenementJour(evt) {
-    if (evt.cat === 'vague') {
-      return evt.sens > 0 ? 'Vague de chaleur (+' + VAGUE + ' °C)' : 'Vague de froid (-' + VAGUE + ' °C)';
-    }
-    return 'Venteux : vent ' + (evt.fort ? 'important (30 à 50 km/h)' : 'moyen (15 à 30 km/h)');
+  // Vague ou vent : sert de préfixe à la ligne de chacun de ses jours (températures déjà corrigées).
+  function texteEvenementJour(evt, numero) {
+    const base = evt.cat === 'vague'
+      ? (evt.sens > 0 ? 'Vague de chaleur (+' + VAGUE + ' °C)' : 'Vague de froid (-' + VAGUE + ' °C)')
+      : 'Venteux : vent ' + (evt.fort ? 'important (30 à 50 km/h)' : 'moyen (15 à 30 km/h)');
+    return base + ', jour ' + numero + ' sur ' + JOURS_VAGUE;
   }
 
   // ctx : { profil, base, ecart }. precedent : le résultat de la veille (ou null).
   // grille : une case par phase de toute la série (null = calme) ; partagée entre les jours
   // pour que les phénomènes débordent. Sans grille, le jour est isolé.
   // Ordre des tirages : aléa du jour (2 d4) ; d100 (+ un second si la veille était agitée), sauf si
-  // un phénomène est en cours au lever ; dés de l'évènement (sens de la vague, intensité du vent) ;
-  // d10 de la nuit ; si un phénomène naît : sa nature et sa durée (creerPhenomene), puis sa phase de départ.
+  // un phénomène, une vague ou un vent est en cours au lever ; dés de l'évènement (sens de la vague,
+  // intensité du vent) ; d10 de la nuit ; si un phénomène naît : sa nature et sa durée (creerPhenomene),
+  // puis sa phase de départ. Un jour « suite » (suite: true) n'a ni d100 ni nouveau phénomène.
   function genererJour(numero, ctx, rng, precedent, grille) {
     const g = grille || new Array(NB_PHASES).fill(null);
     const debutJour = (numero - 1) * NB_PHASES;
     const aleaJour = rng(4) + rng(4) - 5;
-    const enCours = g[debutJour] && g[debutJour].role === 'actif';
+    const enCours = g[debutJour] && g[debutJour].role === 'actif' ? g[debutJour].ph : null;
 
     let jet = null;
     let evt;
     if (enCours) {
-      evt = { cat: 'suite' };                  // le phénomène en cours est l'évènement du jour
+      // le phénomène (ou la vague, ou le vent) en cours est l'évènement du jour : pas de d100
+      evt = { cat: enCours.cat, sens: enCours.sens, fort: enCours.fort };
     } else {
       jet = rng(100);
       if (precedent && precedent.agite) jet = Math.max(jet, rng(100));
@@ -357,9 +367,15 @@
     let description = '';
     let tag = '';
     if (evt.cat === 'vague' || evt.cat === 'vent') {
-      tag = texteEvenementJour(evt);
-    } else if (CATS_PHENOMENE.indexOf(evt.cat) !== -1) {
+      let ph = enCours;
+      if (!ph) {                                // elle commence au lever et dure JOURS_VAGUE jours
+        ph = phenomene(evt.cat, JOURS_VAGUE * 24, '', { cat: evt.cat, sens: evt.sens, fort: evt.fort });
+        placer(g, debutJour, ph);
+      }
+      tag = texteEvenementJour(evt, Math.floor((debutJour - ph.debut) / NB_PHASES) + 1);
+    } else if (!enCours && CATS_PHENOMENE.indexOf(evt.cat) !== -1) {
       const ph = creerPhenomene(evt.cat, ctx.profil, tj, rng);
+      ph.cat = evt.cat;
       placer(g, debutJour + phaseDepart(ph, rng), ph);
       description = ph.texte;
     }
@@ -369,7 +385,7 @@
       let etat = 'calme';
       if (c && c.role === 'premices') {
         etat = 'prémices (' + c.ph.premices + ')';
-      } else if (c) {
+      } else if (c && !estJournalier(c.ph)) {
         etat = etiquette(c.ph, temps[i]);
         if (debutJour + i === g.length - 1 && c.ph.fin > g.length - 1) etat += ' (se poursuit)';
       }
@@ -386,7 +402,9 @@
       jet: jet,
       cat: evt.cat,
       sens: evt.sens,
-      agite: enCours ? true : jet > 70,
+      suite: Boolean(enCours),
+      // une vague ou un vent qui se prolonge ne rend pas le lendemain plus instable
+      agite: enCours ? !estJournalier(enCours) : jet > 70,
       temperatureJour: tj,
       temperatureNuit: tn,
       phases: phases,
