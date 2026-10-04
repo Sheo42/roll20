@@ -1,7 +1,7 @@
 # roll20
 My roll20 shit
 
-Copy/paste Climat.js into the API.
+Copy/paste scripts/Climat.js into the API.
 Use !climat in the chat to start it.
 
 ## Character tools (API scripts, GM only)
@@ -9,7 +9,7 @@ Use !climat in the chat to start it.
 Three small scripts to inspect a character's attributes from the server side, without opening its
 sheet in a browser. Opening a sheet from a session that did not receive the character's attributes
 makes the Pathfinder sheet recreate its default attributes, which leaves duplicates behind.
-Paste each file in a new API script (Game Settings > API Scripts), save, restart the sandbox.
+Paste each file from `scripts/` in a new API script (Game Settings > API Scripts), save, restart the sandbox.
 
 | Script | Command | Effect |
 | --- | --- | --- |
@@ -67,4 +67,4 @@ formes et nombres de cases, contours, puis le flux complet avec un faux Roll20. 
 campagne réelle.
 
 **Dossiers** : `scripts/` (scripts API), `tests/` (tests Node des scripts), `macro/` (macros et images associées).
-Les scripts plus anciens restent à la racine.
+Les macros sont les fichiers `*.macro.txt` : leur contenu se colle tel quel dans une macro Roll20.
