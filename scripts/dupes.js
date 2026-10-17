@@ -1,7 +1,7 @@
 // dupes.js - script API Roll20, LECTURE SEULE, réservé au MJ.
 // Usage dans le chat :
 //   !dupes Nom du Personnage          -> résumé + liste des doublons dont les valeurs DIFFÈRENT
-//   !dupes Nom du Personnage tout     -> idem + noms des doublons identiques
+//   !dupes Nom du Personnage all      -> idem + noms des doublons identiques
 //
 // Pour chaque nom d'attribut présent plusieurs fois sur le personnage, compare les
 // exemplaires (valeur courante et max). Les ids Roll20 sont des "push ids" Firebase:
@@ -53,9 +53,9 @@
 
     var args = msg.content.replace(/^!dupes\s*/, '').trim();
     var showAll = false;
-    if (/\s+tout$/i.test(args)) { showAll = true; args = args.replace(/\s+tout$/i, '').trim(); }
+    if (/\s+all$/i.test(args)) { showAll = true; args = args.replace(/\s+all$/i, '').trim(); }
     var name = args.toLowerCase();
-    if (!name) { reply('Usage : !dupes nom du personnage [tout]'); return; }
+    if (!name) { reply('Usage : !dupes nom du personnage [all]'); return; }
 
     var chars = findObjs({ _type: 'character' }).filter(function (c) {
       return (c.get('name') || '').toLowerCase() === name;

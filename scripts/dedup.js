@@ -2,7 +2,7 @@
 //
 // Usage dans le chat :
 //   !dedup Nom du Personnage                 -> ESSAI À BLANC: ne supprime rien, annonce ce qui serait supprimé
-//   !dedup Nom du Personnage confirmer 703   -> supprime, SEULEMENT si le nombre (703) est encore exact
+//   !dedup Nom du Personnage confirm 703   -> supprime, SEULEMENT si le nombre (703) est encore exact
 //
 // Pour chaque nom d'attribut présent plusieurs fois sur le personnage:
 //   - l'exemplaire le plus ANCIEN est toujours conservé (ordre des ids = ordre de création);
@@ -79,10 +79,10 @@
 
     var args = msg.content.replace(/^!dedup\s*/, '').trim();
     var confirmCount = null;
-    var m = args.match(/\s+confirmer\s+(\d+)$/i);
-    if (m) { confirmCount = parseInt(m[1], 10); args = args.replace(/\s+confirmer\s+\d+$/i, '').trim(); }
+    var m = args.match(/\s+confirm\s+(\d+)$/i);
+    if (m) { confirmCount = parseInt(m[1], 10); args = args.replace(/\s+confirm\s+\d+$/i, '').trim(); }
     var name = args.toLowerCase();
-    if (!name) { reply('Usage : !dedup nom du personnage [confirmer N]'); return; }
+    if (!name) { reply('Usage : !dedup nom du personnage [confirm N]'); return; }
 
     var chars = findObjs({ _type: 'character' }).filter(function (c) { return (c.get('name') || '').toLowerCase() === name; });
     if (chars.length !== 1) { reply(chars.length ? 'Plusieurs personnages portent ce nom, abandon.' : 'Aucun personnage nommé ' + clean(name) + '.'); return; }
@@ -100,7 +100,7 @@
     if (plan.skipped.other.length) info.push('à vérifier : ' + plan.skipped.other.slice(0, 10).map(function (s) { return clean(s, 40); }).join(', '));
 
     if (confirmCount === null) {
-      info.push(n ? 'ESSAI À BLANC : rien n\'a été supprimé. Pour supprimer : <b>!dedup ' + clean(c.get('name')) + ' confirmer ' + n + '</b>' : 'Rien à supprimer.');
+      info.push(n ? 'ESSAI À BLANC : rien n\'a été supprimé. Pour supprimer : <b>!dedup ' + clean(c.get('name')) + ' confirm ' + n + '</b>' : 'Rien à supprimer.');
       reply(info.join('<br>'));
       return;
     }

@@ -1,7 +1,7 @@
 // abilityfix.js - script API Roll20, réservé au MJ. MODIFIE des attributs, avec garde-fous.
 //
 //   !abilityfix <personnage>              -> ESSAI À BLANC: ne modifie rien, annonce ce qui serait modifié
-//   !abilityfix <personnage> confirmer N  -> modifie, SEULEMENT si le nombre N est encore exact
+//   !abilityfix <personnage> confirm N  -> modifie, SEULEMENT si le nombre N est encore exact
 //
 // Cause vérifiée (code de la feuille Pathfinder Community, PFAbility.getTopOfMenu, et test sur une copie):
 // une capacité dont "showinmenu" est vrai mais dont le type ("ability_type") est vide ou absent est lue
@@ -52,10 +52,10 @@
 
     var args = msg.content.replace(/^!abilityfix\s*/, '').trim();
     var confirmCount = null;
-    var m = args.match(/\s+confirmer\s+(\d+)$/i);
-    if (m) { confirmCount = parseInt(m[1], 10); args = args.replace(/\s+confirmer\s+\d+$/i, '').trim(); }
+    var m = args.match(/\s+confirm\s+(\d+)$/i);
+    if (m) { confirmCount = parseInt(m[1], 10); args = args.replace(/\s+confirm\s+\d+$/i, '').trim(); }
     var name = args.toLowerCase();
-    if (!name) { reply('Usage : !abilityfix nom du personnage [confirmer N]'); return; }
+    if (!name) { reply('Usage : !abilityfix nom du personnage [confirm N]'); return; }
 
     var chars = findObjs({ _type: 'character' }).filter(function (c) { return (c.get('name') || '').toLowerCase() === name; });
     if (chars.length !== 1) { reply(chars.length ? 'Plusieurs personnages portent ce nom, abandon.' : 'Aucun personnage nommé ' + clean(name) + '.'); return; }
@@ -67,7 +67,7 @@
     if (n) info.push('lignes : ' + plan.targets.slice(0, 25).map(function (t) { return t.row + ' (type ' + t.type + ')'; }).join(', '));
 
     if (confirmCount === null) {
-      info.push(n ? 'ESSAI À BLANC : rien n\'a été modifié. Pour appliquer : <b>!abilityfix ' + clean(c.get('name')) + ' confirmer ' + n + '</b>' : 'Rien à corriger.');
+      info.push(n ? 'ESSAI À BLANC : rien n\'a été modifié. Pour appliquer : <b>!abilityfix ' + clean(c.get('name')) + ' confirm ' + n + '</b>' : 'Rien à corriger.');
       reply(info.join('<br>'));
       return;
     }
