@@ -89,6 +89,28 @@ Paste each file from `scripts/` in a new API script (Game Settings > API Scripts
 kept one. It never touches `repeating_` sections. Run `dupes.js` first to pick the window, and
 duplicate the character beforehand if you want a backup.
 
+## Murs et portes d'une carte Dungeon Painter Studio (dps-walls)
+
+`scripts/dps-walls.js` trace les barrières d'éclairage dynamique et les portes Roll20 à partir d'une seule ligne de
+chat. Cette ligne est écrite par le générateur de cartes DPS (`DPSMap.roll20_command()` dans `dps_lib.py`, hors de ce
+dépôt) : les murs tombent donc exactement sur l'image de la carte. Coordonnées en cases ; les parties Jumpgate
+reçoivent des objets `pathv2`, les anciennes des chemins classiques.
+
+**Installation** : coller `scripts/dps-walls.js` dans un nouveau script API et enregistrer.
+
+**Utilisation (MJ)** : Create Page > Upload Background avec le JPG exporté (Roll20 dimensionne la page d'après
+l'image), rester sur cette page, puis coller dans le chat la ligne du fichier `.roll20.txt` de la carte.
+
+| Commande | Effet |
+| --- | --- |
+| `!dpswalls size=42x42 ; W:x,y x,y ... ; T:... ; O:... ; D:x,y x,y ; S:x,y x,y` | Sur la page où se trouve le MJ : fixe la taille, trace les murs (`W`, bloquent vue et déplacement), barrières transparentes (`T`, bloquent seulement le déplacement), barrières à sens unique (`O`), portes fermées (`D`) et portes secrètes (`S`). Relancée, elle remplace ce qu'elle avait tracé. Pas de crochets : Roll20 lirait `[[` comme un jet en ligne. |
+| `!dpswalls clear` | Efface les murs et portes qu'elle a tracés sur la page. |
+| `!dpswalls img <url>` | Pose une image de ta bibliothèque sur le calque carte, à la taille de la page. |
+
+**Tests** : `node tests/dps-walls.test.js` (Node, sans dépendance) : lecture de la commande, géométrie pathv2, chemin
+classique et porte (axe y inversé pour les portes), puis flux complet avec un faux Roll20. Essayé sur la carte de
+l'Ermitage de la Lame Veillante dans la vraie campagne.
+
 ## Slow page after editing a token of a PC
 
 Symptom: renaming or editing a token that represents a Pathfinder Community character freezes the page for a long

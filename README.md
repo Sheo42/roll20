@@ -87,6 +87,27 @@ Paste each file from `scripts/` in a new API script (Game Settings > API Scripts
 kept one. It never touches `repeating_` sections. Run `dupes.js` first to pick the window, and
 duplicate the character beforehand if you want a backup.
 
+## Walls and doors from a Dungeon Painter Studio map (dps-walls)
+
+`scripts/dps-walls.js` draws Roll20 dynamic-lighting barriers and doors from one chat line. The line is written by
+the DPS map generator (`DPSMap.roll20_command()` in `dps_lib.py`, kept outside this repo), so the walls match the
+map image exactly. Coordinates are in squares; Jumpgate games get `pathv2` objects, older games classic paths.
+
+**Installation**: paste `scripts/dps-walls.js` into a new API script and save.
+
+**Use (GM)**: Create Page > Upload Background with the exported JPG (Roll20 sizes the page from it), stay on that
+page, then paste the map's `.roll20.txt` line in the chat.
+
+| Command | Effect |
+| --- | --- |
+| `!dpswalls size=42x42 ; W:x,y x,y ... ; T:... ; O:... ; D:x,y x,y ; S:x,y x,y` | On the GM's current page: sets the size, draws walls (`W`, block sight and movement), transparent barriers (`T`, block movement only), one-way barriers (`O`), closed doors (`D`) and secret doors (`S`). Running it again replaces what it drew before. No brackets: Roll20 would read `[[` as an inline roll. |
+| `!dpswalls clear` | Removes the walls and doors it drew on the page. |
+| `!dpswalls img <url>` | Puts an image from your library on the map layer, page-sized. |
+
+**Tests**: `node tests/dps-walls.test.js` (Node, no dependency): parsing, pathv2/legacy path/door geometry (doors use
+an inverted y axis), then the full flow with a fake Roll20. Tried on the Ermitage de la Lame Veillante map in the
+real campaign.
+
 ## Slow page after editing a token of a PC
 
 Symptom: renaming or editing a token that represents a Pathfinder Community character freezes the page for a long
