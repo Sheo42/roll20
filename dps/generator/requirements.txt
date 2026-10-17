@@ -1,0 +1,3 @@
+pillow          # render_preview.py, measure_sizes.py
+numpy           # verify_export.py
+opencv-python   # verify_export.py

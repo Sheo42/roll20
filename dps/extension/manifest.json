@@ -1,0 +1,99 @@
+{
+  "manifest_version": "0.3",
+  "name": "dps-maps",
+  "display_name": "DPS Maps",
+  "version": "0.2.0",
+  "description": "Search your Dungeon Painter Studio asset library, look at assets, read and save .dps maps, and preview them from the real assets.",
+  "long_description": "Tools for making Dungeon Painter Studio battle maps with Claude: search the installed asset packs (with sizes in squares), get numbered picture sheets of assets, list and read the maps in your Maps folder, save new maps (existing maps are never overwritten) and render a preview of a .dps map from the real asset images, with Roll20 walls drawn on top if wanted.",
+  "author": {
+    "name": "Sheo42",
+    "url": "https://github.com/Sheo42/roll20"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/server/index.js"
+      ],
+      "env": {
+        "DPS_INSTALL": "${user_config.dps_install}",
+        "DPS_MAPS_DIR": "${user_config.maps_dir}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "dps_info",
+      "description": "Configuration and asset library summary"
+    },
+    {
+      "name": "dps_find_assets",
+      "description": "Search assets by words, kind and collection, with sizes in squares"
+    },
+    {
+      "name": "dps_asset_sheet",
+      "description": "Numbered picture sheet of assets with a square grid"
+    },
+    {
+      "name": "dps_list_maps",
+      "description": "List maps, exports and Roll20 wall lines in the Maps folder"
+    },
+    {
+      "name": "dps_read_map",
+      "description": "Read a .dps map (summary or full JSON)"
+    },
+    {
+      "name": "dps_write_file",
+      "description": "Save a new .dps map or .roll20.txt line (never overwrites your maps)"
+    },
+    {
+      "name": "dps_preview",
+      "description": "Render a .dps map from the real assets, optionally with Roll20 walls"
+    },
+    {
+      "name": "dps_reindex",
+      "description": "Rescan the asset library"
+    },
+    {
+      "name": "dps_window",
+      "description": "DPS window geometry (no input sent)"
+    },
+    {
+      "name": "dps_export",
+      "description": "Open a map in DPS and export its JPG (takes mouse and keyboard briefly)"
+    }
+  ],
+  "user_config": {
+    "dps_install": {
+      "type": "directory",
+      "title": "Dungeon Painter Studio folder",
+      "description": "The DPS install folder (it contains data\\collections).",
+      "default": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Dungeon Painter Studio",
+      "required": true
+    },
+    "maps_dir": {
+      "type": "directory",
+      "title": "Maps folder",
+      "description": "Where your .dps maps and exports are saved.",
+      "default": "${HOME}/Documents",
+      "required": true
+    }
+  },
+  "compatibility": {
+    "platforms": [
+      "win32",
+      "darwin",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Sheo42/roll20"
+  }
+}

@@ -1,0 +1,342 @@
+{
+"data/collections/FA - Builders Pack/objects/Doors/Metal Double Door 2x2": [
+3.0,
+4.0
+],
+"data/collections/FA - Builders Pack/objects/Pillars/Circular Pillar B.png": [
+1.0,
+1.0
+],
+"data/collections/FA - Builders Pack/objects/Pillars/Square Pillar B.png": [
+1.0,
+1.0
+],
+"data/collections/FA - Builders Pack/objects/Stairs - Rock/Stairs_Corner-In_Rock_A_01.png": [
+1.0,
+1.0
+],
+"data/collections/FA - Builders Pack/objects/Stairs - Rock/Stairs_Corner-Out_Rock_A_01.png": [
+2.0,
+2.0
+],
+"data/collections/FA - Builders Pack/objects/Stairs - Rock/Stairs_Platform_Rock_A_01.png": [
+1.0,
+1.0
+],
+"data/collections/FA - Builders Pack/objects/Stairs - Rock/Stairs_Rock_A_01.png": [
+1.0,
+3.0
+],
+"data/collections/FA - Builders Pack/objects/Stairs - Rock/Stairs_Rock_B_01.png": [
+1.0,
+2.0
+],
+"data/collections/FA - Builders Pack/objects/Stairs - Rock/Stairs_Rock_C_01": [
+3.0,
+2.0
+],
+"data/collections/FA - Builders Pack/objects/Stairs - Rock/Stairs_Rock_D_01.png": [
+1.0,
+1.0
+],
+"data/collections/FA - Builders Pack/objects/Stairs - Rock/Stairs_Rock_E_01.png": [
+1.0,
+1.0
+],
+"data/collections/FA - Builders Pack/objects/Stairs - Rock/Stairs_Rock_F_01.png": [
+1.0,
+1.0
+],
+"data/collections/FA - Builders Pack/objects/Stairs - Rock/Stairs_Turn_Rock_A_01.png": [
+1.0,
+2.0
+],
+"data/collections/FA - Builders Pack/objects/Stairs - Rock/Stairs_Turn_Rock_A_02.png": [
+1.0,
+2.0
+],
+"data/collections/FA - Builders Pack/objects/Stairs - Rock/Stairs_Turn_Rock_B_01": [
+1.0,
+2.0
+],
+"data/collections/FA - Builders Pack/objects/Stairs - Rock/Stairs_Turn_Rock_B_02.png": [
+1.0,
+2.0
+],
+"data/collections/FA - Builders Pack/objects/Stairs - Rock/Stairs_Turn_Rock_C_01.png": [
+2.0,
+2.0
+],
+"data/collections/FA - Builders Pack/objects/Stairs - Rock/Stairs_Turn_Rock_C_02.png": [
+2.0,
+2.0
+],
+"data/collections/FA - Builders Pack/objects/Stairs - Rock/Stairs_Turn_Rock_D_01": [
+4.0,
+6.0
+],
+"data/collections/FA - Builders Pack/objects/Stairs - Rock/Stairs_Turn_Rock_D_02": [
+2.0,
+3.0
+],
+"data/collections/FA - Builders Pack/walls/Brick/Brick-A-wall.png": [
+8.25,
+0.36
+],
+"data/collections/FA - Builders Pack/walls/Brick/Brick-B-wall.png": [
+8.25,
+0.31
+],
+"data/collections/FA - Builders Pack/walls/Rock/Rock-1-wall.png": [
+4.95,
+0.29
+],
+"data/collections/FA - Builders Pack/walls/Rock/Rock-2-wall.png": [
+2.44,
+0.27
+],
+"data/collections/FA - Builders Pack/walls/Solid/Solid-A-wall.png": [
+8.25,
+0.27
+],
+"data/collections/FA - Builders Pack/walls/Wood/Wood-A-wall.png": [
+8.25,
+0.23
+],
+"data/collections/FA - Builders Pack/walls/Wood/Wood-B-wall.png": [
+8.25,
+0.17
+],
+"data/collections/FA - Castles/floors/Castle Textures/Castle Rock Tiles Dirty Texture": [
+3.0,
+3.0
+],
+"data/collections/FA - Castles/objects/Towers/Castle - Tower - Round- 5x5 - A.png": [
+5.0,
+5.0
+],
+"data/collections/FA - Castles/objects/Towers/Castle - Tower - Round- 6x6 - A": [
+4.0,
+4.0
+],
+"data/collections/FA - Castles/objects/Towers/Castle - Tower Stairs - 3x3 - A.png": [
+3.0,
+3.0
+],
+"data/collections/FA - Castles/objects/Towers/Castle - Tower Stairs - 3x3 - B.png": [
+3.0,
+3.0
+],
+"data/collections/FA - Castles/objects/Towers/Castle - Tower Stairs - 3x3 - C.png": [
+3.0,
+3.0
+],
+"data/collections/FA - Castles/objects/Towers/Castle - Tower Stairs - 3x3 - D.png": [
+3.0,
+3.0
+],
+"data/collections/FA - Castles/objects/Towers/Castle - Tower Stairs - 3x3 - E.png": [
+3.0,
+3.0
+],
+"data/collections/FA - Castles/objects/Towers/Castle - Tower Stairs Round - 3x3 - A.png": [
+3.0,
+3.0
+],
+"data/collections/FA - Castles/objects/Towers/Castle - Tower Stairs Round - 3x3 - B.png": [
+3.0,
+3.0
+],
+"data/collections/FA - Castles/objects/Towers/Castle - Tower Stairs Round - 3x3 - C.png": [
+3.0,
+3.0
+],
+"data/collections/FA - Dungeon Decor/objects/Altars/Altar_Runner_B_Red": [
+3.0,
+2.0
+],
+"data/collections/FA - Dungeon Decor/objects/Altars/Altar_Stone_A_01": [
+4.0,
+2.0
+],
+"data/collections/FA - Dungeon Decor/objects/Altars/Altar_Stone_C_01.png": [
+2.0,
+1.0
+],
+"data/collections/FA - Dungeon Decor/objects/Altars/Altar_Stone_D_01.png": [
+2.0,
+1.0
+],
+"data/collections/FA - Dungeon Decor/objects/Altars/Altar_Stone_F_01.png": [
+2.0,
+1.0
+],
+"data/collections/FA - Dungeon Decor/objects/Altars/Platform_Stone_A1_01.png": [
+4.0,
+4.0
+],
+"data/collections/FA - Dungeon Decor/objects/Altars/Platform_Stone_B3_02": [
+5.0,
+5.0
+],
+"data/collections/FA - Dungeon Decor/objects/Book_Stands/BookStand_Stone_A1_01": [
+2.0,
+2.0
+],
+"data/collections/FA - Dungeon Decor/objects/Braziers/Brazier_A3_01.png": [
+1.0,
+1.0
+],
+"data/collections/FA - Dungeon Decor/objects/Braziers/Brazier_B3_01.png": [
+1.0,
+1.0
+],
+"data/collections/FA - Dungeon Decor/objects/Braziers/Brazier_C3_01.png": [
+1.0,
+1.0
+],
+"data/collections/FA - Dungeon Decor/objects/Pillars/Stone_Pillar_A2_01": [
+2.0,
+2.0
+],
+"data/collections/FA - Dungeon Decor/objects/Pillars/Stone_Pillar_A_01.png": [
+1.0,
+1.0
+],
+"data/collections/FA - Dungeon Decor/objects/Pillars/Stone_Pillar_B_05.png": [
+1.0,
+1.0
+],
+"data/collections/FA - Dungeon Decor/objects/Pillars/Stone_Pillar_C_01.png": [
+1.0,
+1.0
+],
+"data/collections/FA - Dungeon_Decor_Rubble/objects/Stone/Rubble_Pile_Stone_Earthy_A10_2x2.png": [
+2.0,
+2.0
+],
+"data/collections/FA - Dungeon_Decor_Rubble/objects/Stone/Rubble_Pile_Stone_Earthy_A17_3x3.png": [
+3.0,
+3.0
+],
+"data/collections/FA - Dungeon_Decor_Rubble/objects/Stone/Rubble_Pile_Stone_Earthy_A22_4x3.png": [
+4.0,
+3.0
+],
+"data/collections/FA - Dungeon_Decor_Rubble/objects/Stone/Rubble_Pile_Stone_Earthy_A29_3x2.png": [
+3.0,
+2.0
+],
+"data/collections/FA - Dungeons v2/objects/Walls & Doors/Dungeon_Wooden_Door_1x2_A [dungeon,tiles,tile].png": [
+1.0,
+2.0
+],
+"data/collections/FA - Dungeons v2/objects/Walls & Doors/Dungeon_Wooden_Double_Door_2x2_A [dungeon,tiles,tile].png": [
+2.0,
+2.0
+],
+"data/collections/FA - Dungeons v2/objects/Walls & Doors/Dungeon_Wooden_Double_Door_2x2_B [dungeon,tiles,tile].png": [
+2.0,
+2.0
+],
+"data/collections/FA - Graveyards/objects/Tombs/Stone Tomb Open 2x3.png": [
+2.0,
+3.0
+],
+"data/collections/FA - Graveyards/objects/Tombs/Stone Tomb Runes Lid 1x2": [
+2.0,
+4.0
+],
+"data/collections/FA - Graveyards/objects/Tombstones/Tombstone Lean 1x1 A.png": [
+1.0,
+1.0
+],
+"data/collections/FA - Interior Props/objects/Chests/Chest - Wood - A - Dark.png": [
+1.0,
+1.0
+],
+"data/collections/FA - Interior Props/objects/Chests/Chest - Wood - D - Light.png": [
+1.0,
+1.0
+],
+"data/collections/FA - Lakes and Rivers/objects/Water Rocks/Water Rock 1.png": [
+5.0,
+5.0
+],
+"data/collections/FA - Lakes and Rivers/objects/Water Rocks/Water Rock 10.png": [
+6.0,
+6.0
+],
+"data/collections/FA - Lakes and Rivers/objects/Water Rocks/Water Rock 5.png": [
+6.0,
+6.0
+],
+"data/collections/FA - Textures/floors/Texture Pack 1/Floor Rock Tiles 2 8x8": [
+8.0,
+8.0
+],
+"data/collections/FA - Textures/floors/Texture Pack 1/Grass Jungle 8x8": [
+8.0,
+8.0
+],
+"data/collections/FA - Textures/floors/Texture Pack 1/Gravel 8x8": [
+8.0,
+8.0
+],
+"data/collections/FA - Textures/floors/Texture Pack 1/Rock Cracks 8x8": [
+8.0,
+8.0
+],
+"data/collections/FA - Textures/floors/Texture Pack 1/Rock Smooth 8x8": [
+8.0,
+8.0
+],
+"data/collections/FA - Textures/floors/Texture Pack 1/Rocky Floor": [
+6.0,
+6.0
+],
+"data/collections/FA - Textures/floors/Texture Pack 1/Sand 8x8": [
+8.0,
+8.0
+],
+"data/collections/FA - Textures/floors/Texture Pack 1/Water 8x8": [
+8.0,
+8.0
+],
+"data/collections/FA - Textures/floors/Texture Pack 3/Rock Tiles A": [
+3.0,
+3.0
+],
+"data/collections/FA - Textures/floors/Texture Pack 4/Cracked_Dirt_01": [
+5.0,
+5.0
+],
+"data/collections/FA - Textures/floors/Texture Pack 4/Dirt_A_01": [
+5.0,
+5.0
+],
+"data/collections/FA - Textures/floors/Texture Pack 5/Marble_Tiles_B_02": [
+5.0,
+5.0
+],
+"data/collections/FA - Textures/floors/Texture Pack 5/Still_Water_A_01": [
+7.0,
+7.0
+],
+"data/collections/FA - Textures/floors/Texture Pack 5/Still_Water_C_01": [
+7.0,
+7.0
+],
+"data/collections/FA - Textures/floors/Texture Pack 5/Still_Water_D_01": [
+7.0,
+7.0
+],
+"data/collections/FA - Weapons/objects/Weapons/Greatsword_01.png": [
+1.0,
+2.0
+],
+"data/collections/FA - Weapons/objects/Weapons/Longsword_01.png": [
+1.0,
+2.0
+]
+}

@@ -87,11 +87,17 @@ Paste each file from `scripts/` in a new API script (Game Settings > API Scripts
 kept one. It never touches `repeating_` sections. Run `dupes.js` first to pick the window, and
 duplicate the character beforehand if you want a backup.
 
+## Dungeon Painter Studio maps
+
+[`dps/`](dps) holds the tools to make Dungeon Painter Studio battle maps with code and with Claude: a Python generator
+that writes native `.dps` maps, and "DPS Maps", a Claude desktop extension (MCP server) that searches the installed
+asset library, previews maps from the real assets and drives DPS to export the JPG. See [`dps/README.md`](dps/README.md).
+
 ## Walls and doors from a Dungeon Painter Studio map (dps-walls)
 
 `scripts/dps-walls.js` draws Roll20 dynamic-lighting barriers and doors from one chat line. The line is written by
-the DPS map generator (`DPSMap.roll20_command()` in `dps_lib.py`, kept outside this repo), so the walls match the
-map image exactly. Coordinates are in squares; Jumpgate games get `pathv2` objects, older games classic paths.
+the DPS map generator (`DPSMap.roll20_command()` in [`dps/generator/dps_lib.py`](dps/generator/dps_lib.py)), so the
+walls match the map image exactly. Coordinates are in squares; Jumpgate games get `pathv2` objects, older games classic paths.
 
 **Installation**: paste `scripts/dps-walls.js` into a new API script and save.
 
@@ -116,6 +122,7 @@ true and an empty or missing type is read as type "0" by the sheet worker (`getT
 `!abilitycheck <character>`, then `!abilityfix <character>` (dry run first). A separate note: PFCompanion's
 "Mook Numbering" can wrongly number PC tokens (`Name 1`); see `!tokeninfo` and `!tokenwatch`.
 
-**Folders**: `scripts/` (API scripts), `tests/` (Node tests of the scripts), `macro/` (macros and related images).
+**Folders**: `scripts/` (API scripts), `tests/` (Node tests of the scripts), `macro/` (macros and related images),
+`dps/` (Dungeon Painter Studio map tools).
 The macros are the `*.macro.txt` files: their content is pasted as is into a Roll20 macro. What each macro does and
 which scripts it depends on is listed in [`macro/README.md`](macro/README.md) (in French).

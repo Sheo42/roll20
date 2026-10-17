@@ -89,11 +89,18 @@ Paste each file from `scripts/` in a new API script (Game Settings > API Scripts
 kept one. It never touches `repeating_` sections. Run `dupes.js` first to pick the window, and
 duplicate the character beforehand if you want a backup.
 
+## Cartes Dungeon Painter Studio
+
+[`dps/`](dps) contient les outils pour créer des cartes Dungeon Painter Studio par code et avec Claude : un générateur
+Python qui écrit des cartes `.dps` natives, et « DPS Maps », une extension de l'application Claude (serveur MCP) qui
+cherche dans la bibliothèque d'assets installée, prévisualise les cartes avec les vrais assets et pilote DPS pour
+exporter le JPG. Documentation (en anglais) : [`dps/README.md`](dps/README.md).
+
 ## Murs et portes d'une carte Dungeon Painter Studio (dps-walls)
 
 `scripts/dps-walls.js` trace les barrières d'éclairage dynamique et les portes Roll20 à partir d'une seule ligne de
-chat. Cette ligne est écrite par le générateur de cartes DPS (`DPSMap.roll20_command()` dans `dps_lib.py`, hors de ce
-dépôt) : les murs tombent donc exactement sur l'image de la carte. Coordonnées en cases ; les parties Jumpgate
+chat. Cette ligne est écrite par le générateur de cartes DPS (`DPSMap.roll20_command()` dans
+[`dps/generator/dps_lib.py`](dps/generator/dps_lib.py)) : les murs tombent donc exactement sur l'image de la carte. Coordonnées en cases ; les parties Jumpgate
 reçoivent des objets `pathv2`, les anciennes des chemins classiques.
 
 **Installation** : coller `scripts/dps-walls.js` dans un nouveau script API et enregistrer.
@@ -119,5 +126,6 @@ true and an empty or missing type is read as type "0" by the sheet worker (`getT
 `!abilitycheck <character>`, then `!abilityfix <character>` (dry run first). A separate note: PFCompanion's
 "Mook Numbering" can wrongly number PC tokens (`Name 1`); see `!tokeninfo` and `!tokenwatch`.
 
-**Dossiers** : `scripts/` (scripts API), `tests/` (tests Node des scripts), `macro/` (macros et images associées).
+**Dossiers** : `scripts/` (scripts API), `tests/` (tests Node des scripts), `macro/` (macros et images associées),
+`dps/` (outils de cartes Dungeon Painter Studio).
 Les macros sont les fichiers `*.macro.txt` : leur contenu se colle tel quel dans une macro Roll20. L'inventaire de ce que fait chaque macro et des scripts dont elle dépend est dans [`macro/README.md`](macro/README.md).

@@ -1,0 +1,23 @@
+{
+  "_comment": "Default DPS click points, physical pixels, for a maximized DPS window on a 2560x1440 screen at 100% scaling. from=topleft: offset from the client area's top-left; from=center: from its centre. Override with <Maps folder>/_dps_tools/mcp/dps_ui.json (recalibrate with the dps_window tool).",
+  "open": {
+    "from": "topleft",
+    "x": 137,
+    "y": 14
+  },
+  "export": {
+    "from": "topleft",
+    "x": 891,
+    "y": 12
+  },
+  "confirm_ok": {
+    "from": "center",
+    "x": 65,
+    "y": 47
+  },
+  "create_jpg": {
+    "from": "center",
+    "x": 200,
+    "y": 319
+  }
+}

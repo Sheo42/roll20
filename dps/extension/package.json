@@ -1,0 +1,24 @@
+{
+  "name": "dps-maps",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Claude desktop extension (MCP server) for Dungeon Painter Studio: asset search, picture sheets, map files, previews and JPG export.",
+  "license": "MIT",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node test/client.test.js",
+    "build": "node build.js",
+    "test:bundle": "node test/client.test.js pkg/server/index.js",
+    "pack": "node build.js && node test/client.test.js pkg/server/index.js && mcpb pack pkg dps-maps.mcpb"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "jpeg-js": "^0.4.4",
+    "pngjs": "^7.0.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@anthropic-ai/mcpb": "^2.1.2",
+    "esbuild": "^0.28.2"
+  }
+}
