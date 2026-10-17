@@ -18,7 +18,7 @@ mètres et sont converties en cases : l'échelle de la carte n'a aucune influenc
 **Installation**
 1. Coller `scripts/gabarit.js` dans un nouveau script API (Game Settings > API Scripts), enregistrer.
 2. Importer `macro/viseur.png` dans sa bibliothèque Roll20 (pas depuis le Marketplace), le placer sur la carte, le
-   sélectionner puis taper `!gabarit viseurimg` (MJ). Sans cela, le script utilise une image de secours teintée en rouge.
+   sélectionner puis taper `!gabarit aimerimg` (MJ). Sans cela, le script utilise une image de secours teintée en rouge.
 3. Créer une macro « Gabarit », visible par tous, avec le contenu de `macro/gabarit.macro.txt`.
 
 **Utilisation (joueur)** : sélectionner son token, cliquer sur « Gabarit », choisir la forme et la taille dans les
@@ -31,12 +31,12 @@ listes. Un Viseur (un par gabarit, de la couleur du gabarit) apparaît près du 
 
 | Commande | Effet |
 | --- | --- |
-| `!gabarit lancer <id lanceur> <forme> <taille> [couleur=feu] [duree=60]` | Crée le gabarit et son Viseur. Formes : `burst`, `conedroit`, `conediag`, `ligne`, `emanation`. Taille : `4c` (cases), `6m`, `20ft` ou `20`. |
+| `!gabarit cast <id lanceur> <forme> <taille> [color=fire] [duration=60]` | Crée le gabarit et son Viseur. Formes : `burst`, `straightcone` (cône droit), `diagcone` (cône diagonal), `cone`, `line`, `emanation`. Taille : `4sq` (cases), `6m`, `20ft` ou `20`. Couleurs : `fire`, `cold`, `acid`, `electricity`, `sonic`, `force`, `negative`, `neutral`. |
 | `!gabarit clear [gN]` | Efface un gabarit, ou tous ceux du joueur. |
-| `!gabarit clear tout` | MJ : efface tous les gabarits. |
-| `!gabarit viseurimg` | MJ : enregistre le token sélectionné comme image du Viseur. |
+| `!gabarit clear all` | MJ : efface tous les gabarits. |
+| `!gabarit aimerimg` | MJ : enregistre le token sélectionné comme image du Viseur. |
 
-**Tests** : `node tests/gabarit.test.js` (Node, sans dépendance) lance 214 vérifications : conversion des tailles,
+**Tests** : `node tests/gabarit.test.js` (Node, sans dépendance) lance 228 vérifications : conversion des tailles,
 formes et nombres de cases, contours, puis le flux complet avec un faux Roll20. Ils n'ont pas remplacé un essai en
 campagne réelle.
 
@@ -59,12 +59,31 @@ Créer la macro « Climat » avec le contenu de `macro/Climat.macro.txt` (`!clim
 | --- | --- |
 | `!climat` | Boutons de niveau de chaleur. |
 | `!region <niveau>` | Boutons des mois pour ce niveau. |
-| `!RollClimat <niveau> <mois> [jours]` | Tire la météo (ex. `!RollClimat froid neth 3`). L'ordre des arguments est libre. |
+| `!RollClimat <niveau> <mois> [jours]` | Tire la météo (ex. `!RollClimat cold neth 3`). L'ordre des arguments est libre. |
 
-Les identifiants de niveau sont `tresfroid`, `froid`, `tempere`, `chaud` et `treschaud` ; les mois portent leurs noms golarions (Abadius, Calistril, Pharast...).
+Les identifiants de niveau, en anglais, sont `verycold`, `cold`, `temperate`, `hot` et `veryhot` ; les mois portent leurs noms golarions (Abadius, Calistril, Pharast...).
 
-**Tests** : `node tests/Climat.test.js` (Node, sans dépendance) lance 305 vérifications : dés scriptés, propriétés statistiques
+**Tests** : `node tests/Climat.test.js` (Node, sans dépendance) lance 306 vérifications : dés scriptés, propriétés statistiques
 sur des dizaines de milliers de jours, puis le flux complet avec un faux Roll20. Ils n'ont pas remplacé un essai en partie réelle.
+
+## Synchroniser les scripts API avec GitHub (userscript)
+
+`sync/roll20-github-sync.user.js` ajoute un bouton « ⟳ GitHub » sur la page des scripts API de Roll20
+(`app.roll20.net/campaigns/scripts/<campagne>`). Il lit les fichiers `.js` de `scripts/` au dernier commit de `main`
+et associe chacun à l'onglet de script Roll20 du même nom (casse, espaces, tirets et accents ignorés : « token
+tool.js » est `token-tool.js`). Le panneau indique pour chaque fichier : à jour, modifié (+lignes / -lignes) ou absent
+du jeu. « Mettre à jour la sélection » enregistre les fichiers cochés avec le bouton « Save Mod Script » de Roll20
+lui-même, un par chargement de page, et crée ceux à installer qui sont cochés. Après chaque rechargement, il vérifie
+que Roll20 a enregistré exactement le contenu du dépôt, et s'arrête au premier écart. Les scripts de la bibliothèque
+Roll20 (one-click) et les onglets sans fichier dans le dépôt ne sont jamais touchés. Chaque enregistrement redémarre
+le sandbox API, comme un enregistrement à la main.
+
+**Installation** : installer [Tampermonkey](https://www.tampermonkey.net/) dans le navigateur, puis ouvrir
+`https://raw.githubusercontent.com/Sheo42/roll20/main/sync/roll20-github-sync.user.js` : Tampermonkey propose de
+l'installer. Il se met ensuite à jour tout seul depuis la même adresse. Dans Chrome, Tampermonkey ne lance les scripts qu'après autorisation : `chrome://extensions` > Tampermonkey > Détails > activer « Autoriser les scripts utilisateur » (sur les anciennes versions de Chrome, activer plutôt le mode développeur). Le bouton apparaît en bas à droite de la page des scripts API.
+
+**Tests** : `node tests/sync.test.js` (noms, différences, plan, et la file enregistrement-rechargement-vérification
+avec une fausse page).
 
 ## Character tools (API scripts, GM only)
 
@@ -85,7 +104,7 @@ Paste each file from `scripts/` in a new API script (Game Settings > API Scripts
 | `attrscan.js` | `!attrscan Nom du Personnage [section]` | Read-only. Counts attributes, repeating-section rows (and empty ones), "macro" attributes, longest values and most frequent name prefixes. With a section name (for example `ability`), shows each field and its most frequent short values. |
 | `attrscan.js` | `!abilitycheck Nom du Personnage` | Read-only. Applies the Pathfinder Community sheet's own rule (`PFAbility.getTopOfMenu`): lists abilities shown in the menu (`showinmenu` true) whose `ability_type` is missing or not Ex/Sp/Su. Those rows make the sheet log `could not find top macro for 0` in a loop and slow the page down. |
 | `abilityfix.js` | `!abilityfix Nom du Personnage` then `!abilityfix Nom du Personnage confirm N` | Sets `showinmenu` to 0 on exactly those rows (they leave the chat ability menu, nothing else changes). Dry run by default; applies only with the exact count shown by the dry run. Try it on a duplicate of the character first. |
-| `pjstats.js` | `!pjstats Nom du Personnage [base armes dons objets sorts buffs]` | Read-only. Whispers the numbers that matter for a build review: classes, ability scores, HP, initiative, AC with its breakdown, saves, BAB, CMB/CMD, SR/DR, armor and shield, each weapon's attack, damage and critical range, feats, traits and class abilities, items, spells by level, and buffs (active ones marked). Reads all attributes in one `findObjs` pass. Sections are optional (default: all). Tests: `node tests/pjstats.test.js`. |
+| `pjstats.js` | `!pjstats Nom du Personnage [base weapons feats items spells buffs]` | Read-only. Whispers the numbers that matter for a build review: classes, ability scores, HP, initiative, AC with its breakdown, saves, BAB, CMB/CMD, SR/DR, armor and shield, each weapon's attack, damage and critical range, feats, traits and class abilities, items, spells by level, and buffs (active ones marked). Reads all attributes in one `findObjs` pass. Sections are optional (default: all). Tests: `node tests/pjstats.test.js`. |
 
 `dedup.js` keeps the oldest copy of every attribute and only removes recent copies created inside
 `WINDOW_FROM`..`WINDOW_TO` (UTC, edit them at the top of the file) that have the same value and max as the
@@ -129,6 +148,6 @@ true and an empty or missing type is read as type "0" by the sheet worker (`getT
 `!abilitycheck <character>`, then `!abilityfix <character>` (dry run first). A separate note: PFCompanion's
 "Mook Numbering" can wrongly number PC tokens (`Name 1`); see `!tokeninfo` and `!tokenwatch`.
 
-**Dossiers** : `scripts/` (scripts API), `tests/` (tests Node des scripts), `macro/` (macros et images associées),
+**Dossiers** : `scripts/` (scripts API), `tests/` (tests Node des scripts), `macro/` (macros et images associées), `sync/` (userscript qui synchronise les scripts API avec ce dépôt),
 `dps/` (outils de cartes Dungeon Painter Studio).
 Les macros sont les fichiers `*.macro.txt` : leur contenu se colle tel quel dans une macro Roll20. L'inventaire de ce que fait chaque macro et des scripts dont elle dépend est dans [`macro/README.md`](macro/README.md).

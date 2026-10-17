@@ -17,7 +17,7 @@ squares, so the map scale has no influence (5 ft = 1.5 m = 1 square).
 **Installation**
 1. Paste `scripts/gabarit.js` into a new API script (Game Settings > API Scripts) and save.
 2. Import `macro/viseur.png` into your Roll20 library (not from the Marketplace), place it on the map, select it, then
-   type `!gabarit viseurimg` (GM). Without this, the script uses a fallback image tinted red.
+   type `!gabarit aimerimg` (GM). Without this, the script uses a fallback image tinted red.
 3. Create a macro named "Gabarit", visible to all, with the content of `macro/gabarit.macro.txt`.
 
 **Use (player)**: select your token, click "Gabarit", then pick the shape and size from the lists. An Aimer (one per
@@ -30,12 +30,12 @@ template, in the template's color) appears next to the character.
 
 | Command | Effect |
 | --- | --- |
-| `!gabarit lancer <caster id> <shape> <size> [color=feu] [duree=60]` | Creates the template and its Aimer. Shapes: `burst`, `conedroit`, `conediag`, `ligne`, `emanation`. Size: `4c` (squares), `6m`, `20ft` or `20`. |
+| `!gabarit cast <caster id> <shape> <size> [color=fire] [duration=60]` | Creates the template and its Aimer. Shapes: `burst`, `straightcone`, `diagcone`, `cone`, `line`, `emanation`. Size: `4sq` (squares), `6m`, `20ft` or `20`. Colors: `fire`, `cold`, `acid`, `electricity`, `sonic`, `force`, `negative`, `neutral`. |
 | `!gabarit clear [gN]` | Clears one template, or all of the player's templates. |
-| `!gabarit clear tout` | GM: clears all templates. |
-| `!gabarit viseurimg` | GM: saves the selected token as the Aimer image. |
+| `!gabarit clear all` | GM: clears all templates. |
+| `!gabarit aimerimg` | GM: saves the selected token as the Aimer image. |
 
-**Tests**: `node tests/gabarit.test.js` (Node, no dependency) runs 214 checks: size conversion, shapes and square
+**Tests**: `node tests/gabarit.test.js` (Node, no dependency) runs 228 checks: size conversion, shapes and square
 counts, outlines, then the full flow with a fake Roll20. They are no substitute for a try-out in a real campaign.
 
 ## Random weather (Climat)
@@ -57,12 +57,29 @@ Create the "Climat" macro with the content of `macro/Climat.macro.txt` (`!climat
 | --- | --- |
 | `!climat` | Heat level buttons. |
 | `!region <level>` | Month buttons for that level. |
-| `!RollClimat <level> <month> [days]` | Draws the weather (e.g. `!RollClimat froid neth 3`). Argument order is free. |
+| `!RollClimat <level> <month> [days]` | Draws the weather (e.g. `!RollClimat cold neth 3`). Argument order is free. |
 
-The level ids are `tresfroid`, `froid`, `tempere`, `chaud` and `treschaud`, and months use their Golarion names (Abadius, Calistril, Pharast...).
+The level ids are `verycold`, `cold`, `temperate`, `hot` and `veryhot`, and months use their Golarion names (Abadius, Calistril, Pharast...).
 
-**Tests**: `node tests/Climat.test.js` (Node, no dependency) runs 305 checks: scripted dice, statistical properties over
+**Tests**: `node tests/Climat.test.js` (Node, no dependency) runs 306 checks: scripted dice, statistical properties over
 tens of thousands of days, then the full flow with a fake Roll20. They are no substitute for a try-out in a real game.
+
+## Sync the API scripts with GitHub (userscript)
+
+`sync/roll20-github-sync.user.js` adds a "⟳ GitHub" button to the Roll20 API Scripts page
+(`app.roll20.net/campaigns/scripts/<campaign>`). It reads the `.js` files of `scripts/` at the latest commit of `main`
+and matches each one to the Roll20 script tab with the same name (case, spaces, dashes and accents ignored, so
+"token tool.js" is `token-tool.js`). The panel shows each file as up to date, changed (+lines / -lines) or not in the
+game. "Mettre à jour la sélection" saves the ticked ones through Roll20's own "Save Mod Script" button, one per page
+load, and creates the missing ones you tick. After each reload it checks that Roll20 stored exactly the repo's
+content, and stops at the first mismatch. Roll20 library (one-click) scripts and tabs with no file in the repo are
+never touched. Each save restarts the API sandbox, as a manual save does.
+
+**Install**: install [Tampermonkey](https://www.tampermonkey.net/) in your browser, then open
+`https://raw.githubusercontent.com/Sheo42/roll20/main/sync/roll20-github-sync.user.js`: Tampermonkey offers to install
+it. It updates itself from the same address. In Chrome, Tampermonkey only runs scripts once you allow it: `chrome://extensions` > Tampermonkey > Details > turn on "Allow User Scripts" (on older Chrome versions, turn on Developer mode instead). The button appears at the bottom right of the API Scripts page.
+
+**Tests**: `node tests/sync.test.js` (name matching, diff, plan, and the save-reload-check queue with a fake page).
 
 ## Character tools (API scripts, GM only)
 
@@ -83,7 +100,7 @@ Paste each file from `scripts/` in a new API script (Game Settings > API Scripts
 | `attrscan.js` | `!attrscan Nom du Personnage [section]` | Read-only. Counts attributes, repeating-section rows (and empty ones), "macro" attributes, longest values and most frequent name prefixes. With a section name (for example `ability`), shows each field and its most frequent short values. |
 | `attrscan.js` | `!abilitycheck Nom du Personnage` | Read-only. Applies the Pathfinder Community sheet's own rule (`PFAbility.getTopOfMenu`): lists abilities shown in the menu (`showinmenu` true) whose `ability_type` is missing or not Ex/Sp/Su. Those rows make the sheet log `could not find top macro for 0` in a loop and slow the page down. |
 | `abilityfix.js` | `!abilityfix Nom du Personnage` then `!abilityfix Nom du Personnage confirm N` | Sets `showinmenu` to 0 on exactly those rows (they leave the chat ability menu, nothing else changes). Dry run by default; applies only with the exact count shown by the dry run. Try it on a duplicate of the character first. |
-| `pjstats.js` | `!pjstats Nom du Personnage [base armes dons objets sorts buffs]` | Read-only. Whispers the numbers that matter for a build review: classes, ability scores, HP, initiative, AC with its breakdown, saves, BAB, CMB/CMD, SR/DR, armor and shield, each weapon's attack, damage and critical range, feats, traits and class abilities, items, spells by level, and buffs (active ones marked). Reads all attributes in one `findObjs` pass. Sections are optional (default: all). Tests: `node tests/pjstats.test.js`. |
+| `pjstats.js` | `!pjstats Nom du Personnage [base weapons feats items spells buffs]` | Read-only. Whispers the numbers that matter for a build review: classes, ability scores, HP, initiative, AC with its breakdown, saves, BAB, CMB/CMD, SR/DR, armor and shield, each weapon's attack, damage and critical range, feats, traits and class abilities, items, spells by level, and buffs (active ones marked). Reads all attributes in one `findObjs` pass. Sections are optional (default: all). Tests: `node tests/pjstats.test.js`. |
 
 `dedup.js` keeps the oldest copy of every attribute and only removes recent copies created inside
 `WINDOW_FROM`..`WINDOW_TO` (UTC, edit them at the top of the file) that have the same value and max as the
@@ -125,7 +142,7 @@ true and an empty or missing type is read as type "0" by the sheet worker (`getT
 `!abilitycheck <character>`, then `!abilityfix <character>` (dry run first). A separate note: PFCompanion's
 "Mook Numbering" can wrongly number PC tokens (`Name 1`); see `!tokeninfo` and `!tokenwatch`.
 
-**Folders**: `scripts/` (API scripts), `tests/` (Node tests of the scripts), `macro/` (macros and related images),
+**Folders**: `scripts/` (API scripts), `tests/` (Node tests of the scripts), `macro/` (macros and related images), `sync/` (userscript that syncs the API scripts with this repo),
 `dps/` (Dungeon Painter Studio map tools).
 The macros are the `*.macro.txt` files: their content is pasted as is into a Roll20 macro. What each macro does and
 which scripts it depends on is listed in [`macro/README.md`](macro/README.md) (in French).
