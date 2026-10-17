@@ -101,7 +101,7 @@ describe('Données du calendrier et des niveaux', () => {
   'ordre des mois golariens');
   check(C.MOIS.map((m) => m.base).join(',') === '-10,-5,0,5,10,10,15,15,10,5,0,-5',
     'températures de base de chaque mois, identiques à l’ancienne table');
-  check(C.REGIONS.map((r) => r.id).join(' ') === 'tresfroid froid tempere chaud treschaud', 'cinq niveaux de chaleur');
+  check(C.REGIONS.map((r) => r.id).join(' ') === 'verycold cold temperate hot veryhot', 'cinq niveaux de chaleur');
   check(C.REGIONS.map((r) => (r.de10 ? 'd10' : '0') + (r.decalage >= 0 ? '+' : '') + r.decalage).join(' ') ===
     'd10-10 d10-5 0+0 d10+5 d10+10', 'écarts : d10-10, d10-5, aucun, d10+5, d10+10');
   check(C.REGIONS.map((r) => r.profil).join(' ') === 'froid froid tempere tempere desert',
@@ -112,26 +112,28 @@ describe('Données du calendrier et des niveaux', () => {
 // ================================================================ ARGUMENTS
 describe('Lecture des arguments (niveau, mois, jours)', () => {
   const a = (s) => C.analyserArguments(s);
-  check(a('froid abadius').region === 'froid' && a('froid abadius').mois === 'abadius', '« froid abadius »');
-  check(a('froid abadius').jours === 1, 'sans nombre : 1 jour');
-  check(a('tresfroid kuthona 7').region === 'tresfroid' && a('tresfroid kuthona 7').jours === 7, '« tresfroid kuthona 7 »');
-  check(a('très froid Sarénith').region === 'tresfroid' && a('très froid Sarénith').mois === 'sarenith',
+  check(a('cold abadius').region === 'cold' && a('cold abadius').mois === 'abadius', '« cold abadius »');
+  check(a('cold abadius').jours === 1, 'sans nombre : 1 jour');
+  check(a('verycold kuthona 7').region === 'verycold' && a('verycold kuthona 7').jours === 7, '« verycold kuthona 7 »');
+  check(a('very cold Sarénith').region === 'verycold' && a('very cold Sarénith').mois === 'sarenith',
     'accents, espace et majuscules acceptés');
-  check(a('tres froid sarenith').region === 'tresfroid', '« tres froid » avec espace');
-  check(a('Très-Chaud Neth').region === 'treschaud', 'trait d’union et majuscules');
-  check(a('treschaud rova').region === 'treschaud', '« treschaud » n’est pas pris pour « chaud »');
-  check(a('chaud rova').region === 'chaud', '« chaud » seul');
-  check(a('tresfroid abadius').region === 'tresfroid', '« tresfroid » n’est pas pris pour « froid »');
-  check(a('tempéré pharast').region === 'tempere', 'tempéré accentué');
-  check(a('3 tempere neth').jours === 3 && a('3 tempere neth').mois === 'neth', 'nombre avant le reste');
-  check(a('froid abadius 99').jours === C.MAX_JOURS, 'plus de ' + C.MAX_JOURS + ' jours : plafonné');
-  check(a('froid abadius 0').jours === 1, '0 jour : ramené à 1');
+  check(a('very cold sarenith').region === 'verycold', '« very cold » avec espace');
+  check(a('Very-Hot Neth').region === 'veryhot', 'trait d’union et majuscules');
+  check(a('veryhot rova').region === 'veryhot', '« veryhot » n’est pas pris pour « hot »');
+  check(a('hot rova').region === 'hot', '« hot » seul');
+  check(a('verycold abadius').region === 'verycold', '« verycold » n’est pas pris pour « cold »');
+  check(a('temperate pharast').region === 'temperate', 'temperate');
+  check(a('3 temperate neth').jours === 3 && a('3 temperate neth').mois === 'neth', 'nombre avant le reste');
+  check(a('cold abadius 99').jours === C.MAX_JOURS, 'plus de ' + C.MAX_JOURS + ' jours : plafonné');
+  check(a('cold abadius 0').jours === 1, '0 jour : ramené à 1');
   check(a('').region === null && a('').mois === null && a('').jours === 1, 'texte vide : rien de reconnu');
-  check(a('froid').mois === null, 'mois absent');
+  check(a('cold').mois === null, 'mois absent');
   check(a('abadius').region === null, 'niveau absent');
-  check(a('froid decembre').mois === null, 'mois inconnu');
+  check(a('cold decembre').mois === null, 'mois inconnu');
   check(a(undefined).region === null, 'undefined sans exception');
-  check(C.MOIS.every((m) => a('froid ' + m.nom).mois === m.id), 'les 12 noms de mois affichés sont reconnus');
+  check(C.MOIS.every((m) => a('cold ' + m.nom).mois === m.id), 'les 12 noms de mois affichés sont reconnus');
+  check(['froid abadius', 'tresfroid neth', 'tempere rova', 'chaud rova', 'treschaud arodus'].every((x) => a(x).region === null),
+    'anciens niveaux français refusés');
 });
 
 // ================================================================ TABLE DES ÉVÈNEMENTS
@@ -386,7 +388,7 @@ describe('Débordement d’un phénomène sur les jours suivants', () => {
   // J1 : d100 = 100, blizzard de 2 jours (48 h = 8 phases) qui commence au soir (phase 3)
   // J2 : phénomène en cours au lever -> aucun d100 ; J3 : idem jusqu'au milieu de l'après-midi
   let rng = scripte([4, 3, 2, 100, 5, 2, 2, 3, 3, 2, 3, 3, 2, 4]);
-  let m = C.genererMeteo('tresfroid', 'abadius', 3, rng);
+  let m = C.genererMeteo('verycold', 'abadius', 3, rng);
   check(rng.reste() === 0, 'jours 2 et 3 : aucun d100 tiré (le blizzard est l’évènement du jour)');
   check(m.ecart === -6, 'écart du niveau tiré une fois : -6');
   const [j1, j2, j3] = m.jours;
@@ -403,19 +405,19 @@ describe('Débordement d’un phénomène sur les jours suivants', () => {
 
   // même blizzard, mais 2 jours demandés : la période est prolongée d'un jour (aléa 2d4 + d10 de nuit seulement)
   rng = scripte([4, 3, 2, 100, 5, 2, 2, 3, 3, 2, 3, 3, 2, 4]);
-  m = C.genererMeteo('tresfroid', 'abadius', 2, rng);
+  m = C.genererMeteo('verycold', 'abadius', 2, rng);
   check(rng.reste() === 0 && m.jours.length === 3 && m.demandes === 2, 'série de 2 jours : prolongée à 3 jours sans d100 (dés tous consommés)');
   check(etats(m.jours[2]).join(' | ') === 'blizzard | blizzard | calme | calme' && m.jours[2].suite, 'le jour ajouté contient la fin du blizzard');
   check(!/se poursuit/.test(m.jours.map((j) => j.ligne).join(' ')), 'plus de « se poursuit » : la période a été prolongée');
 
   // 1 seul jour demandé, blizzard commencé le soir : 3 jours affichés
   rng = scripte([4, 3, 2, 100, 5, 2, 2, 3, 3, 2, 3, 3, 2, 4]);
-  m = C.genererMeteo('tresfroid', 'abadius', 1, rng);
+  m = C.genererMeteo('verycold', 'abadius', 1, rng);
   check(rng.reste() === 0 && m.jours.length === 3 && m.demandes === 1, '1 jour demandé, blizzard de 2 jours : 3 jours affichés');
   const carte = C.carteResultat(m);
   check(/name=Climat - Très froid - Abadius - 3 jours\}\}/.test(carte) && /Période prolongée de 2 jours/.test(carte) && /\{\{ Jour 3 - /.test(carte),
     'carte : 3 jours, mention de la prolongation, lignes « Jour N - »');
-  check(!/Période prolongée/.test(C.carteResultat(C.genererMeteo('tresfroid', 'abadius', 3, scripte([4, 3, 2, 100, 5, 2, 2, 3, 3, 2, 3, 3, 2, 4])))),
+  check(!/Période prolongée/.test(C.carteResultat(C.genererMeteo('verycold', 'abadius', 3, scripte([4, 3, 2, 100, 5, 2, 2, 3, 3, 2, 3, 3, 2, 4])))),
     'aucune mention quand la série n’est pas prolongée');
 });
 
@@ -423,7 +425,7 @@ describe('Vague de chaleur, de froid et vent : 3 jours', () => {
   // froid, Neth (base 0) : écart d10 - 5 = 5 - 5 = 0
   // J1 : d100 = 75, d100 = 10 -> vague de CHALEUR ; J2 et J3 : en suite, aucun d100 ; J4 : d100 = 50 -> calme
   let rng = scripte([5, 3, 2, 75, 10, 4, 4, 4, 2, 2, 2, 1, 3, 2, 50, 3]);
-  let m = C.genererMeteo('froid', 'neth', 4, rng);
+  let m = C.genererMeteo('cold', 'neth', 4, rng);
   check(rng.reste() === 0, 'jours 2 et 3 : aucun d100 ni dé de sens (la vague est l’évènement du jour)');
   const [j1, j2, j3, j4] = m.jours;
   check(j1.tag === 'Vague de chaleur (+5 °C), jour 1 sur 3' && j2.tag === 'Vague de chaleur (+5 °C), jour 2 sur 3' &&
@@ -441,13 +443,13 @@ describe('Vague de chaleur, de froid et vent : 3 jours', () => {
 
   // une nouvelle vague juste après va dans le même sens, sans dé de sens
   rng = scripte([5, 3, 2, 75, 10, 4, 4, 4, 2, 2, 2, 1, 3, 2, 75, 3, 3, 2, 4, 3, 2, 4]);
-  m = C.genererMeteo('froid', 'neth', 4, rng);
+  m = C.genererMeteo('cold', 'neth', 4, rng);
   check(rng.reste() === 0 && m.jours[3].tag === 'Vague de chaleur (+5 °C), jour 1 sur 3' && !m.jours[3].suite,
     'une vague qui suit une vague va dans le même sens (chaleur), sans dé de sens');
 
   // vent du désert : même durée
   rng = scripte([10, 3, 2, 85, 2, 4, 3, 2, 4, 3, 2, 4]);
-  m = C.genererMeteo('treschaud', 'arodus', 3, rng);
+  m = C.genererMeteo('veryhot', 'arodus', 3, rng);
   check(rng.reste() === 0, 'vent du désert : jours 2 et 3 sans d100');
   check(m.jours.map((j) => j.tag).join(' / ') === [1, 2, 3].map((n) => 'Venteux : vent important (30 à 50 km/h), jour ' + n + ' sur 3').join(' / '),
     'vent important sur 3 jours : ' + m.jours.map((j) => j.tag).join(' / '));
@@ -455,66 +457,66 @@ describe('Vague de chaleur, de froid et vent : 3 jours', () => {
 
   // série plus courte que la vague : la période est prolongée jusqu'au jour 3 sur 3
   rng = scripte([10, 3, 2, 85, 2, 4, 3, 2, 4, 3, 2, 4]);
-  m = C.genererMeteo('treschaud', 'arodus', 2, rng);
+  m = C.genererMeteo('veryhot', 'arodus', 2, rng);
   check(rng.reste() === 0 && m.jours.length === 3 && m.jours[2].tag.endsWith('jour 3 sur 3'), 'série de 2 jours : prolongée jusqu’à « jour 3 sur 3 »');
 
   // le cas signalé : 1 seul jour demandé, vague de froid tirée -> 3 jours
   rng = scripte([5, 3, 2, 75, 80, 4, 3, 2, 4, 3, 2, 4]);
-  m = C.genererMeteo('froid', 'neth', 1, rng);
+  m = C.genererMeteo('cold', 'neth', 1, rng);
   check(rng.reste() === 0 && m.jours.length === 3 && m.demandes === 1 && m.jours[0].tag.startsWith('Vague de froid') &&
     m.jours[2].tag === 'Vague de froid (-5 °C), jour 3 sur 3', '1 jour demandé + vague de froid : jours 2 et 3 ajoutés');
   // vague au 2e jour d'une série de 2 : 2 jours ajoutés
   rng = scripte([5, 3, 2, 50, 4, 3, 2, 75, 80, 4, 3, 2, 4, 3, 2, 4]);
-  m = C.genererMeteo('froid', 'neth', 2, rng);
+  m = C.genererMeteo('cold', 'neth', 2, rng);
   check(rng.reste() === 0 && m.jours.length === 4, 'vague tirée le dernier jour demandé : 2 jours ajoutés');
   // jour calme : aucune prolongation
   rng = scripte([5, 3, 2, 50, 4]);
-  m = C.genererMeteo('froid', 'neth', 1, rng);
+  m = C.genererMeteo('cold', 'neth', 1, rng);
   check(rng.reste() === 0 && m.jours.length === 1, 'jour calme : pas de prolongation');
 });
 
 describe('Série de jours', () => {
   // tempéré : pas de d10 d'écart
   let rng = scripte([3, 2, 50, 4]);
-  let m = C.genererMeteo('tempere', 'pharast', 1, rng);
+  let m = C.genererMeteo('temperate', 'pharast', 1, rng);
   check(rng.reste() === 0 && m.ecart === 0, 'tempéré : aucun d10 d’écart');
   check(m.jours.length === 1 && m.jours[0].temperatureJour === 0 && m.jours[0].temperatureNuit === -4,
     'tempéré, Pharast (base 0), aléa 0 : 0 °C le jour, -4 la nuit');
 
   rng = scripte([4, 3, 2, 50, 1]);
-  m = C.genererMeteo('tresfroid', 'abadius', 1, rng);
+  m = C.genererMeteo('verycold', 'abadius', 1, rng);
   check(m.ecart === -6, 'très froid : d10 - 10 = 4 - 10 = -6');
   check(m.jours[0].temperatureJour === -16 && m.jours[0].temperatureNuit === -17, 'Abadius -10, écart -6 : -16 °C, nuit -17');
 
   rng = scripte([7, 3, 2, 50, 1]);
-  m = C.genererMeteo('chaud', 'erastus', 1, rng);
+  m = C.genererMeteo('hot', 'erastus', 1, rng);
   check(m.ecart === 12 && m.jours[0].temperatureJour === 27, 'chaud : d10 + 5 = 12 ; Erastus 15 + 12 = 27 °C');
 
   rng = scripte([10, 3, 2, 50, 1]);
-  m = C.genererMeteo('treschaud', 'arodus', 1, rng);
+  m = C.genererMeteo('veryhot', 'arodus', 1, rng);
   check(m.ecart === 20 && m.jours[0].temperatureJour === 35, 'très chaud : d10 + 10 = 20 ; Arodus 15 + 20 = 35 °C');
 
   rng = scripte([5, 3, 2, 50, 1, 4, 4, 50, 2, 3, 3, 50, 1]);
-  m = C.genererMeteo('froid', 'neth', 3, rng);
+  m = C.genererMeteo('cold', 'neth', 3, rng);
   check(rng.reste() === 0 && m.jours.length === 3, '3 jours : un seul d10 d’écart pour la série (5 - 5 = 0)');
   check(m.jours.map((j) => j.temperatureJour).join(',') === '0,3,1', 'jour 1 : 0 + aléa 0 ; jour 2 : aléa 3 ; jour 3 : aléa 1');
   check(m.jours.map((j) => j.jour).join(',') === '1,2,3', 'jours numérotés 1, 2, 3');
 
   const hasard = graine(1);
-  check(C.genererMeteo('froid', 'neth', 99, hasard).jours.length === C.MAX_JOURS, '99 jours demandés : plafonné à ' + C.MAX_JOURS);
-  check(C.genererMeteo('froid', 'neth', 0, hasard).jours.length === 1, '0 jour : 1 jour');
-  check(C.genererMeteo('froid', 'neth', 'x', hasard).jours.length === 1, 'nombre illisible : 1 jour');
-  check(C.genererMeteo('froid', 'neth', 2.7, hasard).jours.length === 2, '2,7 jours : 2 jours');
+  check(C.genererMeteo('cold', 'neth', 99, hasard).jours.length === C.MAX_JOURS, '99 jours demandés : plafonné à ' + C.MAX_JOURS);
+  check(C.genererMeteo('cold', 'neth', 0, hasard).jours.length === 1, '0 jour : 1 jour');
+  check(C.genererMeteo('cold', 'neth', 'x', hasard).jours.length === 1, 'nombre illisible : 1 jour');
+  check(C.genererMeteo('cold', 'neth', 2.7, hasard).jours.length === 2, '2,7 jours : 2 jours');
 
   let erreur = '';
-  try { C.genererMeteo('froid', 'decembre', 1, hasard); } catch (e) { erreur = e.message; }
+  try { C.genererMeteo('cold', 'decembre', 1, hasard); } catch (e) { erreur = e.message; }
   check(/Mois inconnu/.test(erreur), 'mois inconnu : exception claire, plus de NaN (' + erreur + ')');
   erreur = '';
   try { C.genererMeteo('glacial', 'neth', 1, hasard); } catch (e) { erreur = e.message; }
   check(/Région inconnue/.test(erreur), 'niveau inconnu : exception claire');
 
-  const a = C.genererMeteo('froid', 'neth', 5, graine(42));
-  const b = C.genererMeteo('froid', 'neth', 5, graine(42));
+  const a = C.genererMeteo('cold', 'neth', 5, graine(42));
+  const b = C.genererMeteo('cold', 'neth', 5, graine(42));
   check(JSON.stringify(a) === JSON.stringify(b), 'mêmes dés, même météo : aucun état caché');
 });
 
@@ -713,10 +715,10 @@ describe('Boutons et cartes', () => {
   C.REGIONS.forEach((r) => check(cr.includes('[' + r.nom + '](!region ' + r.id + ')'), 'bouton ' + r.nom + ' -> !region ' + r.id));
   check(reste(cr) === '/w gm &{template:pf_generic}', 'rien en dehors des {{ }}');
 
-  const cm = C.carteMois('froid');
+  const cm = C.carteMois('cold');
   check(lignes(cm).length === 3, 'titre + ligne des mois + ligne « Plusieurs jours »');
-  C.MOIS.forEach((m) => check(cm.includes('[' + m.nom + '](!RollClimat froid ' + m.id + ')'), 'bouton ' + m.nom + ' porte le niveau : !RollClimat froid ' + m.id));
-  check(/\[Plusieurs jours\]\(!RollClimat froid \?\{Mois\|Abadius\|[^}]*Kuthona\} \?\{Jours\|7\}\)/.test(cm),
+  C.MOIS.forEach((m) => check(cm.includes('[' + m.nom + '](!RollClimat cold ' + m.id + ')'), 'bouton ' + m.nom + ' porte le niveau : !RollClimat cold ' + m.id));
+  check(/\[Plusieurs jours\]\(!RollClimat cold \?\{Mois\|Abadius\|[^}]*Kuthona\} \?\{Jours\|7\}\)/.test(cm),
     'bouton « Plusieurs jours » avec question sur le mois et le nombre de jours');
   check(reste(cm) === '/w gm &{template:pf_generic}', 'rien en dehors des {{ }} (la question ?{...} ne referme pas la ligne)');
   check(/name=Mois - Froid/.test(cm), 'titre rappelant le niveau');
@@ -724,18 +726,18 @@ describe('Boutons et cartes', () => {
 
   // une ligne par jour, plus une ligne de règles pour chaque phénomène qui naît
   const compte = (meteo) => 1 + meteo.jours.length + meteo.jours.filter((j) => j.description).length + (meteo.jours.length > meteo.demandes ? 1 : 0);
-  const m1 = C.genererMeteo('froid', 'abadius', 1, graine(3));
+  const m1 = C.genererMeteo('cold', 'abadius', 1, graine(3));
   const un = C.carteResultat(m1);
   check(lignes(un).length === compte(m1), 'un jour : titre + ligne du jour + règles éventuelles (' + lignes(un).length + ')');
   check(/name=Climat - Froid - Abadius\}\}/.test(un), 'titre un jour : niveau et mois');
   check(!/\{\{ Jour 1 - /.test(un), 'un seul jour : pas de préfixe « Jour 1 - »');
-  const m7 = C.genererMeteo('tresfroid', 'kuthona', 7, graine(3));
+  const m7 = C.genererMeteo('verycold', 'kuthona', 7, graine(3));
   const sept = C.carteResultat(m7);
   check(lignes(sept).length === compte(m7), 'sept jours : titre + 7 lignes + règles (' + lignes(sept).length + ')');
   check(new RegExp('name=Climat - Très froid - Kuthona - ' + m7.jours.length + ' jours\\}\\}').test(sept) && m7.jours.length >= 7, 'titre multi-jours avec le nombre de jours');
   check(/\{\{ Jour 7 - /.test(sept) && /\{\{ Jour 1 - /.test(sept), 'chaque ligne de jour commence par « Jour N - »');
   check(reste(sept) === '/w gm &{template:pf_generic}', 'rien en dehors des {{ }}');
-  const m14 = C.genererMeteo('chaud', 'rova', 14, graine(8));
+  const m14 = C.genererMeteo('hot', 'rova', 14, graine(8));
   const rangees = lignes(C.carteResultat(m14)).map((l) => l.slice(2, -2));
   check(rangees.length === compte(m14), '14 jours : ' + rangees.length + ' lignes (titre + 14 jours + règles)');
   check(rangees[0].startsWith('name=') && rangees.slice(1).every((l) => !INTERDITS.test(l)),
@@ -746,26 +748,26 @@ describe('Commandes', () => {
   const rng = () => graine(11);
   const t = (cmd, args) => C.traiterCommande(cmd, args, rng());
   check(t('!climat', '').length === 1 && t('!climat', '')[0] === C.carteRegions(), '!climat -> boutons de niveau');
-  check(t('!region', 'froid').length === 1 && t('!region', 'froid')[0] === C.carteMois('froid'), '!region froid -> boutons de mois');
-  check(t('!region', 'tres froid')[0] === C.carteMois('tresfroid'), '!region tres froid (avec espace) accepté');
+  check(t('!region', 'cold').length === 1 && t('!region', 'cold')[0] === C.carteMois('cold'), '!region cold -> boutons de mois');
+  check(t('!region', 'very cold')[0] === C.carteMois('verycold'), '!region very cold (avec espace) accepté');
   const e1 = t('!region', 'glacial');
   check(e1.length === 2 && /niveau de chaleur inconnu/.test(e1[0]) && e1[1] === C.carteRegions(), '!region inconnu -> erreur + boutons de niveau');
-  const e2 = t('!RollClimat', 'froid');
-  check(e2.length === 2 && /mois inconnu ou absent/.test(e2[0]) && e2[1] === C.carteMois('froid'), '!RollClimat sans mois -> erreur + boutons de mois');
-  const e3 = t('!RollClimat', 'froid decembre');
+  const e2 = t('!RollClimat', 'cold');
+  check(e2.length === 2 && /mois inconnu ou absent/.test(e2[0]) && e2[1] === C.carteMois('cold'), '!RollClimat sans mois -> erreur + boutons de mois');
+  const e3 = t('!RollClimat', 'cold decembre');
   check(/mois inconnu/.test(e3[0]) && !/NaN/.test(e3.join('')), 'mois inconnu -> erreur, jamais de NaN');
   const e4 = t('!RollClimat', '');
   check(/niveau de chaleur inconnu ou absent/.test(e4[0]) && e4[1] === C.carteRegions(), '!RollClimat vide -> erreur + boutons de niveau');
   const e5 = t('!RollClimat', 'Abadius');
   check(/niveau de chaleur/.test(e5[0]), 'ancien bouton « !RollClimat Abadius » (sans niveau) -> invitation à choisir un niveau');
-  const r = t('!RollClimat', 'froid abadius');
-  check(r.length === 1 && /name=Climat - Froid - Abadius\}\}/.test(r[0]), '!RollClimat froid abadius -> une carte');
-  check(t('!rollclimat', 'froid abadius')[0] === r[0], 'commande insensible à la casse');
-  check(/- \d+ jours\}\}/.test(t('!RollClimat', 'froid abadius 7')[0]), '!RollClimat froid abadius 7 -> série de 7 jours ou plus');
-  check(t('!gabarit', 'lancer') === null, 'commande d’un autre script : ignorée');
+  const r = t('!RollClimat', 'cold abadius');
+  check(r.length === 1 && /name=Climat - Froid - Abadius\}\}/.test(r[0]), '!RollClimat cold abadius -> une carte');
+  check(t('!rollclimat', 'cold abadius')[0] === r[0], 'commande insensible à la casse');
+  check(/- \d+ jours\}\}/.test(t('!RollClimat', 'cold abadius 7')[0]), '!RollClimat cold abadius 7 -> série de 7 jours ou plus');
+  check(t('!gabarit', 'cast') === null, 'commande d’un autre script : ignorée');
   check(t('!climatologie', '') === null, '« !climatologie » n’est pas « !climat »');
   check(t('', '') === null && t(undefined, '') === null, 'commande vide : ignorée');
-  check(C.traiterCommande('!RollClimat', 'froid abadius', graine(11))[0] === r[0], 'mêmes dés, même carte');
+  check(C.traiterCommande('!RollClimat', 'cold abadius', graine(11))[0] === r[0], 'mêmes dés, même carte');
 });
 
 // ================================================================ FAUX ROLL20
@@ -800,43 +802,43 @@ describe('Flux complet dans un faux Roll20', () => {
   check(w.envoyes[0].texte === C.carteRegions(), 'même carte que la logique pure');
 
   w.envoyes.length = 0;
-  w.dire('!region tresfroid');
-  check(w.envoyes.length === 1 && /Mois - Très froid/.test(w.envoyes[0].texte), '!region tresfroid : boutons de mois');
+  w.dire('!region verycold');
+  check(w.envoyes.length === 1 && /Mois - Très froid/.test(w.envoyes[0].texte), '!region verycold : boutons de mois');
 
   w.envoyes.length = 0;
-  w.dire('!RollClimat froid abadius');
-  check(w.envoyes.length === 1, '!RollClimat froid abadius : une seule carte (avant : deux chuchotements)');
+  w.dire('!RollClimat cold abadius');
+  check(w.envoyes.length === 1, '!RollClimat cold abadius : une seule carte (avant : deux chuchotements)');
   check(/Matin \(-?\d+ °C\)/.test(w.envoyes[0].texte) && /Nuit \(-?\d+ °C\)/.test(w.envoyes[0].texte), 'la carte donne la température de chaque phase');
   check(!/NaN|undefined/.test(w.envoyes[0].texte), 'ni NaN ni undefined');
 
   w.envoyes.length = 0;
-  w.dire('!RollClimat froid sarenith 5');
+  w.dire('!RollClimat cold sarenith 5');
   check(w.envoyes.length === 1 && /5 jours/.test(w.envoyes[0].texte), 'cinq jours dans une seule carte');
 
   w.envoyes.length = 0;
-  w.dire('!RollClimat froid decembre');
+  w.dire('!RollClimat cold decembre');
   check(w.envoyes.length === 2 && /mois inconnu/.test(w.envoyes[0].texte), 'mois inconnu : message d’erreur puis boutons');
 
   w.envoyes.length = 0;
   w.dire('Bonjour tout le monde', { type: 'general' });
   w.dire('!climat', { type: 'general' });
-  w.dire('/me lance !RollClimat froid abadius', { type: 'emote' });
+  w.dire('/me lance !RollClimat cold abadius', { type: 'emote' });
   w.dire('!autrecommande truc');
   check(w.envoyes.length === 0, 'messages ordinaires et commandes d’autres scripts : aucune réponse');
   check(w.logs.length === 0, 'plus aucun log (avant : chaque message du chat était écrit dans le journal)');
 
   // sans état : l'ordre des appels ne change pas le résultat, et deux niveaux ne se mélangent pas
   const seul = monde(5);
-  seul.dire('!RollClimat treschaud arodus');
+  seul.dire('!RollClimat veryhot arodus');
   const attendu = seul.envoyes[0].texte;
   const melange = monde(5);
-  melange.dire('!region tresfroid');          // une région « choisie » avant n'a plus d'effet
+  melange.dire('!region verycold');          // une région « choisie » avant n'a plus d'effet
   melange.envoyes.length = 0;
-  melange.dire('!RollClimat treschaud arodus');
+  melange.dire('!RollClimat veryhot arodus');
   check(melange.envoyes[0].texte === attendu, 'un !region précédent n’influence plus la météo (avant : région globale partagée)');
   const deux = monde(8);
-  deux.dire('!RollClimat tresfroid abadius');
-  deux.dire('!RollClimat treschaud abadius');
+  deux.dire('!RollClimat verycold abadius');
+  deux.dire('!RollClimat veryhot abadius');
   const t1 = deux.envoyes[0].texte, t2 = deux.envoyes[1].texte;
   const temp = (s) => parseInt(s.match(/Après-midi \((-?\d+) °C\)/)[1], 10);
   // très froid en Abadius : au plus -10 + 0 + 3 + 5 = -2 °C, donc toujours négatif ; très chaud : au moins -7 °C

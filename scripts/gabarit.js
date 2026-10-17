@@ -9,7 +9,7 @@
  * MISE EN PLACE (une seule fois) : crée la macro « Gabarit » (visible par tous,
  * dans la barre de macros) :
  *
- *   !gabarit lancer @{selected|token_id} ?{Forme|Cercle,burst|Cône droit,conedroit|Cône diagonal,conediag|Ligne,ligne|Émanation,emanation} ?{Taille|1.5 m / 1 case,1c|3 m / 2 cases,2c|4.5 m / 3 cases,3c|6 m / 4 cases,4c|7.5 m / 5 cases,5c|9 m / 6 cases,6c|12 m / 8 cases,8c|15 m / 10 cases,10c|18 m / 12 cases,12c|24 m / 16 cases,16c|30 m / 20 cases,20c|36 m / 24 cases,24c}
+ *   !gabarit cast @{selected|token_id} ?{Forme|Cercle,burst|Cône droit,straightcone|Cône diagonal,diagcone|Ligne,line|Émanation,emanation} ?{Taille|1.5 m / 1 case,1sq|3 m / 2 cases,2sq|4.5 m / 3 cases,3sq|6 m / 4 cases,4sq|7.5 m / 5 cases,5sq|9 m / 6 cases,6sq|12 m / 8 cases,8sq|15 m / 10 cases,10sq|18 m / 12 cases,12sq|24 m / 16 cases,16sq|30 m / 20 cases,20sq|36 m / 24 cases,24sq}
  *
  * UTILISATION (joueur)
  *   Sélectionne ton token, clique « Gabarit », choisis la forme puis la taille.
@@ -31,31 +31,35 @@
  *   Effacer : bouton « Effacer » du message reçu, ou supprimer le Viseur.
  *
  * UNITÉS
- *   Une taille se donne en cases (4c), en mètres (6m) ou en pieds (20, 20ft).
+ *   Une taille se donne en cases (4sq), en mètres (6m) ou en pieds (20, 20ft).
  *   Le script la convertit en CASES (5 ft = 1,5 m = 1 case) : l'échelle de la
  *   carte (pieds, mètres...) n'a aucune influence sur la zone.
  *
  * IMAGE DU VISEUR
  *   Roll20 ne permet à un script de créer un token qu'avec une image qui est
  *   déjà dans TA bibliothèque (pas le Marketplace). Le script cherche, dans
- *   l'ordre : l'image choisie avec « !gabarit viseurimg », la constante
+ *   l'ordre : l'image choisie avec « !gabarit aimerimg », la constante
  *   VISEUR_IMG ci-dessous, puis l'image du lanceur ou d'un autre token de la
  *   carte (image de secours : teintée en rouge).
  *   L'image doit montrer une FLÈCHE vers le haut (rotation 0 = vers le haut) :
  *   c'est elle qui indique la direction des cônes et des lignes.
  *   Pour un joli réticule : importe une image dans ta bibliothèque, pose-la
  *   comme token, sélectionne-la et lance (MJ) :
- *       !gabarit viseurimg @{selected|token_id}
+ *       !gabarit aimerimg @{selected|token_id}
  *
  * AUTRES COMMANDES
- *   !gabarit lancer <id lanceur> <forme> <taille> [couleur=feu] [duree=60]
+ *   !gabarit cast <id lanceur> <forme> <taille> [color=fire] [duration=60]
  *   !gabarit clear          (efface tous TES gabarits)
  *   !gabarit clear g3       (efface le gabarit n°3)
- *   !gabarit clear tout     (MJ : efface tous les gabarits)
- *   formes : burst (cercle, sphere, boule), conedroit, conediag, cone (8
- *            directions, selon la rotation du Viseur), ligne (line), emanation
- *   couleurs (facultatif, sinon choisie automatiquement) :
- *     feu froid acide elec sonique force necrotique neutre
+ *   !gabarit clear all      (MJ : efface tous les gabarits)
+ *   (options en anglais : les anciens mots français ne sont plus acceptés)
+ *   formes : burst (cercle, aussi sphere, circle), straightcone (cône droit),
+ *            diagcone (cône diagonal), cone (8 directions, selon la rotation
+ *            du Viseur), line (ligne), emanation
+ *   tailles : 4sq (cases), 6m (mètres), 20 ou 20ft (pieds)
+ *   couleurs (color=, facultatif, sinon choisie automatiquement) :
+ *     fire cold acid electricity (elec) sonic force negative neutral
+ *   avec une cible (2e id de token) : corner=nw|ne|sw|se|center
  *
  * RÈGLES PF1e APPLIQUÉES (Chapitre 9, « Aiming a Spell »)
  *  - Le point d'origine est toujours une intersection de grille.
@@ -94,17 +98,18 @@
   const VISEUR_IMG = '';
 
   const COULEURS = {
-    feu: '#ff4400', froid: '#33aaff', acide: '#66cc00', elec: '#ffd800',
-    electricite: '#ffd800', sonique: '#bb88ff', force: '#ff66cc',
-    necrotique: '#555555', neutre: '#ffffff'
+    fire: '#ff4400', cold: '#33aaff', acid: '#66cc00', elec: '#ffd800',
+    electricity: '#ffd800', sonic: '#bb88ff', force: '#ff66cc',
+    negative: '#555555', neutral: '#ffffff'
   };
 
+  // mots acceptés dans la commande (anglais) -> nom interne de la forme
   const FORMES = {
-    burst: 'burst', sphere: 'burst', boule: 'burst',
+    burst: 'burst', sphere: 'burst', circle: 'burst',
     cone: 'cone',
-    conedroit: 'conedroit', 'cone-droit': 'conedroit', conedroite: 'conedroit',
-    conediag: 'conediag', 'cone-diag': 'conediag', conediagonal: 'conediag',
-    ligne: 'ligne', line: 'ligne',
+    straightcone: 'conedroit', 'straight-cone': 'conedroit',
+    diagcone: 'conediag', 'diag-cone': 'conediag', diagonalcone: 'conediag',
+    line: 'ligne',
     emanation: 'emanation'
   };
 
@@ -140,16 +145,16 @@
     return ((k % 8) + 8) % 8;
   }
 
-  // "20", "20ft" -> pieds ; "6m" -> mètres ; "4c" / "4cases" -> cases.
+  // "20", "20ft" -> pieds ; "6m" -> mètres ; "4sq" / "4squares" -> cases.
   // Règle : 5 ft = 1,5 m = 1 case. Renvoie un nombre de cases entier >= 1, ou null.
   function tailleEnCases(txt) {
-    const m = String(txt).trim().toLowerCase().match(/^(\d+(?:[.,]\d+)?)\s*(ft|pieds|pied|m|c|case|cases)?$/);
+    const m = String(txt).trim().toLowerCase().match(/^(\d+(?:[.,]\d+)?)\s*(ft|m|sq|square|squares)?$/);
     if (!m) return null;
     const v = parseFloat(m[1].replace(',', '.'));
     const u = m[2] || 'ft';
     let cases;
     if (u === 'm') cases = v / 1.5;
-    else if (u === 'c' || u === 'case' || u === 'cases') cases = v;
+    else if (u === 'sq' || u === 'square' || u === 'squares') cases = v;
     else cases = v / 5;
     cases = Math.round(cases);
     return cases >= 1 ? cases : null;
@@ -394,7 +399,7 @@
 
     if (rec.forme === 'burst') {
       let o;
-      if (viseur || rec.coin === 'centre') o = centre(cible);
+      if (viseur || rec.coin === 'center') o = centre(cible);
       else {
         const c = coins(cible);
         o = c[rec.coin] || plusProche(Object.values(c), centre(lanceur));
@@ -637,13 +642,13 @@
     const cmd = (args[0] || '').toLowerCase();
     const estMJ = playerIsGM(msg.playerid);
 
-    if (cmd === 'clear' || cmd === 'effacer') {
+    if (cmd === 'clear') {
       const cible = (args[1] || '').toLowerCase();
       const ids = Object.keys(state.gabarit.liste);
       if (/^g\d+$/.test(cible)) {
         const rec = state.gabarit.liste[cible];
         if (rec && (rec.playerid === msg.playerid || estMJ)) effacer(cible);
-      } else if (cible === 'tout' && estMJ) {
+      } else if (cible === 'all' && estMJ) {
         ids.forEach((g) => effacer(g));
       } else {
         ids.filter((g) => state.gabarit.liste[g].playerid === msg.playerid).forEach((g) => effacer(g));
@@ -651,7 +656,7 @@
       return;
     }
 
-    if (cmd === 'viseurimg') {
+    if (cmd === 'aimerimg') {
       if (!estMJ) { parler(qui, 'Réservé au MJ.'); return; }
       const t = getObj('graphic', args.find((x) => /^-[\w-]{10,}$/.test(x)));
       const img = t && nettoyerImg(t.get('imgsrc'));
@@ -661,12 +666,12 @@
       return;
     }
 
-    if (cmd !== 'lancer' && !FORMES[cmd]) {
-      parler(qui, 'Usage : !gabarit lancer &lt;id lanceur&gt; &lt;forme&gt; &lt;taille&gt; [couleur=feu] [duree=60] — ou !gabarit clear');
+    if (cmd !== 'cast' && !FORMES[cmd]) {
+      parler(qui, 'Usage : !gabarit cast &lt;id lanceur&gt; &lt;forme&gt; &lt;taille&gt; [color=fire] [duration=60] — ou !gabarit clear');
       return;
     }
 
-    const reste = cmd === 'lancer' ? args.slice(1) : args;
+    const reste = cmd === 'cast' ? args.slice(1) : args;
     const ids = reste.filter((a) => /^-[\w-]{10,}$/.test(a));
     const opts = {};
     let nomForme, N;
@@ -677,7 +682,7 @@
       else if (tailleEnCases(a)) N = tailleEnCases(a);
       else if (m) opts[m[1].toLowerCase()] = m[2].toLowerCase();
     });
-    if (!nomForme || !N) { parler(qui, 'Effet incomplet : il faut une forme et une taille (ex. 4c, 6m ou 20).'); return; }
+    if (!nomForme || !N) { parler(qui, 'Effet incomplet : il faut une forme et une taille (ex. 4sq, 6m ou 20).'); return; }
 
     const lanceur = getObj('graphic', ids[0]);
     if (!lanceur) { parler(qui, 'Sélectionne ton token avant de cliquer sur « Gabarit ».'); return; }
@@ -696,15 +701,15 @@
       cases: [],
       forme,
       N,
-      coin: opts.coin,
-      couleur: COULEURS[opts.couleur] || PALETTE[(num - 1) % PALETTE.length],
+      coin: opts.corner,
+      couleur: COULEURS[opts.color] || PALETTE[(num - 1) % PALETTE.length],
       label: libelle(forme, N)
     };
 
     if (forme !== 'emanation' && !rec.cibleId) {
       const viseur = preparerViseur(lanceur, rec);
       if (!viseur) {
-        parler(qui, 'Impossible de créer le Viseur : aucune image de la bibliothèque du MJ n\'est utilisable. MJ : sélectionne un token (image de ta bibliothèque) et lance !gabarit viseurimg @{selected|token_id}');
+        parler(qui, 'Impossible de créer le Viseur : aucune image de la bibliothèque du MJ n\'est utilisable. MJ : sélectionne un token (image de ta bibliothèque) et lance !gabarit aimerimg @{selected|token_id}');
         return;
       }
       rec.viseurId = viseur.id;
@@ -718,7 +723,7 @@
     }
     rafraichirAuras(rec.pageId);
 
-    const duree = parseFloat(opts.duree);
+    const duree = parseFloat(opts.duration);
     if (duree > 0) setTimeout(() => effacer(rec.id), duree * 1000);
 
     parler(qui, `<b>${rec.label}</b>${rec.viseurId ? ' — déplace le Viseur pour ajuster' : ''} · [Effacer](!gabarit clear ${rec.id}) [Tout effacer](!gabarit clear)`);

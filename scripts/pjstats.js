@@ -1,13 +1,13 @@
 /* pjstats.js - !pjstats <nom> [sections]
  * Lecture seule, MJ uniquement. Chuchote les chiffres utiles d'une fiche Pathfinder Community
  * (caracs, PV, CA, JS, BBA, BMO/DMD, armes, dons, objets, sorts, buffs) sans ouvrir la feuille.
- * Sections (facultatives, séparées par des espaces): base armes dons objets sorts buffs. Défaut: toutes.
+ * Sections (facultatives, séparées par des espaces, en anglais): base weapons feats items spells buffs. Défaut: toutes.
  * Les attributs sont indexés en une seule passe findObjs (pas de getAttrByName en boucle).
  */
 var PjStats = (function () {
   'use strict';
 
-  var SECTIONS = ['base', 'armes', 'dons', 'objets', 'sorts', 'buffs'];
+  var SECTIONS = ['base', 'weapons', 'feats', 'items', 'spells', 'buffs'];
   var REP_RE = /^repeating_([a-z0-9-]+)_(-[A-Za-z0-9_-]{19}|[A-Za-z0-9_-]{20})_(.+)$/;
 
   // attrs: [{name, current, max}] -> {flat: {nom: {current,max}}, rep: {section: {rowid: {champ: valeur}}}, order: {section: [rowid]}}
@@ -137,7 +137,7 @@ var PjStats = (function () {
     return list.length ? ['Buffs (' + list.length + '): ' + list.join(', ')] : ['Buffs: aucun'];
   }
 
-  var BUILDERS = { base: base, armes: armes, dons: dons, objets: objets, sorts: sorts, buffs: buffs };
+  var BUILDERS = { base: base, weapons: armes, feats: dons, items: objets, spells: sorts, buffs: buffs };
 
   function parseArgs(argStr) {
     var words = String(argStr || '').trim().split(/\s+/).filter(Boolean);

@@ -45,7 +45,8 @@ eq(idx.rep['class-ability'][R1.toLowerCase()].name, 'Défi', 'section class-abil
 
 // --- parseArgs
 eq(P.parseArgs(' Paz Tarpou '), { name: 'Paz Tarpou', sections: P.SECTIONS }, 'sans section: toutes');
-eq(P.parseArgs('Paz Tarpou armes dons'), { name: 'Paz Tarpou', sections: ['armes', 'dons'] }, 'sections en fin');
+eq(P.parseArgs('Paz Tarpou weapons feats'), { name: 'Paz Tarpou', sections: ['weapons', 'feats'] }, 'sections en fin');
+eq(P.parseArgs('Paz Tarpou armes'), { name: 'Paz Tarpou armes', sections: P.SECTIONS }, 'ancien nom français : pris pour le nom');
 eq(P.parseArgs('Solathia Innveigdottir BASE'), { name: 'Solathia Innveigdottir', sections: ['base'] }, 'section en majuscules');
 eq(P.parseArgs('').name, '', 'nom vide');
 
@@ -67,7 +68,7 @@ ok(!/Section de PNJ/.test(all), 'sections PNJ ignorées');
 
 var empty = P.report([], P.SECTIONS).join('\n');
 ok(/Armes: aucune/.test(empty) && /Sorts: aucun/.test(empty) && /Classes: \? \(niveau \?\)/.test(empty), 'fiche vide sans erreur');
-ok(!/</.test(P.report([A('repeating_feat_' + R1 + '_name', '<script>x</script>')], ['dons']).join('')), 'chevrons retirés');
+ok(!/</.test(P.report([A('repeating_feat_' + R1 + '_name', '<script>x</script>')], ['feats']).join('')), 'chevrons retirés');
 
 // --- chunk
 var ch = P.chunk(['a'.repeat(1000), 'b'.repeat(1000), 'c'.repeat(10)], 1800);
@@ -116,7 +117,7 @@ var out = r20.send('!pjstats Paz Tarpou');
 ok(out.length >= 1 && out.every(function (t) { return t.indexOf('/w "Sheo" ') === 0; }), 'chuchoté au MJ (suffixe GM retiré)');
 ok(/Paz Tarpou<\/b> \(\d+ attributs\)/.test(out[0]), 'en-tête avec nombre d\'attributs');
 ok(/Marteau de guerre/.test(out.join('')) && /Délivrance/.test(out.join('')), 'toutes les sections par défaut');
-out = r20.send('!pjstats paz tarpou armes');
+out = r20.send('!pjstats paz tarpou weapons');
 ok(/Marteau/.test(out.join('')) && !/Caracs/.test(out.join('')), 'section unique, nom insensible à la casse');
 out = r20.send('!pjstats Lune base');
 ok(/STR 14/.test(out.join('')) && !/STR 24/.test(out.join('')), 'attributs du bon personnage seulement');

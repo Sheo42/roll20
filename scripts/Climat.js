@@ -8,11 +8,11 @@
  *   !region <niveau>              12 boutons de mois (Abadius à Kuthona)
  *   !RollClimat <niveau> <mois> [jours]
  *                                 météo, chuchotée au MJ. Exemples :
- *                                   !RollClimat froid abadius
- *                                   !RollClimat tresfroid kuthona 7
- *   Niveaux : tresfroid, froid, tempere, chaud, treschaud (accents et espaces
- *   acceptés : « très froid »). Le niveau est passé dans la commande : le script
- *   ne retient rien entre deux appels.
+ *                                   !RollClimat cold abadius
+ *                                   !RollClimat verycold kuthona 7
+ *   Niveaux (en anglais) : verycold, cold, temperate, hot, veryhot (majuscules
+ *   et espaces acceptés : « very cold »). Le niveau est passé dans la commande :
+ *   le script ne retient rien entre deux appels.
  *   Prolongation : si un phénomène tiré (vague de chaleur ou de froid, vent du désert, blizzard,
  *     ouragan...) dépasse le dernier jour demandé, la période est allongée jusqu'à sa fin (5 jours
  *     au plus) ; la carte l'indique. Ces jours ajoutés n'ont ni d100 ni nouveau phénomène.
@@ -105,11 +105,11 @@
   // profil : froid (très froid, froid), tempere (tempéré, chaud), desert (très chaud)
   // de10 : l'écart de température est « d10 + decalage » ; sinon il vaut 0
   const REGIONS = [
-    { id: 'tresfroid', nom: 'Très froid', profil: 'froid',   de10: true,  decalage: -10 },
-    { id: 'froid',     nom: 'Froid',      profil: 'froid',   de10: true,  decalage: -5 },
-    { id: 'tempere',   nom: 'Tempéré',    profil: 'tempere', de10: false, decalage: 0 },
-    { id: 'chaud',     nom: 'Chaud',      profil: 'tempere', de10: true,  decalage: 5 },
-    { id: 'treschaud', nom: 'Très chaud', profil: 'desert',  de10: true,  decalage: 10 }
+    { id: 'verycold',  nom: 'Très froid', profil: 'froid',   de10: true,  decalage: -10 },
+    { id: 'cold',      nom: 'Froid',      profil: 'froid',   de10: true,  decalage: -5 },
+    { id: 'temperate', nom: 'Tempéré',    profil: 'tempere', de10: false, decalage: 0 },
+    { id: 'hot',       nom: 'Chaud',      profil: 'tempere', de10: true,  decalage: 5 },
+    { id: 'veryhot',   nom: 'Très chaud', profil: 'desert',  de10: true,  decalage: 10 }
   ];
 
   // fraction : part de l'écart nuit -> jour atteinte pendant la phase
@@ -156,12 +156,12 @@
     return Math.min(MAX_JOURS, n);
   }
 
-  // « froid abadius 5 », « très froid Sarénith », « 3 tresfroid neth »... dans n'importe quel ordre
+  // « cold abadius 5 », « very cold Sarénith », « 3 verycold neth »... dans n'importe quel ordre
   function analyserArguments(texte) {
     const brut = normaliser(texte);
     const nombre = brut.match(/\d+/);
     const lettres = brut.replace(/[^a-z]/g, '');
-    // les noms les plus longs d'abord : « treschaud » contient « chaud »
+    // les noms les plus longs d'abord : « veryhot » contient « hot »
     const region = REGIONS.slice().sort((a, b) => b.id.length - a.id.length)
       .find((r) => lettres.indexOf(r.id) !== -1);
     const mois = MOIS.find((m) => lettres.indexOf(m.id) !== -1);
