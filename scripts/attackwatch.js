@@ -7,9 +7,9 @@
 //     n'envoie aucun évènement (cas des changements faits par un script API, que l'API ne voit pas) ;
 //     avec ce à quoi elle est liée et le CONTEXTE : les commandes API et les modifications d'objets
 //     de ces personnages pendant les 3 minutes d'avant ;
-//   - chaque écriture faite PAR UN SCRIPT API sur un champ « create attack » ou une ligne d'attaque
-//     (set, setWithWorker, createObj), avec les fonctions qui l'ont appelée : l'API ne reçoit jamais
-//     d'évènement pour les changements faits par un script, ce journal est le seul moyen de les voir ;
+//   - chaque création, PAR UN SCRIPT API, d'un champ « create attack » ou d'une ligne d'attaque
+//     (createObj), avec les fonctions qui l'ont appelée. Les modifications (set, setWithWorker) ne
+//     peuvent pas être vues : Roll20 ne laisse pas un script modifier ses objets (essayé le 19/10) ;
 //   - chaque redémarrage du sandbox API ;
 //   - pour chaque évènement : l'heure (UTC) et les joueurs connectés à ce moment.
 // Le journal est gardé dans state (les 60 derniers évènements) et chaque évènement est chuchoté au MJ.
@@ -129,16 +129,12 @@ var AttackWatch = (function () {
       return m ? m[1] : (/^\s*at\s/.test(l) ? '(anonyme)' : null);
     }).filter(function (n) { return n && !skip.test(n); }).slice(0, max || 4);
   }
-  // accès aux fonctions globales du bac à sable Roll20 (lecture et remplacement)
-  var G = (typeof globalThis !== 'undefined') ? globalThis : this;
-  function globalFn(name) { var f = G[name]; return typeof f === 'function' ? f : null; }
-  function setGlobal(name, f) { try { G[name] = f; } catch (e) { return false; } return G[name] === f; }
   // nom d'attribut que l'on veut voir écrit par les scripts
   function watchedName(name) {
     return !!(parseButton(name) || parseWeapon(name));
   }
 
-  return { idTime: idTime, fmt: fmt, clean: clean, callers: callers, watchedName: watchedName, globalFn: globalFn, setGlobal: setGlobal, parseButton: parseButton, parseWeapon: parseWeapon, parseItem: parseItem,
+  return { idTime: idTime, fmt: fmt, clean: clean, callers: callers, watchedName: watchedName, parseButton: parseButton, parseWeapon: parseWeapon, parseItem: parseItem,
     isNewRow: isNewRow, linkOf: linkOf, line: line, push: push, newKeys: newKeys, contextFor: contextFor, MAX_LOG: MAX_LOG };
 })();
 
@@ -148,11 +144,12 @@ if (typeof module !== 'undefined') module.exports = AttackWatch;
   'use strict';
   if (typeof on !== 'function') return;
   var W = AttackWatch;
-  var POLL = 10000;          // ms : relecture des attaques des personnages joués
+  var POLL = 5000;           // ms : un tour de relecture
+  var PER_TICK = 12;         // personnages relus par tour (chacun est relu toutes les ~40 s avec 96 personnages)
+  var cursor = 0;
   var REPORT_DELAY = 2000;   // ms : laisse à la feuille le temps d'écrire le nom et le lien
   var CONTEXT_MS = 180000;   // ms : contexte gardé avant une nouvelle attaque
   var ring = [];             // contexte récent (mémoire seulement) : {t, txt}
-  var spyCount = 0;          // attributs dont set / setWithWorker ont été enveloppés un par un
   var polls = 0;
 
   function st() {
@@ -215,7 +212,12 @@ if (typeof module !== 'undefined') module.exports = AttackWatch;
     var s = st(), now = Date.now(), atStart = polls === 0;
     polls++;
     if (!s.on) return;
-    played().forEach(function (c) {
+    var all = played();
+    // au démarrage, tout le monde d'un coup ; ensuite, quelques personnages par tour
+    var batch = atStart ? all : [];
+    for (var i = 0; !atStart && i < Math.min(PER_TICK, all.length); i++) batch.push(all[(cursor + i) % all.length]);
+    cursor = all.length ? (cursor + PER_TICK) % all.length : 0;
+    batch.forEach(function (c) {
       var cid = c.id, rows = weaponRows(cid);
       var before = s.known[cid];
       s.known[cid] = rows;
@@ -232,7 +234,7 @@ if (typeof module !== 'undefined') module.exports = AttackWatch;
   // Les scripts API partagent le même bac à sable : on enveloppe les méthodes d'écriture des attributs
   // (prototype commun) et createObj pour voir les écritures des AUTRES scripts. Lecture seule : l'appel
   // d'origine est toujours fait, à l'identique.
-  var SKIP = /(spyWrap|spyCreate|logWrite|spyInstance)/;
+  var SKIP = /(spyWrap|spyCreate|logWrite)/;
   function logWrite(method, obj, field, value) {
     var cid = obj && obj.get ? obj.get('_characterid') : '';
     var e = { kind: 'apiwrite', t: Date.now(), method: method, char: charName(cid), field: field, value: value,
@@ -258,20 +260,14 @@ if (typeof module !== 'undefined') module.exports = AttackWatch;
     owner[m] = spyWrap;
     return owner[m] === spyWrap;
   }
-  // attribut : enveloppe ses propres méthodes s'il les porte lui-même (une fois)
-  function spyInstance(o) {
-    try {
-      if (o && !o.__attackwatchSpy && o.get && o.get('_type') === 'attribute') {
-        if (wrapMethod(o, 'set') | wrapMethod(o, 'setWithWorker')) spyCount++;
-        o.__attackwatchSpy = true;
-      }
-    } catch (err) { /* idem */ }
-    return o;
-  }
   function installSpy() {
     var done = [];
     var sample = null;
-    try { sample = findObjs({ _type: 'attribute' })[0]; } catch (err) { sample = null; }
+    try {
+      // un attribut d'un personnage joué suffit (ne pas charger tous les attributs du jeu)
+      var c0 = played()[0];
+      sample = c0 ? findObjs({ _type: 'attribute', _characterid: c0.id })[0] : null;
+    } catch (err) { sample = null; }
     ['set', 'setWithWorker'].forEach(function (m) {
       try {
         // premier objet de la chaîne de prototypes qui porte la méthode
@@ -280,40 +276,6 @@ if (typeof module !== 'undefined') module.exports = AttackWatch;
         if (p && p !== sample && p !== Object.prototype && wrapMethod(p, m)) done.push(m);
       } catch (err) { /* prototype non modifiable */ }
     });
-    if (done.length < 2) {
-      // méthodes portées par chaque attribut : on les enveloppe à la source, sur les objets que
-      // les scripts obtiennent (findObjs, filterObjs, getObj) et sur ceux des évènements
-      var wrapped = [];
-      ['findObjs', 'filterObjs'].forEach(function (g) {
-        try {
-          var orig = W.globalFn(g);
-          if (!orig || orig.__attackwatch) return;
-          var f = function () { var r = orig.apply(this, arguments); if (Array.isArray(r)) r.forEach(spyInstance); return r; };
-          f.__attackwatch = true;
-          if (W.setGlobal(g, f)) wrapped.push(g);
-        } catch (err) { /* idem */ }
-      });
-      try {
-        var og = W.globalFn('getObj');
-        if (og && !og.__attackwatch) {
-          var fg = function () { return spyInstance(og.apply(this, arguments)); };
-          fg.__attackwatch = true;
-          if (W.setGlobal('getObj', fg)) wrapped.push('getObj');
-        }
-      } catch (err) { /* idem */ }
-      try {
-        var oon = W.globalFn('on');
-        if (oon && !oon.__attackwatch) {
-          var fon = function (ev, cb) {
-            if (typeof cb !== 'function' || !/attribute/.test(String(ev))) return oon.apply(this, arguments);
-            return oon.call(this, ev, function (obj) { spyInstance(obj); return cb.apply(this, arguments); });
-          };
-          fon.__attackwatch = true;
-          if (W.setGlobal('on', fon)) wrapped.push('on');
-        }
-      } catch (err) { /* idem */ }
-      if (wrapped.length) done.push('attributs via ' + wrapped.join('/'));
-    }
     try {
       if (typeof createObj === 'function' && !createObj.__attackwatch) {
         var origCreate = createObj;
@@ -382,6 +344,6 @@ if (typeof module !== 'undefined') module.exports = AttackWatch;
     }
     if (arg) { reply('Usage : !attackwatch [log|context|on|off|clear]'); return; }
     reply('Surveillance ' + (s.on ? 'active' : 'coupée') + ', ' + s.log.length + ' évènements dans le journal (!attackwatch log), ' +
-      Object.keys(s.known).length + ' personnages joués surveillés, ' + spyCount + ' attributs sous l\'espion.');
+      Object.keys(s.known).length + ' personnages joués surveillés.');
   });
 })();

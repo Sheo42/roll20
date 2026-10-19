@@ -99,6 +99,7 @@ function fakeRoll20(isGM) {
   function flush() { while (timers.length) timers.shift()(); var t = sent.join('\n'); sent.length = 0; return t; }
   return {
     ctx: ctx, clock: clock, attr: attr, wrap: wrap, fire: fire, flush: flush, intervals: intervals,
+    char: function (id, name, ctrl) { objs.push({ type: 'character', id: id, name: name, controlledby: ctrl }); },
     tick: function (ms) { clock.now += ms; intervals.forEach(function (i) { i.fn(); }); return flush(); },
     say: function (content, who) {
       fire('chat:message', { type: 'api', content: content, who: who || 'Sheo (GM)', playerid: 'P1' });
@@ -119,10 +120,10 @@ ok(r.flush() === '', 'avant ready : rien');
 
 r.fire('ready');
 var out = r.flush();
-ok(/redémarrage du sandbox API \(écritures des scripts surveillées : attributs via findObjs\/getObj\/on, createObj\) · connectés : Sheo, Tankadlavie/.test(out), 'redémarrage enregistré, espion installé sur chaque attribut');
-ok(r.intervals.length === 1 && r.intervals[0].ms === 10000, 'relecture toutes les 10 s');
+ok(/redémarrage du sandbox API \(écritures des scripts surveillées : createObj\) · connectés : Sheo, Tankadlavie/.test(out), 'redémarrage enregistré, espion createObj seulement (méthodes portées par chaque attribut)');
+ok(r.intervals.length === 1 && r.intervals[0].ms === 5000, 'un tour de relecture toutes les 5 s');
 ok(r.ctx.state.AttackWatch.known.PAZ && !r.ctx.state.AttackWatch.known.MOB, 'seuls les personnages joués sont surveillés');
-ok(/1 personnages joués surveillés, \d+ attributs sous l'espion/.test(r.say('!attackwatch')), 'état : personnages surveillés et espion');
+ok(/1 personnages joués surveillés\./.test(r.say('!attackwatch')), 'état : personnages surveillés');
 
 // cas du 18 octobre : une ligne apparaît sans aucun évènement (changement fait côté API)
 r.say('!pfc --rest', 'Tankadlavie');
@@ -162,6 +163,16 @@ r3.ctx.state.AttackWatch.known.PAZ[OLDROW.toLowerCase()] = 1;
 r3.attr('PAZ', 'repeating_weapon_-NewRow00000000000009_name', 'Marteau');
 r3.fire('ready');
 ok(/nouvelle attaque « Marteau », sans lien \(vue au redémarrage, à/.test(r3.flush()), 'ligne apparue pendant l\'arrêt : signalée au redémarrage');
+
+// beaucoup de personnages joués : relus par groupes de 12, chacun vu en quelques tours
+var r4 = fakeRoll20();
+for (var ci = 0; ci < 30; ci++) { r4.char('C' + ci, 'Forme ' + ci, 'P2'); r4.attr('C' + ci, 'repeating_weapon_-Base' + ci + '000000000000_name', 'Arme', OLD); }
+r4.fire('ready'); r4.flush();
+ok(Object.keys(r4.ctx.state.AttackWatch.known).length === 31, 'au démarrage : tous les personnages joués en référence');
+r4.attr('C29', 'repeating_weapon_-Copy29000000000000_name', 'Arme');
+var found = '', ticks = 0;
+while (!/Forme 29/.test(found) && ticks < 5) { found += r4.tick(5000); ticks++; }
+ok(/Forme 29<\/b> : nouvelle attaque « Arme »/.test(found) && ticks <= 3, 'personnage n°30 vu en ' + ticks + ' tours (3 au plus)');
 
 // commandes
 ok(/Contexte des 3 dernières minutes/.test(r.say('!attackwatch context')), 'commande context');
@@ -223,46 +234,6 @@ ok(W.watchedName('repeating_item_-A_create-attack-entry') && W.watchedName('repe
   sent.length = 0;
   (handlers['chat:message'] || []).forEach(function (fn) { fn({ type: 'api', content: '!attackwatch context', who: 'Sheo (GM)', playerid: 'P1' }); });
   ok(/écriture API setWithWorker repeating_item_-I1_create-attack-entry = 1 par setResource ← autreScript/.test(sent.join('\n')), 'écriture d\'un script visible dans le contexte');
-})();
-
-// --- espion, cas Roll20 réel : set / setWithWorker portés par chaque attribut (pas par un prototype)
-(function () {
-  var sent = [], handlers = {};
-  function mk(o) {
-    var obj = { id: o.id };
-    obj.get = function (k) { return o[k.replace(/^_/, '')]; };
-    obj.set = function (k, v) { if (typeof k === 'object') Object.assign(o, k); else o[k] = v; };
-    obj.setWithWorker = function (k, v) { obj.set(k, v); };
-    return obj;
-  }
-  var raw = [
-    { type: 'character', id: 'SOL', name: 'Solathia Innveigdottir', controlledby: 'P3' },
-    { type: 'attribute', id: pidAt(NOW), characterid: 'SOL', name: 'repeating_item_-N1_create-attack-entry', current: '0' }
-  ];
-  var objs = raw.map(mk);
-  var ctx = {
-    console: console, state: {}, Date: (function () { function D() { return arguments.length ? new Date(arguments[0]) : new Date(NOW); } D.now = function () { return NOW; }; return D; })(),
-    on: function (ev, fn) { (handlers[ev] = handlers[ev] || []).push(fn); },
-    findObjs: function (q) { return objs.filter(function (o) { return Object.keys(q).every(function (k) { return o.get(k) === q[k]; }); }); },
-    filterObjs: function (f) { return objs.filter(f); },
-    getObj: function (t, id) { return objs.filter(function (o) { return o.get('type') === t && o.id === id; })[0]; },
-    playerIsGM: function () { return true; },
-    sendChat: function (f, t) { sent.push(t); },
-    createObj: function () { return null; },
-    setTimeout: function (fn) { fn(); }, setInterval: function () {}
-  };
-  vm.createContext(ctx);
-  vm.runInContext(fs.readFileSync(path.join(__dirname, '../scripts/attackwatch.js'), 'utf8'), ctx);
-  (handlers.ready || []).forEach(function (fn) { fn(); });
-  ok(/écritures des scripts surveillées : attributs via findObjs\/filterObjs\/getObj\/on, createObj/.test(sent.join('\n')), 'méthodes par attribut : espion via findObjs, filterObjs, getObj et on');
-  sent.length = 0;
-  vm.runInContext("function rafraichir(){ var a = findObjs({_type:'attribute', name:'repeating_item_-N1_create-attack-entry'})[0]; a.setWithWorker({current:'1'}); } rafraichir();", ctx);
-  ok(/Solathia Innveigdottir<\/b> : écriture par un script API, setWithWorker repeating_item_-N1_create-attack-entry = 1 \(appelée par : rafraichir/.test(sent.join('\n')), 'écriture via un objet de findObjs : vue');
-  ok(raw[1].current === '1', 'écriture d\'origine faite');
-  sent.length = 0;
-  vm.runInContext("getObj('attribute', findObjs({_type:'attribute'})[0].id).set('current','0');", ctx);
-  ok(/écriture par un script API, set repeating_item_-N1_create-attack-entry = 0/.test(sent.join('\n')), 'écriture via getObj : vue, une seule fois');
-  ok(sent.length === 1, 'objet déjà enveloppé : pas de double journal');
 })();
 
 console.log(pass + ' réussis, ' + fail + ' échecs');
