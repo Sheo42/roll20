@@ -1,6 +1,9 @@
 /*
  * gabarit.js — Gabarits de zones d'effet (Pathfinder 1e) pour l'API Roll20
- * Version 1.2 — lignes obliques à N cases exactement (formes du manuel) ;
+ * Version 1.3 — l'émanation a aussi son Viseur (icône, couleur, Effacer) et
+ *               suit son lanceur ; les auras se mettent à jour quand une
+ *               créature entre dans une zone ou en sort ;
+ *               v1.2 : lignes obliques à N cases exactement (formes du manuel) ;
  *               v1.1 : plusieurs gabarits peuvent rester en même temps sur la carte,
  *               chacun avec son propre Viseur, sa couleur et son bouton Effacer ;
  *               cônes droits / diagonaux ; le cône et la ligne PARTENT du Viseur,
@@ -25,6 +28,9 @@
  *     Pour appliquer la règle à la lettre, pose le Viseur sur un coin de la case
  *     du lanceur ; sinon, tu simules ce que donnerait le sort si le lanceur se
  *     trouvait ailleurs (le script ne vérifie pas l'origine).
+ *   - Émanation : elle part des bords de la case du lanceur et le SUIT quand il
+ *     se déplace. Son Viseur, posé à côté, la repère (couleur, nom) et la suit
+ *     aussi ; le déplacer à la main ne change pas la zone.
  *   Le gabarit suit le Viseur. Il reste sur la carte jusqu'à ce qu'on l'efface :
  *   relance « Gabarit » pour en ajouter un autre (nouveau Viseur, nouvelle
  *   couleur).
@@ -84,9 +90,11 @@
  *    depuis l'intersection du Viseur (portée comptée de la même façon). Une ligne
  *    exactement horizontale ou verticale longe une frontière entre deux rangées :
  *    elle suit alors la rangée (ou la colonne) du côté du lanceur.
- *  - emanation : comptée depuis le bord de la case du lanceur (lanceur exclu).
+ *  - emanation : comptée depuis le bord de la case du lanceur (lanceur exclu),
+ *    redessinée quand le lanceur bouge.
  *  - Une créature est touchée si UNE de ses cases est dans la zone (elle reçoit
- *    l'aura de la couleur du gabarit). Le lanceur n'est jamais touché par son
+ *    l'aura de la couleur du gabarit), recalculée quand une créature se
+ *    déplace. Le lanceur n'est jamais touché par son
  *    propre cône, ligne ou émanation.
  *  - Non géré : ligne d'effet (murs), grilles hexagonales.
  */
@@ -390,12 +398,15 @@
   function calculerCases(rec, lanceur, casePx) {
     const N = rec.N;
     if (rec.forme === 'emanation') {
+      if (!lanceur) return null;
       const r = rectCases(lanceur, casePx);
       return casesEmanation(r.ci0, r.ci1, r.cj0, r.cj1, N);
     }
     const viseur = rec.viseurId && getObj('graphic', rec.viseurId);
     const cible = viseur || (rec.cibleId && getObj('graphic', rec.cibleId));
     if (!cible) return null;
+    // sans Viseur, la zone dépend du lanceur ; avec, le lanceur peut avoir disparu
+    if (!viseur && !lanceur) return null;
 
     if (rec.forme === 'burst') {
       let o;
@@ -410,7 +421,7 @@
     // direction et origine : le Viseur donne les deux (rotation = direction,
     // intersection la plus proche de son centre = origine). À défaut (cible = un
     // token), direction lanceur -> cible, départ d'un coin de la case du lanceur.
-    const c0 = centre(lanceur);
+    const c0 = centre(lanceur || viseur);
     const mode = MODE_CONE[rec.forme];
     let angle, o;
     if (viseur) {
@@ -453,7 +464,7 @@
   function dessiner(rec) {
     const lanceur = getObj('graphic', rec.lanceurId);
     const page = getObj('page', rec.pageId);
-    if (!lanceur || !page) return false;
+    if (!page) return false;
     const { casePx } = echelle(page);
     const cases = calculerCases(rec, lanceur, casePx);
     if (!cases) return false;
@@ -464,14 +475,22 @@
     if (ancien) ancien.remove();
     rec.pathId = path.id;
     rec.cases = Array.from(cases);
-    const v = rec.viseurId && getObj('graphic', rec.viseurId);
-    rec.sig = v ? signature(v) : '';
+    rec.sig = signature(rec);
     return true;
   }
 
-  // position + rotation du Viseur au moment du dessin : évite de redessiner deux
-  // fois le même état (évènement relancé ou non par Roll20)
-  const signature = (v) => `${v.get('left')},${v.get('top')},${v.get('rotation')}`;
+  // état des tokens dont dépend la zone, au moment du dessin : évite de redessiner
+  // deux fois le même état (évènement relancé ou non par Roll20).
+  // Émanation : le lanceur ; avec un Viseur : le Viseur ; sinon : lanceur + cible.
+  function signature(rec) {
+    const pos = (id) => {
+      const t = id && getObj('graphic', id);
+      return t ? `${t.get('left')},${t.get('top')},${t.get('width')},${t.get('height')},${t.get('rotation')}` : '-';
+    };
+    if (rec.forme === 'emanation') return pos(rec.lanceurId);
+    if (rec.viseurId) return pos(rec.viseurId);
+    return pos(rec.lanceurId) + '|' + pos(rec.cibleId);
+  }
 
   // ---------- auras des créatures touchées ----------
   // Recalculées pour TOUS les gabarits de la page : le dernier gabarit posé
@@ -540,7 +559,7 @@
 
   // direction de départ du Viseur : vers la droite (cône droit, ligne), vers le
   // bas-droite (cône diagonal) ; le cercle n'en a pas besoin
-  const rotationInitiale = (forme) => (forme === 'conediag' ? 135 : forme === 'burst' ? 0 : 90);
+  const rotationInitiale = (forme) => (forme === 'conediag' ? 135 : forme === 'burst' || forme === 'emanation' ? 0 : 90);
 
   // rotation que le Viseur doit afficher pour refléter la direction réellement
   // utilisée par un cône (aimantation) ; null = pas d'aimantation
@@ -706,7 +725,8 @@
       label: libelle(forme, N)
     };
 
-    if (forme !== 'emanation' && !rec.cibleId) {
+    // l'émanation a toujours son Viseur : c'est son icône sur la carte
+    if (forme === 'emanation' || !rec.cibleId) {
       const viseur = preparerViseur(lanceur, rec);
       if (!viseur) {
         parler(qui, 'Impossible de créer le Viseur : aucune image de la bibliothèque du MJ n\'est utilisable. MJ : sélectionne un token (image de ta bibliothèque) et lance !gabarit aimerimg @{selected|token_id}');
@@ -726,32 +746,67 @@
     const duree = parseFloat(opts.duration);
     if (duree > 0) setTimeout(() => effacer(rec.id), duree * 1000);
 
-    parler(qui, `<b>${rec.label}</b>${rec.viseurId ? ' — déplace le Viseur pour ajuster' : ''} · [Effacer](!gabarit clear ${rec.id}) [Tout effacer](!gabarit clear)`);
+    const aide = forme === 'emanation' ? ' — elle suit ton token' : rec.viseurId ? ' — déplace le Viseur pour ajuster' : '';
+    parler(qui, `<b>${rec.label}</b>${aide} · [Effacer](!gabarit clear ${rec.id}) [Tout effacer](!gabarit clear)`);
   });
 
-  // le gabarit suit son Viseur quand on le déplace ou qu'on le tourne
+  // le Viseur d'une émanation accompagne son lanceur (même déplacement)
+  function suivreLanceur(rec, lanceur, prev) {
+    const v = rec.viseurId && getObj('graphic', rec.viseurId);
+    const dx = lanceur.get('left') - prev.left, dy = lanceur.get('top') - prev.top;
+    if (!v || (!dx && !dy)) return;
+    v.set({ left: v.get('left') + dx, top: v.get('top') + dy });
+  }
+
+  const CLES_POSITION = ['left', 'top', 'rotation', 'width', 'height'];
+
   on('change:graphic', (obj, prev) => {
-    if (obj.get('left') === prev.left && obj.get('top') === prev.top && obj.get('rotation') === prev.rotation) return;
+    if (CLES_POSITION.every((k) => obj.get(k) === prev[k])) return;
     const gid = gidDuViseur(obj.id);
-    if (!gid) return;
-    const rec = state.gabarit.liste[gid];
 
-    // cône : la flèche du Viseur s'aimante sur la direction utilisée. On ne compte
-    // pas sur l'évènement que ce set pourrait relancer : Roll20 ne le relance pas
-    // forcément pour une modification faite par un script. On redessine donc tout de
-    // suite, et la signature évite un second dessin si l'évènement arrive quand même.
-    const cible = rotationAimantee(rec, obj);
-    if (cible !== null && ecartAngle(cible, obj.get('rotation')) > 0.5) obj.set({ rotation: cible });
+    // le gabarit suit son Viseur quand on le déplace ou qu'on le tourne
+    if (gid) {
+      const rec = state.gabarit.liste[gid];
 
-    if (signature(obj) === rec.sig) return; // déjà dessiné dans cet état
-    if (dessiner(rec)) rafraichirAuras(rec.pageId);
+      // cône : la flèche du Viseur s'aimante sur la direction utilisée. On ne compte
+      // pas sur l'évènement que ce set pourrait relancer : Roll20 ne le relance pas
+      // forcément pour une modification faite par un script. On redessine donc tout de
+      // suite, et la signature évite un second dessin si l'évènement arrive quand même.
+      const cible = rotationAimantee(rec, obj);
+      if (cible !== null && ecartAngle(cible, obj.get('rotation')) > 0.5) obj.set({ rotation: cible });
+
+      if (signature(rec) === rec.sig) return; // déjà dessiné dans cet état
+      if (dessiner(rec)) rafraichirAuras(rec.pageId);
+      return;
+    }
+
+    // un autre token : lanceur d'une émanation, lanceur / cible d'un gabarit sans
+    // Viseur, ou simple créature qui entre dans une zone ou en sort
+    const pageId = obj.get('_pageid');
+    const recs = Object.values(state.gabarit.liste).filter((r) => r.pageId === pageId);
+    if (!recs.length) return;
+    recs.forEach((r) => {
+      if (r.forme === 'emanation' && r.lanceurId === obj.id) suivreLanceur(r, obj, prev);
+    });
+    // même règle que pour le Viseur : on redessine ici, la signature évite le doublon
+    recs.forEach((r) => {
+      if ((r.lanceurId === obj.id || r.cibleId === obj.id) && state.gabarit.liste[r.id] && signature(r) !== r.sig) dessiner(r);
+    });
+    rafraichirAuras(pageId);
   });
 
-  // supprimer le Viseur efface son gabarit
+  // supprimer le Viseur efface son gabarit ; supprimer le lanceur efface son
+  // émanation (et les gabarits sans Viseur qui dépendaient de ce token)
   on('destroy:graphic', (obj) => {
     const gid = gidDuViseur(obj.id);
-    if (gid) effacer(gid);
+    if (gid) { effacer(gid); return; }
+    Object.keys(state.gabarit.liste).forEach((g) => {
+      const r = state.gabarit.liste[g];
+      if (!r) return;
+      const dependant = r.forme === 'emanation' || !r.viseurId;
+      if (dependant && (r.lanceurId === obj.id || r.cibleId === obj.id)) effacer(g);
+    });
   });
 
-  on('ready', () => log('gabarit.js v1.1 chargé'));
+  on('ready', () => log('gabarit.js v1.3 chargé'));
 })();
