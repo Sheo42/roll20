@@ -7,6 +7,7 @@
  * Version 2.2 — plus besoin de carte : cibles et lanceur par fiche ou par nom libre.
  * Version 2.3 — boutons à cocher réparés ; minutes écrites « min » ; un joueur seulement
  *               ciblé ne retire que ses personnages.
+ * Version 2.4 — un nom partiel n'est plus deviné : boutons pour choisir ; durées en jours.
  *
  * MISE EN PLACE (une seule fois)
  *   1. Coller ce fichier dans un nouveau script API, enregistrer.
@@ -54,7 +55,7 @@
  *             [--effect +1 attaque] [--hidden]
  *       --targets : group, me, selected, pick, ou des noms ou ids de tokens séparés
  *       par des virgules (Selea, Paz). Sans --targets : les tokens sélectionnés, sinon
- *       les boutons à cocher. Durées : 3r, 3 (rounds), 10min, 2h, 1d, perm (jusqu'à ce
+ *       les boutons à cocher. Durées : 3r, 3 (rounds), 10min, 2h, 1j, perm (jusqu'à ce
  *       qu'on le retire). Relancer un effet du même nom remplace l'ancien sur les
  *       cibles du nouveau lancement (pas de cumul).
  *   !buff add --spell bless --cl 5 [--caster Solathia] [--targets group]   sort courant
@@ -63,6 +64,7 @@
  *                                 --effect, --caster, --targets (comme add),
  *                                 --hidden yes|no (MJ)
  *   !buff pick toggle|all|none|ok|cancel   boutons à cocher (envoyés par le script)
+ *   !buff choose 2|free|cancel    choix d'un nom partiel (envoyé par le script)
  *   !buff remove 3 [4 ...]        retire des lancements : essai à blanc, puis ... confirm N
  *   !buff clear                   retire les tokens sélectionnés de tous leurs effets
  *                                 (essai à blanc, puis confirm N)
@@ -84,9 +86,11 @@
  *   Un token lié à une fiche (une barre liée à un attribut, comme les PJ) : l'effet
  *   suit le PERSONNAGE, sur toutes les cartes. Un token non lié (monstres en série) :
  *   l'effet suit ce token seulement ; si le token est supprimé, il quitte l'effet.
- *   Un nom (cible ou lanceur) est cherché parmi les tokens de la carte, puis parmi les
- *   fiches de la partie ; sinon c'est un nom libre (un PNJ joué sans carte ni fiche) :
- *   l'effet le suit par son nom et dure jusqu'à la scène suivante.
+ *   Un nom (cible ou lanceur) doit être exact (casse et accents ignorés) : token de la
+ *   carte, sinon fiche de la partie. S'il n'est qu'une partie d'autres noms (« Moi »
+ *   pour « Moine noir »), le script demande lequel avec des boutons, dont « Nom libre ».
+ *   Sinon c'est un nom libre (un PNJ joué sans carte ni fiche), suivi par son nom.
+ *   « =Moi » force le nom libre sans question.
  *   « PJ » = personnage contrôlé par au moins un joueur.
  *
  * Données : state.BuffTracker. Ne touche pas aux fiches de personnage.
@@ -134,13 +138,18 @@
       const min = Math.floor(r / 10), rd = r % 10;
       return rd ? `${min} min ${rd} rd` : `${min} min`;
     }
-    const h = Math.floor(r / 600), min = Math.floor((r % 600) / 10);
-    return min ? `${h} h ${min} min` : `${h} h`;
+    if (r < 14400) {
+      const h = Math.floor(r / 600), min = Math.floor((r % 600) / 10);
+      return min ? `${h} h ${min} min` : `${h} h`;
+    }
+    const j = Math.floor(r / 14400), h = Math.floor((r % 14400) / 600);
+    return h ? `${j} j ${h} h` : `${j} j`;
   };
 
   // forme courte, relisible par parseDuration (valeur par défaut des boutons)
   const compactDuration = (r) => {
     if (r === null || r === undefined) return 'perm';
+    if (r && r % 14400 === 0) return `${r / 14400}j`;
     if (r && r % 600 === 0) return `${r / 600}h`;
     if (r && r % 10 === 0) return `${r / 10}min`;
     return `${r}r`;
@@ -402,7 +411,7 @@
   const handoutUrl = (id) => `http://journal.roll20.net/handout/${id}`;
   const lienFenetre = (id, label) => bouton(label || 'Ouvrir la fenêtre', handoutUrl(id));
 
-  const Q_DUREE = 'Durée : 3r 10min 2h ou perm';
+  const Q_DUREE = 'Durée : 3r 10min 2h 1j ou perm';
   const Q_LANCEUR = 'Lanceur';
   const Q_CIBLES = '?{Cibles|Tout le groupe,group|Moi seul,me|Tokens sélectionnés,selected|Choisir...,pick}';
   const boutonsLancement = (r) => [
@@ -446,6 +455,14 @@
       '</div></div>';
   };
 
+  // choix d'un nom : un bouton par possibilité, le nom libre, Annuler
+  const renderChoix = (nom, role, labels) => `<div style="${STYLE_BOITE}">` +
+    `<div style="font-weight:bold">« ${escapeHtml(nom)} » (${escapeHtml(role)}) : lequel ?</div><div>` +
+    labels.map((l, i) => bouton(labels.indexOf(l) !== i || labels.lastIndexOf(l) !== i ? `${l} (${i + 1})` : l, `${CMD} choose ${i + 1}`)).join('') +
+    '</div><div style="margin-top:2px">' +
+    bouton(`Nom libre « ${nom} »`, `${CMD} choose free`) + bouton('Annuler', `${CMD} choose cancel`) +
+    '</div></div>';
+
   const boutonAjouter = (lanceur) => bouton('Ajouter',
     `${CMD} add --name ?{Nom} --dur ?{${Q_DUREE}|1min} --caster ?{${Q_LANCEUR}|${escapeHtml(pourRequete(lanceur))}} --targets ${Q_CIBLES} --effect ?{Effet|}`);
   const boutonFavori = (f, lanceur) => bouton(f.name,
@@ -455,7 +472,7 @@
     parseDuration, formatDuration, compactDuration, normalize, escapeHtml, pourRequete, parseCommand, parseBool,
     texte, parseTargets, entityKey, tick, detectAdvance, isRoundEntry, isNewRound, stripMarkers,
     resolveByName, replaceTargets, FAVORITES, findFavorite, spellDuration, buildView,
-    buildCastView, renderHandout, renderMenu, renderPicker
+    buildCastView, renderHandout, renderMenu, renderPicker, renderChoix
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = exportsPurs;
   if (typeof on !== 'function') return; // hors Roll20 : on s'arrête ici
@@ -555,22 +572,40 @@
     return l.length ? l : pjsDeLaPartie().filter(siens);
   };
 
-  // nom -> entité : token de la carte, sinon fiche de la partie (nom exact, ou début de
-  // nom s'il n'y en a qu'une), sinon nom libre. Renvoie {entity} ou {ambiguous: [noms]}.
+  // nom -> entité, sans deviner. Clé (char.<id>, token.<id>) ou id de token ; « =Nom »
+  // force un nom libre ; nom exact (casse et accents ignorés) d'un token de la carte,
+  // sinon d'une fiche. Un nom qui n'est qu'une partie de noms existants (« Moi » pour
+  // « Moine noir ») renvoie {choices} : le joueur choisit, ou garde le nom libre.
+  // Renvoie {entity} ou {choices: [entités]}.
+  const MAX_CHOIX = 6;
   const trouverEntite = (nom, pageid) => {
-    const direct = getObj('graphic', nom);
+    const brut = String(nom || '').trim();
+    if (brut.startsWith('=')) return { entity: entiteNom(brut.slice(1)) };
+    const direct = getObj('graphic', brut);
     if (direct) return { entity: entitesUniques([direct])[0] };
+    const cle = lireCle(brut).match(/^(char|token)\.(\S+)$/);
+    if (cle && getObj(cle[1] === 'char' ? 'character' : 'graphic', cle[2])) {
+      const e = { kind: cle[1], id: cle[2] };
+      return { entity: Object.assign(e, { name: nomEntite(e) }) };
+    }
+    const q = normalize(brut);
     const toks = tokensPage(pageid).map((t) => ({ tok: t, name: nomToken(t) })).filter((c) => c.name);
-    const surCarte = entitesUniques(resolveByName(nom, toks).map((c) => c.tok));
-    if (surCarte.length === 1) return { entity: surCarte[0] };
-    if (surCarte.length > 1) return { ambiguous: surCarte.map((e) => e.name) };
-    const q = normalize(nom);
+    const exactCarte = entitesUniques(toks.filter((c) => normalize(c.name) === q).map((c) => c.tok));
+    if (exactCarte.length === 1) return { entity: exactCarte[0] };
+    if (exactCarte.length > 1) return { choices: exactCarte.slice(0, MAX_CHOIX) };
     const toutes = fiches();
-    const exactes = toutes.filter((c) => normalize(c.get('name')) === q);
-    if (exactes.length > 1) return { ambiguous: exactes.map((c) => c.get('name')) };
-    const debut = exactes.length ? exactes : toutes.filter((c) => normalize(c.get('name')).startsWith(q));
-    if (debut.length === 1) return { entity: entiteDuPerso(debut[0]) };
-    return { entity: entiteNom(nom) };
+    const exactes = toutes.filter((c) => normalize(c.get('name')) === q).map(entiteDuPerso);
+    if (exactes.length === 1) return { entity: exactes[0] };
+    if (exactes.length > 1) return { choices: exactes.slice(0, MAX_CHOIX) };
+    // proches : tokens de la carte qui contiennent le nom, fiches dont un mot commence par lui
+    const proches = entitesUniques(toks.filter((c) => normalize(c.name).includes(q)).map((c) => c.tok));
+    toutes.forEach((c) => {
+      const n = normalize(c.get('name'));
+      if (!(n.startsWith(q) || n.includes(' ' + q))) return;
+      const e = entiteDuPerso(c);
+      if (!proches.some((o) => sameEntity(o, e))) proches.push(e);
+    });
+    return proches.length ? { choices: proches.slice(0, MAX_CHOIX) } : { entity: entiteNom(brut) };
   };
 
   const selection = (msg) => (msg.selected || []).map((x) => getObj('graphic', x._id)).filter(Boolean);
@@ -664,19 +699,19 @@
   const trouver = (id) => etat().buffs.find((b) => b.id === String(id || '').replace(/^#/, ''));
 
   // ---- lanceur donné par son nom : token de la carte, fiche, sinon nom libre (suivi
-  // par son nom dans le tracker)
+  // par son nom dans le tracker). Renvoie {caster} (null sans nom) ou {choices}.
   const trouverLanceur = (nom, pageid) => {
     const q = String(nom || '').trim();
-    if (!q) return null;
+    if (!q) return { caster: null };
     const r = trouverEntite(q, pageid);
-    return r.entity ? copieEntite(r.entity) : entiteNom(q);
+    return r.choices ? r : { caster: copieEntite(r.entity) };
   };
   const lanceurParDefaut = (pid, pageid) => {
     const l = persosDuJoueur(pid, pageid);
     return l.length === 1 ? l[0].name : '';
   };
 
-  // ---- cibles : renvoie {targets}, {pick: preselection} ou {error}
+  // ---- cibles : renvoie {targets}, {pick: preselection}, {choose: {index, nom, choices}} ou {error}
   const resoudreCibles = (spec, msg, caster, pageid) => {
     const pid = msg.playerid;
     const sel = entitesUniques(selection(msg));
@@ -695,9 +730,9 @@
       }
       default: {
         const out = [];
-        for (const nom of spec.names) {
-          const r = trouverEntite(nom, pageid);
-          if (r.ambiguous) return { error: `Cible ambiguë : ${nom} (${r.ambiguous.join(', ')}).` };
+        for (let i = 0; i < spec.names.length; i++) {
+          const r = trouverEntite(spec.names[i], pageid);
+          if (r.choices) return { choose: { index: i, nom: spec.names[i], choices: r.choices } };
           if (!out.some((o) => sameEntity(o, r.entity))) out.push(r.entity);
         }
         return { targets: out };
@@ -787,16 +822,56 @@
     const hidden = o.hidden !== undefined ? parseBool(o.hidden) === true : false;
     if (hidden && !gm) return erreur(pid, 'Seul le MJ peut créer un effet caché.');
     const pageid = pageDu(msg);
-    const caster = trouverLanceur(texte(o.caster), pageid);
+    const rl = trouverLanceur(texte(o.caster), pageid);
+    if (rl.choices) return demanderChoix(msg, c, 'caster', 0, texte(o.caster), rl.choices);
+    const caster = rl.caster;
     const d = {
       name, rounds, caster, hidden,
       effect: texte(o.effect) || (fav ? fav.effect : '')
     };
     const r = resoudreCibles(parseTargets(o.targets), msg, caster, pageid);
     if (r.error) return erreur(pid, r.error);
+    if (r.choose) return demanderChoix(msg, c, 'targets', r.choose.index, r.choose.nom, r.choose.choices);
     if (r.pick) return ouvrirChoix(pid, pageid, d, r.pick);
     d.targets = r.targets;
     lancer(pid, d);
+  };
+
+  // ---- choix d'un nom qui n'est pas exact : on garde la commande, on demande lequel,
+  // puis on la relance avec la clé choisie (ou « =Nom » pour le nom libre)
+  const demanderChoix = (msg, c, champ, index, nom, choices) => {
+    const pid = msg.playerid, s = etat();
+    s.choix = s.choix || {};
+    s.choix[pid] = {
+      sub: c.sub, args: c.args, opts: c.opts, selected: (msg.selected || []).map((x) => x._id),
+      champ, index, nom, options: choices.map(copieEntite)
+    };
+    dire(pid, renderChoix(nom, champ === 'caster' ? 'lanceur' : 'cible', s.choix[pid].options.map((e) => e.name || '?')));
+  };
+  const cmdChoose = (msg, c) => {
+    const pid = msg.playerid, s = etat();
+    const d = s.choix && s.choix[pid];
+    if (!d) return erreur(pid, 'Aucun choix de nom en cours.');
+    const a = normalize(c.args[0]);
+    if (a === 'cancel') { delete s.choix[pid]; return dire(pid, boite('Annulé.')); }
+    let val;
+    if (a === 'free') val = '=' + d.nom;
+    else {
+      const e = d.options[parseInt(a, 10) - 1];
+      if (!e) return erreur(pid, 'Choix inconnu.');
+      val = entityKey(e);
+    }
+    delete s.choix[pid];
+    const opts = Object.assign({}, d.opts);
+    if (d.champ === 'caster') opts.caster = val;
+    else {
+      const noms = String(opts.targets).split(/[,;]/).map((x) => x.trim()).filter(Boolean);
+      noms[d.index] = val;
+      opts.targets = noms.join(', ');
+    }
+    const m2 = { type: 'api', playerid: pid, who: msg.who, content: '', selected: d.selected.map((id) => ({ _id: id, _type: 'graphic' })) };
+    const c2 = { sub: d.sub, args: d.args, opts, confirm: null };
+    return d.sub === 'edit' ? cmdEdit(m2, c2) : cmdAdd(m2, c2);
   };
 
   const cmdPick = (msg, c) => {
@@ -854,11 +929,18 @@
       if (parseBool(o.hidden) === null) return erreur(pid, '--hidden attend yes ou no.');
     }
     const pageid = (() => { const t = b.targets.map(tokensDe).find((l) => l.length); return t ? t[0].get('_pageid') : pageDu(msg); })();
+    let nouveauLanceur;
+    if (texte(o.caster) !== undefined) {
+      const rl = trouverLanceur(texte(o.caster), pageid);
+      if (rl.choices) return demanderChoix(msg, c, 'caster', 0, texte(o.caster), rl.choices);
+      nouveauLanceur = rl.caster;
+    }
     let cibles = null;
     if (o.targets !== undefined) {
-      const caster = b.caster;
+      const caster = nouveauLanceur !== undefined ? nouveauLanceur : b.caster;
       const r = resoudreCibles(parseTargets(o.targets), msg, caster, pageid);
       if (r.error) return erreur(pid, r.error);
+      if (r.choose) return demanderChoix(msg, c, 'targets', r.choose.index, r.choose.nom, r.choose.choices);
       if (r.pick) {
         const pre = parseTargets(o.targets).mode === 'pick' ? b.targets : r.pick;
         return ouvrirChoix(pid, pageid, { name: b.name, editId: b.id }, pre.length ? pre : b.targets);
@@ -868,8 +950,8 @@
     if (dur) { b.remaining = dur.sign ? Math.max(0, b.remaining + dur.sign * dur.rounds) : dur.rounds; faits.push(formatDuration(b.remaining)); }
     if (texte(o.name)) { b.name = texte(o.name); faits.push('renommé'); }
     if (texte(o.effect) !== undefined) { b.effect = texte(o.effect); faits.push(b.effect ? 'effet modifié' : 'effet effacé'); }
-    if (texte(o.caster) !== undefined) {
-      b.caster = trouverLanceur(texte(o.caster), pageid);
+    if (nouveauLanceur !== undefined) {
+      b.caster = nouveauLanceur;
       faits.push('lanceur ' + (nomLanceur(b) || 'aucun'));
     }
     if (o.hidden !== undefined) { b.hidden = parseBool(o.hidden); faits.push(b.hidden ? 'caché' : 'visible'); }
@@ -989,7 +1071,7 @@
       '<b>!buff edit 3 --dur -1</b> (ou +2, 4r, 10min, perm), --name, --effect, --caster, --targets, --hidden yes|no<br>' +
       '<b>!buff remove 3</b> · <b>!buff clear</b> (sélection) · <b>!buff clear all</b> (MJ)<br>' +
       '<b>!buff time 10min</b> (MJ) · <b>!buff show</b> : lien vers la fenêtre<br>' +
-      'Durées : 3r ou 3 (rounds), 10min, 2h, 1d, perm.'));
+      'Durées : 3r ou 3 (rounds), 10min, 2h, 1j, perm. Nom libre forcé : =Nom.'));
   };
 
   // ------------------------------------------------------- tracker d'initiative
@@ -1035,6 +1117,7 @@
         case 'menu': case 'list': return cmdMenu(msg);
         case 'add': return cmdAdd(msg, c);
         case 'pick': return cmdPick(msg, c);
+        case 'choose': return cmdChoose(msg, c);
         case 'edit': return cmdEdit(msg, c);
         case 'remove': return cmdRemove(msg, c);
         case 'clear': return cmdClear(msg, c);

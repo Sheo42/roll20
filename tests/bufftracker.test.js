@@ -212,7 +212,7 @@ describe('Vues, handout, menu et boutons à cocher', () => {
   check(m.includes('→ Selea, Paz &lt;b&gt;, Lune'), 'menu : cibles affichées et échappées');
   check(m.includes('href="!buff edit 1 --dur -1"') && m.includes('href="!buff edit 1 --targets pick"') && m.includes('href="!buff remove 1"'), 'menu : boutons -1, Cibles, X');
   check(!m.includes('!buff edit 2 '), 'menu : pas de bouton sur un lancement non modifiable');
-  check(m.includes('?{Durée : 3r 10min 2h ou perm|4r}'), 'menu : durée actuelle proposée par défaut');
+  check(m.includes('?{Durée : 3r 10min 2h 1j ou perm|4r}'), 'menu : durée actuelle proposée par défaut');
   check(B.compactDuration(50) === '5min' && B.parseDuration('5min').rounds === 50 && B.parseDuration('5m').rounds === 50, 'minutes écrites « min » (« m » toujours compris)');
   const moi = B.renderMenu(B.buildCastView(buffs, nom, () => '', () => false, false, (b) => b.id === '1'));
   check(moi.includes('href="!buff remove 1">Me retirer</a>') && !moi.includes('!buff edit 1 ') && !moi.includes('!buff remove 5'), 'cible seulement : bouton « Me retirer », rien d\'autre');
@@ -354,7 +354,8 @@ describe('Ajout pour une liste de PJ', () => {
 describe('Ajout : erreurs', () => {
   const p = partie();
   check(p.dire('pA', '!buff add --name X --dur 1m --targets selected')[0].includes('propres tokens'), 'selected sans sélection : refusé, avec l\'explication');
-  check(p.dire('pA', '!buff add --name X --dur 1m --targets gobelin')[0].includes('ambiguë'), 'nom ambigu : refusé');
+  check(p.dire('pA', '!buff add --name X --dur 1m --targets gob')[0].includes('lequel'), 'nom partiel (2 gobelins) : on demande lequel');
+  p.dire('pA', '!buff choose cancel');
   check(p.dire('pA', '!buff add --name X --dur 3 parsecs --targets group')[0].includes('illisible'), 'durée illisible : refusé');
   check(p.dire('pA', '!buff add --dur 1m --targets group')[0].includes('nom'), 'sans nom : refusé');
   check(p.dire('pA', '!buff add --name X --dur 1m --hidden --targets group')[0].includes('MJ'), 'effet caché par un joueur : refusé');
@@ -391,10 +392,10 @@ describe('Sans carte : fiches et noms libres', () => {
   p.dire('gm', '!buff add --name Faveur --dur 10m --caster Garde du corps --targets Garde du corps');
   const fav = p.buffs()[0];
   check(fav && fav.targets[0].kind === 'name' && noms(fav) === 'Garde du corps' && fav.caster.name === 'Garde du corps', 'PNJ sans token ni fiche : cible et lanceur par leur nom');
-  p.dire('gm', '!buff add --name Héroïsme --dur 1h --targets Zorglub, Selea, paz');
+  p.dire('gm', '!buff add --name Héroïsme --dur 1h --targets Zorglub, Selea, Paz Tarpou');
   const her = p.buffs()[1];
   check(noms(her) === 'Zorglub,Selea,Paz Tarpou' && her.targets[1].kind === 'char' && her.targets[1].id === p.c.selea.id && her.targets[2].id === p.c.paz.id,
-    'PJ hors carte trouvés par leur fiche (nom exact ou début), nom inconnu gardé tel quel');
+    'PJ hors carte trouvés par leur fiche, nom inconnu gardé tel quel');
   p.dire('gm', '!buff add --name Prière --dur 5r --targets group');
   check(noms(p.buffs()[2]) === 'Lune,Paz Tarpou,Selea,Solathia', 'Tout le groupe sans carte : tous les PJ de la partie');
   p.dire('pA', '!buff add --name Flou --dur 3m --targets me');
@@ -417,9 +418,58 @@ describe('Sans carte : fiches et noms libres', () => {
   check(p.dire('pA', `!buff edit ${fav.id} --dur -1`)[0].includes('ne peux pas'), 'effet du MJ sur un PNJ : un joueur ne le modifie pas');
   p.mk('character', { name: 'Garde', controlledby: '' });
   p.mk('character', { name: 'Garde', controlledby: '' });
-  check(p.dire('gm', '!buff add --name X --dur 1m --targets Garde')[0].includes('ambiguë'), 'deux fiches du même nom : refusé');
-  p.dire('gm', '!buff add --name X --dur 1m --targets Gar');
-  check(p.buffs().some((b) => b.name === 'X' && b.targets[0].kind === 'name'), 'début de nom commun à plusieurs fiches : nom libre');
+  const deux = p.dire('gm', '!buff add --name X --dur 1m --targets Garde')[0];
+  check(deux.includes('>Garde (1)</a>') && deux.includes('>Garde (2)</a>'), 'deux fiches du même nom : on demande laquelle, numérotées');
+  p.dire('gm', '!buff choose cancel');
+  const gar = p.dire('gm', '!buff add --name X --dur 1m --targets Gar')[0];
+  check(gar.includes('Garde du corps') === false && gar.includes('Nom libre « Gar »'), 'début de nom : choix proposé (fiches), avec le nom libre');
+  cliquer(p, 'gm', gar, 'Nom libre « Gar »');
+  check(p.buffs().some((b) => b.name === 'X' && b.targets[0].kind === 'name' && b.targets[0].name === 'Gar'), 'Nom libre choisi : gardé tel quel');
+});
+
+describe('Nom partiel : choisir plutôt que deviner', () => {
+  const p = partie();
+  const moine = p.mk('character', { name: 'Moine noir', controlledby: '' });
+  // « Moi » ne doit pas devenir « Moine noir » sans qu'on le demande
+  const q = p.dire('gm', '!buff add --name Test --dur 1j --caster Moi --targets Selea')[0];
+  check(p.buffs().length === 0 && q.includes('« Moi » (lanceur) : lequel ?'), 'nom partiel : rien de créé, on demande');
+  check(q.includes('>Moine noir</a>') && q.includes('href="!buff choose 1"') && q.includes('>Nom libre « Moi »</a>') && q.includes('href="!buff choose cancel"'), 'boutons : la fiche proche, le nom libre, Annuler');
+  check(hrefs(q).every((h) => /^!buff [^:]*$/.test(h)), 'aucun « : » dans les liens du choix');
+  cliquer(p, 'gm', q, 'Nom libre « Moi »');
+  const b1 = p.buffs()[0];
+  check(b1 && b1.caster.kind === 'name' && b1.caster.name === 'Moi' && noms(b1) === 'Selea' && b1.remaining === 14400, 'Nom libre : lanceur « Moi », le reste de la commande gardé (cible, 1 jour)');
+  check(p.dire('gm', '!buff choose 1')[0].includes('Aucun choix'), 'le choix est terminé');
+  const q2 = p.dire('gm', '!buff add --name Test2 --dur 5r --caster Moi --targets Selea')[0];
+  cliquer(p, 'gm', q2, 'Moine noir');
+  check(p.buffs()[1].caster.kind === 'char' && p.buffs()[1].caster.id === moine.id, 'fiche choisie : le Moine noir');
+  p.dire('gm', '!buff add --name Test3 --dur 5r --caster =Moi --targets Selea');
+  check(p.buffs()[2].caster.kind === 'name' && p.buffs()[2].caster.name === 'Moi', '« =Moi » : nom libre sans question');
+  p.dire('gm', '!buff add --name Test4 --dur 5r --caster Moine noir --targets Selea');
+  check(p.buffs()[3].caster.id === moine.id, 'nom exact d\'une fiche : sans question');
+  // une cible partielle au milieu d'une liste : seule elle est remplacée
+  const q3 = p.dire('gm', '!buff add --name Test5 --dur 5r --targets Selea, Moi, Lune')[0];
+  check(q3.includes('(cible)'), 'cible partielle : on demande');
+  cliquer(p, 'gm', q3, 'Moine noir');
+  check(noms(p.buffs()[4]) === 'Selea,Moine noir,Lune', 'les autres cibles gardées, dans l\'ordre');
+  // modification : --caster partiel
+  const q4 = p.dire('gm', `!buff edit ${b1.id} --caster Moi --dur 3r`)[0];
+  cliquer(p, 'gm', q4, 'Moine noir');
+  check(b1.caster.id === moine.id && b1.remaining === 3, 'edit : lanceur choisi, durée appliquée en même temps');
+  const q5 = p.dire('gm', '!buff add --name Test6 --dur 5r --caster Moi --targets Selea')[0];
+  cliquer(p, 'gm', q5, 'Annuler');
+  check(!p.buffs().some((b) => b.name === 'Test6'), 'Annuler : rien créé');
+  // sélection gardée pendant le choix
+  const q6 = p.dire('gm', '!buff add --name Test7 --dur 5r --caster Moi', [p.t.gob1])[0];
+  cliquer(p, 'gm', q6, 'Nom libre « Moi »');
+  check(noms(p.buffs().find((b) => b.name === 'Test7')) === 'Gobelin 1', 'la sélection d\'origine est gardée');
+  p.dire('gm', '!buff add --name Test8 --dur 5r --targets gobelin');
+  check(p.buffs().find((b) => b.name === 'Test8').targets[0].id === p.c.gob.id, 'nom exact d\'une fiche (Gobelin) : la fiche, sans question');
+});
+
+describe('Durées en jours', () => {
+  check(B.formatDuration(14400) === '1 j' && B.formatDuration(14400 + 1200) === '1 j 2 h' && B.formatDuration(28800) === '2 j', 'affichage en jours');
+  check(B.compactDuration(14400) === '1j' && B.parseDuration('1j').rounds === 14400 && B.parseDuration('2d').rounds === 28800 && B.parseDuration('1 jour').rounds === 14400, '1j, 2d, 1 jour');
+  check(B.formatDuration(600) === '1 h' && B.compactDuration(1200) === '2h', 'les heures ne changent pas');
 });
 
 describe('Sorts courants et bouton Ajouter', () => {
@@ -682,8 +732,10 @@ describe('Tracker : entrée de round, lanceur suivi par son nom', () => {
   p.dire('pA', '!buff add --name Mystère --dur 3r --caster Ombre --targets me'); // Ombre n'existe pas encore
   check(p.buffs()[0].caster.kind === 'name' && p.buffs()[0].caster.name === 'Ombre', 'lanceur introuvable : gardé par son nom');
   check(noms(p.buffs()[0]) === 'Ombre', 'Moi seul avec un lanceur sans token : le lanceur, par son nom');
-  p.dire('pB', '!buff add --name Ambigu --dur 3r --caster gobelin --targets me');
-  check(p.buffs()[1].caster.kind === 'name', 'lanceur ambigu (2 gobelins) : pas de choix au hasard');
+  const amb = p.dire('pB', '!buff add --name Ambigu --dur 3r --caster gob --targets me')[0];
+  check(amb.includes('(lanceur)') && p.buffs().length === 1, 'lanceur partiel (2 gobelins) : pas de choix au hasard, on demande');
+  cliquer(p, 'pB', amb, 'Nom libre « gob »');
+  check(p.buffs()[1].caster.kind === 'name', 'Nom libre choisi pour le lanceur');
   const ombre = p.tok('Ombre', null, false);
   // tracker non trié (Selea avant Ombre malgré l'initiative) avec une entrée « -- Début du round -- »
   const o = [{ id: '-1', pr: 0, custom: '-- Début du round --' }, entree(p.t.selea, 5), entree(ombre, 12)];
