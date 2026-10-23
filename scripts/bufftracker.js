@@ -8,7 +8,9 @@
  * Version 2.3 — boutons à cocher réparés ; minutes écrites « min » ; un joueur seulement
  *               ciblé ne retire que ses personnages.
  * Version 2.4 — un nom partiel n'est plus deviné : boutons pour choisir ; durées en jours.
- * Version 2.5 — relancer un sort ne remplace que celui du même lanceur.
+ * Version 2.5 — relancer un sort ne remplace que celui du même lanceur ; le même sort de
+ *               deux lanceurs : une seule ligne par personnage (la plus longue), et pas
+ *               d'annonce de fin tant qu'un autre lancement le couvre.
  *
  * MISE EN PLACE (une seule fois)
  *   1. Coller ce fichier dans un nouveau script API, enregistrer.
@@ -361,10 +363,29 @@
       });
     });
     const out = [...groups.values()];
-    out.forEach((g) => g.rows.sort(parDuree));
+    // le même sort de deux lanceurs ne se cumule pas : une seule ligne, la plus longue
+    out.forEach((g) => {
+      g.rows.sort(parDuree);
+      const vus = new Map();
+      g.rows.forEach((r) => {
+        const k = (r.hidden ? 'h:' : '') + normalize(r.name);
+        const d = vus.get(k);
+        if (!d || val(r.remaining) > val(d.remaining)) vus.set(k, r);
+      });
+      g.rows = g.rows.filter((r) => vus.get((r.hidden ? 'h:' : '') + normalize(r.name)) === r);
+    });
     out.sort((a, b) => normalize(a.target).localeCompare(normalize(b.target)));
     return out;
   };
+
+  // Cibles à annoncer (dernier round, fin) : sans celles qu'un autre lancement du même
+  // sort couvre encore au moins min rounds. Renvoie [{b, targets}] non vides.
+  const aAnnoncer = (liste, buffs, min) => liste.map((b) => ({
+    b,
+    targets: b.targets.filter((t) => !buffs.some((o) => o !== b && !liste.includes(o) &&
+      normalize(o.name) === normalize(b.name) && !!o.hidden === !!b.hidden &&
+      val(o.remaining) >= min && o.targets.some((x) => sameEntity(x, t))))
+  })).filter((x) => x.targets.length);
 
   // ---- vue par lancement (menu) : une ligne par effet avec la liste de ses cibles
   // editable(b) : boutons complets ; selfOnly(b) : seulement « Me retirer » (un joueur
@@ -479,7 +500,7 @@
   const exportsPurs = {
     parseDuration, formatDuration, compactDuration, normalize, escapeHtml, pourRequete, parseCommand, parseBool,
     texte, parseTargets, entityKey, tick, detectAdvance, isRoundEntry, isNewRound, stripMarkers,
-    resolveByName, replaceTargets, FAVORITES, findFavorite, spellDuration, buildView,
+    resolveByName, replaceTargets, aAnnoncer, FAVORITES, findFavorite, spellDuration, buildView,
     buildCastView, renderHandout, renderMenu, renderPicker, renderChoix
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = exportsPurs;
@@ -659,9 +680,11 @@
     s.handoutId = h.id;
     return h;
   };
-  const annoncer = (buffs, texteAnnonce) => {
-    const pub = buffs.filter((b) => !b.hidden), mj = buffs.filter((b) => b.hidden);
-    const ligne = (l, lien) => boite(`${escapeHtml(texteAnnonce)} : ${l.map((b) => `<b>${escapeHtml(b.name)}</b> (${escapeHtml(nomsCibles(b))})`).join(', ')}` +
+  // items : [{b, targets}] (aAnnoncer)
+  const annoncer = (items, texteAnnonce) => {
+    const pub = items.filter((x) => !x.b.hidden), mj = items.filter((x) => x.b.hidden);
+    const noms = (x) => x.targets.map((t) => nomEntite(t) || '?').join(', ');
+    const ligne = (l, lien) => boite(`${escapeHtml(texteAnnonce)} : ${l.map((x) => `<b>${escapeHtml(x.b.name)}</b> (${escapeHtml(noms(x))})`).join(', ')}` +
       (lien ? ` ${lienFenetre(handout().id, 'Voir les effets')}` : ''));
     if (pub.length) sendChat(NOM, ligne(pub, true));
     if (mj.length) sendChat(NOM, `/w gm ${ligne(mj, false)}`);
@@ -695,11 +718,12 @@
   // retire les effets expirés, les annonce, et met tout à jour
   const traiter = (res, { avertir = true } = {}) => {
     const s = etat();
-    if (avertir && res.warned.length) annoncer(res.warned, 'Dernier round');
+    // une cible encore couverte par le même sort d'un autre lanceur n'est pas annoncée
+    if (avertir && res.warned.length) annoncer(aAnnoncer(res.warned, s.buffs, 2), 'Dernier round');
     if (res.expired.length) {
       const fin = new Set(res.expired);
       s.buffs = s.buffs.filter((b) => !fin.has(b));
-      annoncer(res.expired, 'Fin');
+      annoncer(aAnnoncer(res.expired, s.buffs, 1), 'Fin');
     }
     rafraichir();
   };

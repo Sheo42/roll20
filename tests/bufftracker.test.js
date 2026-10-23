@@ -553,7 +553,31 @@ describe('Relance', () => {
   check(p.buffs().length === 2 && p.buffs()[0].targets.length === 4 && p.buffs()[0].remaining === 50 && p.buffs()[1].remaining === 3,
     'même sort d\'un autre lanceur : les deux restent, chacun sa durée');
   const notes = p.handout().props.notes;
-  check((notes.match(/Bénédiction/g) || []).length === 5, 'fenêtre : Selea a les deux Bénédictions');
+  check((notes.match(/Bénédiction/g) || []).length === 4, 'fenêtre : une seule Bénédiction chez Selea (pas de cumul)');
+  check(/Selea<\/h4>.*?5 min.*?Solathia/.test(notes), 'chez Selea : la plus longue des deux, avec son lanceur');
+});
+
+describe('Même sort de deux lanceurs : le plus long compte', () => {
+  const p = partie();
+  // lanceur 1 : 5 rounds ; lanceur 2, plus tard : 8 rounds sur Selea seulement
+  p.dire('pC', '!buff add --name Bénédiction --dur 5r --caster Solathia --targets Selea, Paz');
+  p.dire('gm', '!buff add --name Bénédiction --dur 8r --caster =Aelric --targets Selea');
+  const voir = () => p.handout().props.notes;
+  check(/Selea<\/h4>.*?8 rd.*?Aelric/.test(voir()) && (voir().match(/Bénédiction/g) || []).length === 2, 'fenêtre : une Bénédiction par personnage, celle qui dure le plus');
+  const out4 = p.dire('gm', '!buff time 4r confirm 2');
+  check(!out4.some((m) => m.includes('Fin')), '!buff time 4r : rien ne finit encore');
+  const [b1, b2] = p.buffs();
+  const dr = B.aAnnoncer([b1], p.buffs(), 2);
+  check(dr.length === 1 && dr[0].targets.length === 1 && dr[0].targets[0].id === p.c.paz.id, 'dernier round : annoncé pour Paz seulement, Selea reste couverte');
+  check(b2.remaining === 4, 'le lancement d\'Aelric a sa propre durée');
+  const out5 = p.dire('gm', '!buff time 1r confirm 2');
+  const fin = out5.find((m) => m.includes('Fin')) || '';
+  check(fin.includes('(Paz Tarpou)') && !fin.includes('Selea'), 'fin du premier lancement : pas de « Fin » pour Selea');
+  check(p.buffs().length === 1 && /Selea<\/h4>.*?3 rd/.test(voir()), 'Selea garde la Bénédiction d\'Aelric (3 rounds)');
+  p.dire('gm', '!buff time 2r confirm 1');
+  const out8 = p.dire('gm', '!buff time 1r confirm 1');
+  check(out8.some((m) => m.includes('Fin') && m.includes('(Selea)')), 'fin du second : annoncée pour Selea');
+  check(B.aAnnoncer([], [], 1).length === 0, 'aAnnoncer : liste vide');
 });
 
 describe('Droits', () => {
