@@ -1,8 +1,8 @@
 /*
  * gabarit.js — Gabarits de zones d'effet (Pathfinder 1e) pour l'API Roll20
- * Version 1.3 — l'émanation a aussi son Viseur (icône, couleur, Effacer) et
- *               suit son lanceur ; les auras se mettent à jour quand une
- *               créature entre dans une zone ou en sort ;
+ * Version 1.4 — l'émanation n'a plus de Viseur (elle reste sur le lanceur) ;
+ *               v1.3 : l'émanation suit son lanceur ; les auras se mettent à
+ *               jour quand une créature entre dans une zone ou en sort ;
  *               v1.2 : lignes obliques à N cases exactement (formes du manuel) ;
  *               v1.1 : plusieurs gabarits peuvent rester en même temps sur la carte,
  *               chacun avec son propre Viseur, sa couleur et son bouton Effacer ;
@@ -28,9 +28,8 @@
  *     Pour appliquer la règle à la lettre, pose le Viseur sur un coin de la case
  *     du lanceur ; sinon, tu simules ce que donnerait le sort si le lanceur se
  *     trouvait ailleurs (le script ne vérifie pas l'origine).
- *   - Émanation : elle part des bords de la case du lanceur et le SUIT quand il
- *     se déplace. Son Viseur, posé à côté, la repère (couleur, nom) et la suit
- *     aussi ; le déplacer à la main ne change pas la zone.
+ *   - Émanation : pas de Viseur. Elle part des bords de la case du lanceur et le
+ *     SUIT quand il se déplace.
  *   Le gabarit suit le Viseur. Il reste sur la carte jusqu'à ce qu'on l'efface :
  *   relance « Gabarit » pour en ajouter un autre (nouveau Viseur, nouvelle
  *   couleur).
@@ -559,7 +558,7 @@
 
   // direction de départ du Viseur : vers la droite (cône droit, ligne), vers le
   // bas-droite (cône diagonal) ; le cercle n'en a pas besoin
-  const rotationInitiale = (forme) => (forme === 'conediag' ? 135 : forme === 'burst' || forme === 'emanation' ? 0 : 90);
+  const rotationInitiale = (forme) => (forme === 'conediag' ? 135 : forme === 'burst' ? 0 : 90);
 
   // rotation que le Viseur doit afficher pour refléter la direction réellement
   // utilisée par un cône (aimantation) ; null = pas d'aimantation
@@ -725,8 +724,8 @@
       label: libelle(forme, N)
     };
 
-    // l'émanation a toujours son Viseur : c'est son icône sur la carte
-    if (forme === 'emanation' || !rec.cibleId) {
+    // l'émanation n'a pas de Viseur : elle reste attachée au lanceur
+    if (forme !== 'emanation' && !rec.cibleId) {
       const viseur = preparerViseur(lanceur, rec);
       if (!viseur) {
         parler(qui, 'Impossible de créer le Viseur : aucune image de la bibliothèque du MJ n\'est utilisable. MJ : sélectionne un token (image de ta bibliothèque) et lance !gabarit aimerimg @{selected|token_id}');
@@ -749,14 +748,6 @@
     const aide = forme === 'emanation' ? ' — elle suit ton token' : rec.viseurId ? ' — déplace le Viseur pour ajuster' : '';
     parler(qui, `<b>${rec.label}</b>${aide} · [Effacer](!gabarit clear ${rec.id}) [Tout effacer](!gabarit clear)`);
   });
-
-  // le Viseur d'une émanation accompagne son lanceur (même déplacement)
-  function suivreLanceur(rec, lanceur, prev) {
-    const v = rec.viseurId && getObj('graphic', rec.viseurId);
-    const dx = lanceur.get('left') - prev.left, dy = lanceur.get('top') - prev.top;
-    if (!v || (!dx && !dy)) return;
-    v.set({ left: v.get('left') + dx, top: v.get('top') + dy });
-  }
 
   const CLES_POSITION = ['left', 'top', 'rotation', 'width', 'height'];
 
@@ -786,27 +777,22 @@
     const recs = Object.values(state.gabarit.liste).filter((r) => r.pageId === pageId);
     if (!recs.length) return;
     recs.forEach((r) => {
-      if (r.forme === 'emanation' && r.lanceurId === obj.id) suivreLanceur(r, obj, prev);
-    });
-    // même règle que pour le Viseur : on redessine ici, la signature évite le doublon
-    recs.forEach((r) => {
       if ((r.lanceurId === obj.id || r.cibleId === obj.id) && state.gabarit.liste[r.id] && signature(r) !== r.sig) dessiner(r);
     });
     rafraichirAuras(pageId);
   });
 
-  // supprimer le Viseur efface son gabarit ; supprimer le lanceur efface son
-  // émanation (et les gabarits sans Viseur qui dépendaient de ce token)
+  // supprimer le Viseur efface son gabarit ; supprimer le lanceur efface les
+  // gabarits sans Viseur qui dépendaient de ce token (émanation, cible = token)
   on('destroy:graphic', (obj) => {
     const gid = gidDuViseur(obj.id);
     if (gid) { effacer(gid); return; }
     Object.keys(state.gabarit.liste).forEach((g) => {
       const r = state.gabarit.liste[g];
       if (!r) return;
-      const dependant = r.forme === 'emanation' || !r.viseurId;
-      if (dependant && (r.lanceurId === obj.id || r.cibleId === obj.id)) effacer(g);
+      if (!r.viseurId && (r.lanceurId === obj.id || r.cibleId === obj.id)) effacer(g);
     });
   });
 
-  on('ready', () => log('gabarit.js v1.3 chargé'));
+  on('ready', () => log('gabarit.js v1.4 chargé'));
 })();

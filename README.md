@@ -25,8 +25,7 @@ template, in the template's color) appears next to the character.
 - Burst: the circle is centered on the Aimer.
 - Straight cone, diagonal cone, line: the template starts from the Aimer. Rotate it (E key + mouse wheel, in 45° steps)
   to choose the direction; the rotation snaps to valid directions.
-- Emanation: starts from the edges of the caster's square and follows the caster when it moves. Its Aimer, placed
-  next to the caster, marks it (color, name) and moves along; moving the Aimer by hand does not change the area.
+- Emanation: no Aimer. It starts from the edges of the caster's square and follows the caster when it moves.
 - Creatures that walk into or out of a template get or lose its colored aura right away.
 - Several templates can stay on the map at the same time. Use "Effacer" (clear) in the message you received, or delete the Aimer.
 
@@ -37,7 +36,7 @@ template, in the template's color) appears next to the character.
 | `!gabarit clear all` | GM: clears all templates. |
 | `!gabarit aimerimg` | GM: saves the selected token as the Aimer image. |
 
-**Tests**: `node tests/gabarit.test.js` (Node, no dependency) runs 301 checks: size conversion, shapes and square
+**Tests**: `node tests/gabarit.test.js` (Node, no dependency) runs 289 checks: size conversion, shapes and square
 counts, outlines, then the full flow with a fake Roll20 (every shape and size of the macro, auras when creatures move,
 emanation following its caster). They are no substitute for a try-out in a real campaign.
 

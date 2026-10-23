@@ -333,9 +333,9 @@ describe('Plusieurs gabarits, couleurs, effacer, unités (carte en mètres)', ()
   send('!gabarit clear all','GM');
   check(paths().length===0&&viseurs().length===0,'clear all (MJ) vide tout');
 
-  // 11) émanation : avec son Viseur ; couleur explicite
+  // 11) émanation : sans Viseur ; couleur explicite
   send(`!gabarit cast ${mage.id} emanation 2sq color=cold`);
-  check(viseurs().length===1&&paths().length===1,'émanation : 1 Viseur + 1 tracé');
+  check(viseurs().length===0&&paths().length===1,'émanation sans Viseur');
   check(sb.state.gabarit.liste[Object.keys(sb.state.gabarit.liste)[0]].couleur==='#33aaff','color=cold respectée');
   send('!gabarit clear');
 
@@ -468,7 +468,7 @@ describe('Cônes, lignes, cercles et émanations : départ au Viseur', () => {
   rot(v,77); check([...cases()].sort().join()===av&&v.get('rotation')===77,'cercle : tourner le Viseur ne change rien');
   V(v,3,3);  check([...cases()].sort().join()!==av,'cercle : déplacer le Viseur déplace le cercle');
   send('!gabarit clear'); send(`!gabarit cast ${mage.id} emanation 2sq`);
-  check(viseur()!==undefined&&rec().viseurId===viseur().id&&rec().cases.length>0,'émanation : a son Viseur');
+  check(viseur()===undefined&&!rec().viseurId&&rec().cases.length>0,'émanation : sans Viseur');
 
   // ===== plusieurs gabarits =====
   send('!gabarit clear');
@@ -547,9 +547,9 @@ describe('Cônes, lignes, cercles et émanations : départ au Viseur', () => {
   });
 });
 
-// ============================================ ÉMANATION : Viseur et suivi du lanceur
+// ================================================== ÉMANATION : suit le lanceur
 [true, false].forEach((nested) => {
-  describe(`Émanation : Viseur, suit le lanceur (évènement relancé : ${nested ? 'oui' : 'non'})`, () => {
+  describe(`Émanation : sans Viseur, suit le lanceur (évènement relancé : ${nested ? 'oui' : 'non'})`, () => {
     const R = creerRoll20({ nested });
     const { fire, mk, objs, sb, crees, chat } = R;
     const pg = mk('page', { snapping_increment: 1 });
@@ -565,34 +565,22 @@ describe('Cônes, lignes, cercles et émanations : départ au Viseur', () => {
 
     send(`!gabarit cast ${mage.id} emanation 2sq color=cold`);
     const w = chat.splice(0);
-    const v = viseurs()[0];
-    check(viseurs().length === 1 && paths().length === 1, 'émanation : un Viseur (icône) et un tracé');
-    check(v && /^Viseur 1: Émanation 3 m \/ 2 cases$/.test(v.get('name')), 'nom du Viseur : ' + (v && v.get('name')));
-    check(v && v.get('aura1_color') === '#33aaff' && v.get('controlledby') === 'all', 'Viseur à la couleur de l\'émanation, contrôlable par tous');
-    check(v && v.get('rotation') === 0, 'Viseur de l\'émanation : flèche vers le haut (pas de direction)');
-    check(v && !(Math.abs(v.get('left') - mage.get('left')) < 105 && Math.abs(v.get('top') - mage.get('top')) < 105), 'le Viseur ne recouvre pas le lanceur');
+    check(viseurs().length === 0 && paths().length === 1 && !rec().viseurId, 'émanation : pas de Viseur, un tracé');
     check(w.length === 1 && /suit ton token/.test(w[0]) && /clear g1/.test(w[0]), 'message : « elle suit ton token » + bouton Effacer');
     check(eq(cases(), g.casesEmanation(10, 10, 10, 10, 2)) && !cases().has('10,10'), 'zone : 2 cases autour du lanceur, lanceur exclu');
     check(gob.get('aura1_radius') === '', 'Gob à 3 cases : pas touché');
     check(mage.get('aura1_radius') === '', 'le lanceur n\'est pas touché par sa propre émanation');
 
-    // le lanceur se déplace : l'émanation et son Viseur le suivent
-    const vx = v.get('left'), vy = v.get('top');
+    // le lanceur se déplace : l'émanation le suit
     crees.path = 0;
     deplacer(mage, 12, 10);
     check(eq(cases(), g.casesEmanation(12, 12, 10, 10, 2)), 'lanceur déplacé en (12,10) : l\'émanation le suit');
     check(crees.path === 1 && paths().length === 1, 'un seul nouveau tracé, pas de reste (' + crees.path + ')');
-    check(v.get('left') === vx + 140 && v.get('top') === vy, 'le Viseur a suivi le lanceur (même déplacement)');
     check(gob.get('aura1_radius') === '0' && gob.get('aura1_color') === '#33aaff', 'Gob maintenant à 1 case : touché (aura bleue)');
     check(mage.get('aura1_radius') === '', 'le lanceur toujours pas touché');
 
-    // le Viseur déplacé à la main : la zone ne change pas
-    crees.path = 0;
+    // une rotation du lanceur ne change pas la zone
     const avant = [...cases()].sort().join();
-    v.set({ left: 30 * 70, top: 30 * 70 });
-    check([...cases()].sort().join() === avant && crees.path === 0, 'Viseur déplacé à la main : la zone reste sur le lanceur, pas de redessin');
-
-    // une rotation du lanceur ne redessine pas une zone identique... mais ne casse rien
     mage.set({ rotation: 90 });
     check([...cases()].sort().join() === avant && paths().length === 1, 'lanceur tourné : même zone, un seul tracé');
 
@@ -600,15 +588,15 @@ describe('Cônes, lignes, cercles et émanations : départ au Viseur', () => {
     deplacer(gob, 20, 10);
     check(gob.get('aura1_radius') === '', 'Gob sorti de la zone : aura d\'origine restaurée');
 
-    // supprimer le Viseur efface l'émanation
-    v.remove();
-    check(Object.keys(sb.state.gabarit.liste).length === 0 && paths().length === 0, 'supprimer le Viseur efface l\'émanation');
+    // Effacer
+    send('!gabarit clear g1');
+    check(Object.keys(sb.state.gabarit.liste).length === 0 && paths().length === 0, 'Effacer : émanation supprimée');
 
-    // supprimer le lanceur efface son émanation et son Viseur
+    // supprimer le lanceur efface son émanation
     send(`!gabarit cast ${mage.id} emanation 1sq`); chat.splice(0);
-    check(viseurs().length === 1 && paths().length === 1, 'nouvelle émanation');
+    check(paths().length === 1, 'nouvelle émanation');
     mage.remove();
-    check(Object.keys(sb.state.gabarit.liste).length === 0 && paths().length === 0 && viseurs().length === 0, 'supprimer le lanceur efface son émanation et son Viseur');
+    check(Object.keys(sb.state.gabarit.liste).length === 0 && paths().length === 0, 'supprimer le lanceur efface son émanation');
   });
 });
 
@@ -644,13 +632,13 @@ describe('Toutes les formes et tailles de la macro « Gabarit » sont acceptées
       const w = chat.splice(0);
       const recs = Object.values(sb.state.gabarit.liste);
       const r = recs[0];
-      const v = r && getV(objs, r.viseurId);
+      const v = r && (f === 'emanation' ? !r.viseurId : getV(objs, r.viseurId));
       const nbPaths = objs.filter((o) => o.type === 'path').length;
       if (!(recs.length === 1 && v && nbPaths === 1 && r.cases.length > 0 && w.length === 1 && /Effacer/.test(w[0]))) ko.push(`${f} ${t}`);
       fire('chat:message', { type: 'api', content: '!gabarit clear', who: 'A', playerid: 'P' });
       if (objs.some((o) => o.type === 'path' || (o.type === 'graphic' && /^viseur/i.test(o.get('name'))))) ko.push(`${f} ${t} (reste après clear)`);
     }));
-    check(ko.length === 0, `grille ${snap} : chaque forme x chaque taille donne 1 Viseur + 1 tracé + Effacer, et clear nettoie tout` + (ko.length ? ' — KO : ' + ko.join(' ; ') : ''));
+    check(ko.length === 0, `grille ${snap} : chaque forme x chaque taille donne 1 Viseur (sauf émanation) + 1 tracé + Effacer, et clear nettoie tout` + (ko.length ? ' — KO : ' + ko.join(' ; ') : ''));
   });
   function getV(objs, id) { return objs.find((o) => o.id === id); }
 });

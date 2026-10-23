@@ -26,8 +26,7 @@ listes. Un Viseur (un par gabarit, de la couleur du gabarit) apparaît près du 
 - Cercle : le cercle est centré sur le Viseur.
 - Cône droit, cône diagonal, ligne : le gabarit part du Viseur. On le tourne (touche E + molette, par pas de 45°)
   pour choisir la direction ; la rotation s'aimante sur les directions valides.
-- Émanation : part des bords de la case du lanceur et le suit quand il se déplace. Son Viseur, posé à côté, la
-  repère (couleur, nom) et le suit aussi ; déplacer le Viseur à la main ne change pas la zone.
+- Émanation : pas de Viseur. Elle part des bords de la case du lanceur et le suit quand il se déplace.
 - Une créature qui entre dans une zone ou en sort prend ou perd tout de suite l'aura de sa couleur.
 - Plusieurs gabarits peuvent rester en même temps. « Effacer » dans le message reçu, ou supprimer le Viseur.
 
@@ -38,7 +37,7 @@ listes. Un Viseur (un par gabarit, de la couleur du gabarit) apparaît près du 
 | `!gabarit clear all` | MJ : efface tous les gabarits. |
 | `!gabarit aimerimg` | MJ : enregistre le token sélectionné comme image du Viseur. |
 
-**Tests** : `node tests/gabarit.test.js` (Node, sans dépendance) lance 301 vérifications : conversion des tailles,
+**Tests** : `node tests/gabarit.test.js` (Node, sans dépendance) lance 289 vérifications : conversion des tailles,
 formes et nombres de cases, contours, puis le flux complet avec un faux Roll20 (chaque forme et taille de la macro,
 auras quand les créatures bougent, émanation qui suit son lanceur). Ils n'ont pas remplacé un essai en
 campagne réelle.
