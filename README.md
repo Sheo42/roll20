@@ -146,7 +146,7 @@ selected when the button is clicked.
 
 Players act only on tokens they control (token or character); the GM on all.
 
-**Tests**: `node tests/altitude.test.js` (Node, no dependency) runs 126 checks: unit conversion, 2D and 3D distances,
+**Tests**: `node tests/altitude.test.js` (Node, no dependency) runs 128 checks: unit conversion, 2D and 3D distances,
 flight cost (including the FAQ example), Fly DCs, falling dice, then the full flow with a fake Roll20 (label following
 the token, player rights, sheet fly speed in meters, menu buttons). They are no substitute for a try-out in a real game.
 

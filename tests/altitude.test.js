@@ -298,6 +298,16 @@ describe('Distance 3D : !alt dist', () => {
   R.cmd(`!alt set ${a.id} 10`, 'GM');
   R.cmd(`!alt dist ${a.id} ${grand.id}`, 'GM');
   check(/hauteur 5 ft/.test(R.dernier()) && /Au contact/.test(R.dernier()), 'à 10 ft d\'altitude, au-dessus d\'une créature Grande (haute de 10 ft) : 1 case d\'écart en hauteur, au contact en diagonale');
+  // sort Vol suivi seulement au BuffTracker : vitesse de vol à 0 sur la fiche
+  const c = R.perso('Lune', { 'speed-fly': '0' }, 'p1');
+  const sansVol = R.token('Lune', 0, 3, { represents: c.id });
+  R.cmd(`!alt set ${sansVol.id} 15`, 'p1');
+  R.cmd(`!alt dist ${sansVol.id} ${b.id}`, 'p1');
+  check(/Horizontal 25 ft, hauteur 15 ft : distance <b>30 ft/.test(R.dernier()) && !/undefined|NaN/.test(R.dernier()),
+    'sans vitesse de vol sur la fiche (sort Vol) : la distance s\'affiche quand même');
+  R.cmd('!alt fly 30 10', 'p1', [sansVol]);
+  check(/coût <b>40 ft<\/b>/.test(R.dernier()) && /vitesse de vol inconnue/.test(R.dernier()) && !/undefined|NaN/.test(R.dernier()),
+    'sans vitesse de vol : le coût s\'affiche, sans mouvement restant');
   R.cmd(`!alt dist ${a.id}`, 'GM');
   check(/Usage/.test(R.dernier()), 'un seul token : rappel de l\'usage');
 });

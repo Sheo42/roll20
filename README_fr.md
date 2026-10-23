@@ -152,7 +152,7 @@ sur le token sélectionné au moment du clic.
 
 Un joueur n'agit que sur les tokens qu'il contrôle (token ou personnage) ; le MJ sur tous.
 
-**Tests** : `node tests/altitude.test.js` (Node, sans dépendance) lance 126 vérifications : conversions d'unités,
+**Tests** : `node tests/altitude.test.js` (Node, sans dépendance) lance 128 vérifications : conversions d'unités,
 distances 2D et 3D, coût d'un vol (dont l'exemple de la FAQ), DD de Vol, dés de chute, puis le flux complet avec un faux
 Roll20 (étiquette qui suit le token, droits des joueurs, vitesse de vol de la fiche en mètres, boutons du menu). Ils ne
 remplacent pas un essai dans une vraie partie.
