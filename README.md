@@ -67,6 +67,47 @@ The level ids are `verycold`, `cold`, `temperate`, `hot` and `veryhot`, and mont
 **Tests**: `node tests/Climat.test.js` (Node, no dependency) runs 306 checks: scripted dice, statistical properties over
 tens of thousands of days, then the full flow with a fake Roll20. They are no substitute for a try-out in a real game.
 
+## Buff and spell duration tracker (BuffTracker)
+
+`scripts/bufftracker.js` tracks running effects (spells, buffs, conditions) and their duration in rounds
+(1 min = 10 rounds, 1 h = 600 rounds). One cast carries its list of targets: a Bless on four PCs is a single line
+with a single duration. Players see a handout "Effets actifs" (grouped by character, rewritten on every change), a
+status marker per effect on the targets' tokens (with the rounds left when 9 or fewer), and a chat notice on an
+effect's last round and when it ends. The script never touches character sheets; its data lives in
+`state.BuffTracker`.
+
+**Installation**: paste `scripts/bufftracker.js` into a new API script and save. Create a macro visible to all players
+with the content of `macro/bufftracker.macro.txt` (`!buff`). The script creates the "Effets actifs" handout itself.
+
+**Countdown**: in combat, when the turn tracker moves to the next turn, effects whose caster takes the turn lose
+1 round (PF1: an effect ends just before its caster's turn). Effects without a caster in the tracker lose 1 round at
+the start of each round. The start of a round is a custom tracker entry whose text contains the word "round" or "tour"
+reaching the top (for example the `Round` counter added by AddCustomTurn's `!act --Round`); without one, the
+initiative going back up marks it. Filling or sorting the tracker counts nothing, and going back then forward again
+does not count a turn twice. Out of combat, the GM moves time on with `!buff time 10m`.
+
+| Command | Effect |
+| --- | --- |
+| `!buff` | Menu: one line per cast with its targets and buttons (-1, +1, Durée, Effet, Cibles, X). |
+| `!buff add --name <name> --dur <duration> [--caster <name>] [--targets <list>] [--effect <text>] [--marker <color>\|none] [--hidden]` | Adds a cast. Targets: `group`, `me`, `selected`, `pick` (tick boxes) or names/token ids separated by commas. Durations: `3r`, `3`, `10m`, `2h`, `1d`, `perm`. Recasting an effect of the same name replaces it on the new targets. |
+| `!buff add --spell <id> --cl <level> ...` | Adds a common spell with its duration computed from the caster level. |
+| `!buff fav` | Buttons for the common spells. |
+| `!buff edit <n> --dur -1` | Changes a cast (`+2`, `4r`, `10m`, `perm`; also `--name`, `--effect`, `--marker`, `--caster`, `--targets`, `--hidden yes\|no` for the GM). |
+| `!buff remove <n> [<n> ...]` | Removes casts: dry run, then `... confirm N`. |
+| `!buff clear` | Removes the selected tokens from all their effects (dry run, then `confirm N`). |
+| `!buff clear all` | GM: removes every effect (dry run, then `confirm N`). |
+| `!buff time <duration>` | GM: moves time on (dry run, then `confirm N`). |
+| `!buff show` | Rewrites the handout and gives a link to open it. |
+| `!buff help` | Help. |
+
+**Rights**: anyone can cast an effect on anyone. A player edits or removes the casts they created, those whose caster
+they control and those touching one of their characters. The GM manages everything and alone creates hidden effects.
+An effect on a token linked to a sheet follows the character on every page; on an unlinked token (numbered monsters)
+it follows that token only.
+
+**Tests**: `node tests/bufftracker.test.js` (Node, no dependency) runs 291 checks: the pure logic (durations, targets, countdown,
+markers) and then the full flow with a fake Roll20. They are no substitute for a try-out in a real game.
+
 ## Sync the API scripts with GitHub (userscript)
 
 `sync/roll20-github-sync.user.js` adds a "⟳ GitHub" button to the Roll20 API Scripts page

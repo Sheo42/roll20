@@ -69,6 +69,49 @@ Les identifiants de niveau, en anglais, sont `verycold`, `cold`, `temperate`, `h
 **Tests** : `node tests/Climat.test.js` (Node, sans dépendance) lance 306 vérifications : dés scriptés, propriétés statistiques
 sur des dizaines de milliers de jours, puis le flux complet avec un faux Roll20. Ils n'ont pas remplacé un essai en partie réelle.
 
+## Suivi des buffs et durées de sort (BuffTracker)
+
+`scripts/bufftracker.js` suit les effets en cours (sorts, buffs, états) et leur durée en rounds (1 min = 10 rounds,
+1 h = 600 rounds). Un lancement porte la liste de ses cibles : une Bénédiction sur quatre PJ est une seule ligne, avec
+une seule durée. Les joueurs voient un handout « Effets actifs » (rangé par personnage, réécrit à chaque changement), un
+marqueur d'état par effet sur les tokens des cibles (avec les rounds restants à partir de 9) et une annonce dans le chat
+au dernier round d'un effet, puis quand il se termine. Le script ne touche pas aux fiches ; ses données sont dans
+`state.BuffTracker`.
+
+**Installation** : coller `scripts/bufftracker.js` dans un nouveau script API et enregistrer. Créer une macro visible par
+tous les joueurs avec le contenu de `macro/bufftracker.macro.txt` (`!buff`). Le script crée lui-même le handout
+« Effets actifs ».
+
+**Décompte** : en combat, quand le tracker d'initiative passe au tour suivant, les effets dont le lanceur prend la main
+perdent 1 round (PF1 : un effet se termine juste avant le tour de son lanceur). Les effets dont le lanceur n'est pas dans
+le tracker perdent 1 round au début de chaque round. Le début du round, c'est une entrée personnalisée du tracker dont le
+texte contient le mot « round » ou « tour » qui arrive en tête (par exemple le compteur `Round` ajouté par
+`!act --Round` d'AddCustomTurn) ; sans elle, c'est l'initiative qui remonte. Remplir ou trier le tracker ne décompte
+rien, et revenir en arrière puis repasser au même tour ne le décompte pas deux fois. Hors combat, le MJ fait passer le
+temps avec `!buff time 10m`.
+
+| Commande | Effet |
+| --- | --- |
+| `!buff` | Menu : une ligne par lancement avec ses cibles et des boutons (-1, +1, Durée, Effet, Cibles, X). |
+| `!buff add --name <nom> --dur <durée> [--caster <nom>] [--targets <liste>] [--effect <texte>] [--marker <couleur>\|none] [--hidden]` | Ajoute un lancement. Cibles : `group`, `me`, `selected`, `pick` (boutons à cocher) ou des noms ou ids de tokens séparés par des virgules. Durées : `3r`, `3`, `10m`, `2h`, `1d`, `perm`. Relancer un effet du même nom le remplace sur les nouvelles cibles. |
+| `!buff add --spell <id> --cl <niveau> ...` | Ajoute un sort courant, durée calculée d'après le niveau de lanceur. |
+| `!buff fav` | Boutons des sorts courants. |
+| `!buff edit <n> --dur -1` | Modifie un lancement (`+2`, `4r`, `10m`, `perm` ; aussi `--name`, `--effect`, `--marker`, `--caster`, `--targets`, `--hidden yes\|no` pour le MJ). |
+| `!buff remove <n> [<n> ...]` | Retire des lancements : essai à blanc, puis `... confirm N`. |
+| `!buff clear` | Retire les tokens sélectionnés de tous leurs effets (essai à blanc, puis `confirm N`). |
+| `!buff clear all` | MJ : retire tous les effets (essai à blanc, puis `confirm N`). |
+| `!buff time <durée>` | MJ : fait passer le temps (essai à blanc, puis `confirm N`). |
+| `!buff show` | Réécrit le handout et donne le lien pour l'ouvrir. |
+| `!buff help` | Aide. |
+
+**Droits** : tout le monde peut lancer un effet sur n'importe qui. Un joueur modifie ou retire les lancements qu'il a
+créés, ceux dont il contrôle le lanceur et ceux qui touchent un de ses personnages. Le MJ gère tout, et lui seul crée des
+effets cachés. Un effet sur un token lié à une fiche suit le personnage sur toutes les cartes ; sur un token non lié
+(monstres numérotés), il suit ce token seulement.
+
+**Tests** : `node tests/bufftracker.test.js` (Node, sans dépendance) lance 291 vérifications : la logique pure (durées, cibles, décompte,
+marqueurs) puis le flux complet avec un faux Roll20. Ils n'ont pas remplacé un essai en partie réelle.
+
 ## Synchroniser les scripts API avec GitHub (userscript)
 
 `sync/roll20-github-sync.user.js` ajoute un bouton « ⟳ GitHub » sur la page des scripts API de Roll20
