@@ -70,10 +70,10 @@ tens of thousands of days, then the full flow with a fake Roll20. They are no su
 
 `scripts/bufftracker.js` tracks running effects (spells, buffs, conditions) and their duration in rounds
 (1 min = 10 rounds, 1 h = 600 rounds). One cast carries its list of targets: a Bless on four PCs is a single line
-with a single duration. Players see a handout "Effets actifs" (grouped by character, rewritten on every change), a
-status marker per effect on the targets' tokens (with the rounds left when 9 or fewer), and a chat notice on an
-effect's last round and when it ends. The script never touches character sheets; its data lives in
-`state.BuffTracker`.
+with a single duration. Players see a handout "Effets actifs" (grouped by character, rewritten on every change) and a
+chat notice on an effect's last round and when it ends. The script puts no status marker on tokens (players use them
+for other things), and markers left by version 2.0 are removed at start-up. It never touches character sheets; its
+data lives in `state.BuffTracker`.
 
 **Installation**: paste `scripts/bufftracker.js` into a new API script and save. Create the "BuffTracker" macro, visible to all players,
 with the content of `macro/BuffTracker.macro.txt` (`!buff`). The script creates the "Effets actifs" handout itself.
@@ -88,10 +88,10 @@ does not count a turn twice. Out of combat, the GM moves time on with `!buff tim
 | Command | Effect |
 | --- | --- |
 | `!buff` | Menu: one line per cast with its targets and buttons (-1, +1, Durée, Effet, Cibles, X). |
-| `!buff add --name <name> --dur <duration> [--caster <name>] [--targets <list>] [--effect <text>] [--marker <color>\|none] [--hidden]` | Adds a cast. Targets: `group`, `me`, `selected`, `pick` (tick boxes) or names/token ids separated by commas. Durations: `3r`, `3`, `10m`, `2h`, `1d`, `perm`. Recasting an effect of the same name replaces it on the new targets. |
+| `!buff add --name <name> --dur <duration> [--caster <name>] [--targets <list>] [--effect <text>] [--hidden]` | Adds a cast. Targets: `group`, `me`, `selected`, `pick` (tick boxes) or names/token ids separated by commas. Durations: `3r`, `3`, `10m`, `2h`, `1d`, `perm`. Recasting an effect of the same name replaces it on the new targets. |
 | `!buff add --spell <id> --cl <level> ...` | Adds a common spell with its duration computed from the caster level. |
 | `!buff fav` | Buttons for the common spells. |
-| `!buff edit <n> --dur -1` | Changes a cast (`+2`, `4r`, `10m`, `perm`; also `--name`, `--effect`, `--marker`, `--caster`, `--targets`, `--hidden yes\|no` for the GM). |
+| `!buff edit <n> --dur -1` | Changes a cast (`+2`, `4r`, `10m`, `perm`; also `--name`, `--effect`, `--caster`, `--targets`, `--hidden yes\|no` for the GM). |
 | `!buff remove <n> [<n> ...]` | Removes casts: dry run, then `... confirm N`. |
 | `!buff clear` | Removes the selected tokens from all their effects (dry run, then `confirm N`). |
 | `!buff clear all` | GM: removes every effect (dry run, then `confirm N`). |
@@ -104,8 +104,7 @@ they control and those touching one of their characters. The GM manages everythi
 An effect on a token linked to a sheet follows the character on every page; on an unlinked token (numbered monsters)
 it follows that token only.
 
-**Tests**: `node tests/bufftracker.test.js` (Node, no dependency) runs 296 checks: the pure logic (durations, targets, countdown,
-markers) and then the full flow with a fake Roll20. They are no substitute for a try-out in a real game.
+**Tests**: `node tests/bufftracker.test.js` (Node, no dependency) runs 289 checks: the pure logic (durations, targets, countdown) and then the full flow with a fake Roll20. They are no substitute for a try-out in a real game.
 
 ## Sync the API scripts with GitHub (userscript)
 

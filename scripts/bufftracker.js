@@ -3,6 +3,7 @@
  * Version 2.0 — un lancement porte une liste de cibles (un sort lancé sur plusieurs
  *               alliés = une seule ligne) ; choix des cibles par leur nom ou avec des
  *               boutons à cocher ; lien direct vers la fenêtre « Effets actifs ».
+ * Version 2.1 — plus de marqueur d'état sur les tokens (ceux d'avant sont retirés).
  *
  * MISE EN PLACE (une seule fois)
  *   1. Coller ce fichier dans un nouveau script API, enregistrer.
@@ -15,10 +16,7 @@
  *     bouton « Ouvrir la fenêtre » du menu et le lien des annonces l'ouvrent
  *     directement, sans passer par la bibliothèque. Les effets cachés n'apparaissent
  *     que dans la partie MJ du handout.
- *   - Un marqueur d'état par effet sur les tokens des cibles, avec le nombre de rounds
- *     restants quand il est de 9 ou moins. Couleur choisie d'après le nom, ou une autre
- *     si un effet des mêmes cibles l'a déjà (un relancement garde sa couleur) ;
- *     --marker purple pour la choisir, --marker none pour ne pas en mettre.
+ *   - Aucun marqueur d'état sur les tokens : les joueurs s'en servent pour autre chose.
  *   - Une annonce dans le chat au dernier round d'un effet, puis quand il se termine.
  *
  * CE QUE FONT LES JOUEURS
@@ -49,7 +47,7 @@
  * COMMANDES (options en anglais)
  *   !buff                         menu (lancements des tokens sélectionnés, sinon les tiens)
  *   !buff add --name Bénédiction --dur 5m [--caster Solathia] [--targets group]
- *             [--effect +1 attaque] [--marker blue|none] [--hidden]
+ *             [--effect +1 attaque] [--hidden]
  *       --targets : group, me, selected, pick, ou des noms ou ids de tokens séparés
  *       par des virgules (Selea, Paz). Sans --targets : les tokens sélectionnés, sinon
  *       les boutons à cocher. Durées : 3r, 3 (rounds), 10m, 2h, 1d, perm (jusqu'à ce
@@ -58,7 +56,7 @@
  *   !buff add --spell bless --cl 5 [--caster Solathia] [--targets group]   sort courant
  *   !buff fav                     boutons des sorts courants
  *   !buff edit 3 --dur -1         -1 round (ou +2, 4r, 10m, perm) ; aussi --name,
- *                                 --effect, --marker, --caster, --targets (comme add),
+ *                                 --effect, --caster, --targets (comme add),
  *                                 --hidden yes|no (MJ)
  *   !buff pick toggle|all|none|ok|cancel   boutons à cocher (envoyés par le script)
  *   !buff remove 3 [4 ...]        retire des lancements : essai à blanc, puis ... confirm N
@@ -249,32 +247,12 @@
     return !isNaN(a) && !isNaN(b) && b > a;
   };
 
-  // ---- marqueurs d'état
-  const PALETTE = ['blue', 'green', 'purple', 'yellow', 'pink', 'brown'];
-  const hashStr = (s) => { let h = 0; for (const ch of s) h = (h * 31 + ch.codePointAt(0)) >>> 0; return h; };
-  const markerFor = (name) => PALETTE[hashStr(normalize(name)) % PALETTE.length];
-  // marqueur d'un effet sur la carte ("blue@4"), ou null s'il n'en a pas
-  const markerTag = (b) => {
-    if (b.hidden || b.marker === 'none') return null;
-    const m = b.marker || b.color || markerFor(b.name);
-    const r = b.remaining;
-    return (r !== null && r !== undefined && r >= 1 && r <= 9) ? `${m}@${r}` : m;
-  };
-  // Couleur d'un nouveau lancement : celle du nom si aucun autre effet de ses cibles
-  // ne l'utilise, sinon la première libre de la palette (deux effets de même couleur
-  // sur un token n'y laisseraient qu'un marqueur). used = couleurs déjà prises.
-  const pickColor = (name, used) => {
-    const pref = markerFor(name);
-    if (!used.has(pref)) return pref;
-    return PALETTE.find((c) => !used.has(c)) || pref;
-  };
-  // Remplace, dans la chaîne statusmarkers d'un token, les marqueurs posés la dernière
-  // fois par le script (owned) par ceux voulus maintenant (desired). Les autres
-  // marqueurs du token ne bougent pas.
-  const mergeMarkers = (current, owned, desired) => {
+  // ---- marqueurs d'état : le script n'en pose plus (les joueurs s'en servent pour
+  // autre chose). Retire d'une chaîne statusmarkers ceux qu'une ancienne version a
+  // posés (owned) ; les autres marqueurs du token ne bougent pas.
+  const stripMarkers = (current, owned) => {
     const mine = new Set(owned || []);
-    const kept = String(current || '').split(',').filter((m) => m && !mine.has(m.split('@')[0]));
-    return kept.concat(desired || []).join(',');
+    return String(current || '').split(',').filter((m) => m && !mine.has(m.split('@')[0])).join(',');
   };
 
   // ---- recherche par nom (accents et casse ignorés) : égalité, puis début, puis contenu
@@ -458,9 +436,9 @@
 
   const exportsPurs = {
     parseDuration, formatDuration, compactDuration, normalize, escapeHtml, pourRequete, parseCommand, parseBool,
-    texte, parseTargets, entityKey, tick, detectAdvance, isRoundEntry, isNewRound, markerFor, markerTag,
-    mergeMarkers, pickColor, resolveByName, replaceTargets, FAVORITES, findFavorite, spellDuration, buildView,
-    buildCastView, renderHandout, renderMenu, renderPicker, PALETTE
+    texte, parseTargets, entityKey, tick, detectAdvance, isRoundEntry, isNewRound, stripMarkers,
+    resolveByName, replaceTargets, FAVORITES, findFavorite, spellDuration, buildView,
+    buildCastView, renderHandout, renderMenu, renderPicker
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = exportsPurs;
   if (typeof on !== 'function') return; // hors Roll20 : on s'arrête ici
@@ -471,7 +449,6 @@
     const s = state[ETAT] = state[ETAT] || {};
     s.nextId = s.nextId || 1;
     s.buffs = s.buffs || [];
-    s.markers = s.markers || {}; // id du token -> noms des marqueurs posés par le script
     s.drafts = s.drafts || {};   // id du joueur -> choix de cibles en cours
     if (s.version !== 2) {       // v1 : une cible par effet
       s.buffs.forEach((b) => {
@@ -576,7 +553,7 @@
   const boite = (html) => `<div style="${STYLE_BOITE}">${html}</div>`;
   const erreur = (pid, txt) => dire(pid, boite(`<span style="color:#c62828">${escapeHtml(txt)}</span>`));
 
-  // ---- handout, marqueurs, annonces
+  // ---- handout, annonces
   let dernierHandout = { id: null, notes: null, gmnotes: null };
   const handout = () => {
     const s = etat();
@@ -605,29 +582,20 @@
     dernierHandout.notes = notes;
     dernierHandout.gmnotes = gmnotes;
   };
-  const majMarqueurs = () => {
+  // marqueurs posés par une version précédente : retirés une fois au démarrage
+  const nettoyerMarqueurs = () => {
     const s = etat();
-    const voulu = {};
-    s.buffs.forEach((b) => {
-      const tag = markerTag(b);
-      if (!tag) return;
-      b.targets.forEach((t) => tokensDe(t).forEach((tok) => {
-        const l = voulu[tok.id] = voulu[tok.id] || [];
-        if (!l.some((x) => x.split('@')[0] === tag.split('@')[0])) l.push(tag);
-      }));
-    });
-    new Set([...Object.keys(s.markers), ...Object.keys(voulu)]).forEach((id) => {
+    if (!s.markers) return;
+    Object.keys(s.markers).forEach((id) => {
       const t = getObj('graphic', id);
-      const want = voulu[id] || [];
-      if (!t) { delete s.markers[id]; return; }
+      if (!t) return;
       const cur = t.get('statusmarkers') || '';
-      const nv = mergeMarkers(cur, s.markers[id] || [], want);
+      const nv = stripMarkers(cur, s.markers[id]);
       if (nv !== cur) t.set({ statusmarkers: nv });
-      if (want.length) s.markers[id] = want.map((x) => x.split('@')[0]);
-      else delete s.markers[id];
     });
+    delete s.markers;
   };
-  const rafraichir = () => { majHandout(); majMarqueurs(); };
+  const rafraichir = () => majHandout();
 
   // retire les effets expirés, les annonce, et met tout à jour
   const traiter = (res, { avertir = true } = {}) => {
@@ -720,19 +688,9 @@
     if (existant) d.name = existant.name;
     const res = replaceTargets(s.buffs, d.name, d.hidden, d.targets);
     s.buffs = res.buffs;
-    // même sort = même couleur ; sinon une couleur que ses cibles n'ont pas déjà
-    let color = existant && existant.color;
-    if (!color) {
-      const used = new Set();
-      s.buffs.forEach((o) => {
-        if (o.hidden || !o.targets.some((t) => d.targets.some((x) => sameEntity(x, t)))) return;
-        used.add(o.marker || o.color || markerFor(o.name));
-      });
-      color = pickColor(d.name, used);
-    }
     const b = {
       id: String(s.nextId++), name: d.name, targets: d.targets.map(copieEntite), caster: d.caster || null,
-      remaining: d.rounds, effect: d.effect || '', marker: d.marker || '', color, hidden: !!d.hidden, owner: pid
+      remaining: d.rounds, effect: d.effect || '', hidden: !!d.hidden, owner: pid
     };
     s.buffs.push(b);
     rafraichir();
@@ -787,8 +745,7 @@
     const caster = trouverLanceur(texte(o.caster), pageid);
     const d = {
       name, rounds, caster, hidden,
-      effect: texte(o.effect) || (fav ? fav.effect : ''),
-      marker: texte(o.marker) || ''
+      effect: texte(o.effect) || (fav ? fav.effect : '')
     };
     const r = resoudreCibles(parseTargets(o.targets), msg, caster, pageid);
     if (r.error) return erreur(pid, r.error);
@@ -866,14 +823,13 @@
     if (dur) { b.remaining = dur.sign ? Math.max(0, b.remaining + dur.sign * dur.rounds) : dur.rounds; faits.push(formatDuration(b.remaining)); }
     if (texte(o.name)) { b.name = texte(o.name); faits.push('renommé'); }
     if (texte(o.effect) !== undefined) { b.effect = texte(o.effect); faits.push(b.effect ? 'effet modifié' : 'effet effacé'); }
-    if (texte(o.marker) !== undefined) { b.marker = texte(o.marker); faits.push('marqueur ' + (b.marker || 'auto')); }
     if (texte(o.caster) !== undefined) {
       b.caster = trouverLanceur(texte(o.caster), pageid);
       faits.push('lanceur ' + (nomLanceur(b) || 'aucun'));
     }
     if (o.hidden !== undefined) { b.hidden = parseBool(o.hidden); faits.push(b.hidden ? 'caché' : 'visible'); }
     if (cibles) { b.targets = cibles.map(copieEntite); faits.push('cibles : ' + nomsCibles(b)); }
-    if (!faits.length) return erreur(pid, 'Rien à modifier : --dur, --name, --effect, --marker, --caster, --targets ou --hidden.');
+    if (!faits.length) return erreur(pid, 'Rien à modifier : --dur, --name, --effect, --caster, --targets ou --hidden.');
     if (b.remaining === 0) {
       traiter({ expired: [b], warned: [] });
       return dire(pid, boite(`<b>${escapeHtml(libelle(b))}</b> retiré.`));
@@ -976,9 +932,9 @@
 
   const cmdHelp = (msg) => {
     dire(msg.playerid, boite('<b>!buff</b> : menu des effets<br>' +
-      '<b>!buff add --name X --dur 5m</b> [--caster Nom] [--targets group|me|selected|pick|Selea,Paz] [--effect texte] [--marker blue|none] [--hidden]<br>' +
+      '<b>!buff add --name X --dur 5m</b> [--caster Nom] [--targets group|me|selected|pick|Selea,Paz] [--effect texte] [--hidden]<br>' +
       '<b>!buff add --spell bless --cl 5</b> · <b>!buff fav</b> : sorts courants<br>' +
-      '<b>!buff edit 3 --dur -1</b> (ou +2, 4r, 10m, perm), --name, --effect, --marker, --caster, --targets, --hidden yes|no<br>' +
+      '<b>!buff edit 3 --dur -1</b> (ou +2, 4r, 10m, perm), --name, --effect, --caster, --targets, --hidden yes|no<br>' +
       '<b>!buff remove 3</b> · <b>!buff clear</b> (sélection) · <b>!buff clear all</b> (MJ)<br>' +
       '<b>!buff time 10m</b> (MJ) · <b>!buff show</b> : lien vers la fenêtre<br>' +
       'Durées : 3r ou 3 (rounds), 10m, 2h, 1d, perm.'));
@@ -1013,6 +969,7 @@
   // ------------------------------------------------------------------ évènements
   on('ready', () => {
     etat();
+    nettoyerMarqueurs();
     rafraichir();
     log(`${NOM} (bufftracker.js) prêt : ${etat().buffs.length} effet(s) suivis.`);
   });
@@ -1057,7 +1014,6 @@
       if (b.caster && b.caster.kind === 'token' && b.caster.id === tok.id) b.caster = { kind: null, id: null, name: nomToken(tok) || b.caster.name };
     });
     s.buffs = s.buffs.filter((b) => b.targets.length);
-    delete s.markers[tok.id];
     if (change) majHandout();
   });
 })();

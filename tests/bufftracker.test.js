@@ -7,7 +7,7 @@
  * Aucune dépendance : Node.js suffit, Roll20 n'est pas nécessaire.
  * Deux niveaux de tests :
  *   - logique pure : durées, lecture des commandes et des cibles, décompte, tracker
- *     d'initiative, marqueurs, relance, sorts courants, rendu du handout, du menu et
+ *     d'initiative, nettoyage des marqueurs, relance, sorts courants, rendu du handout, du menu et
  *     des boutons à cocher ;
  *   - flux complet : le script est chargé dans un FAUX Roll20 (joueurs, personnages,
  *     tokens, handouts, tracker, chat) et reçoit de vraies commandes « !buff ... ».
@@ -137,19 +137,9 @@ describe('Tracker : avance, recul, nouveau round', () => {
 });
 
 describe('Marqueurs', () => {
-  check(B.markerFor('Bénédiction') === B.markerFor('benediction') && B.PALETTE.includes(B.markerFor('Bénédiction')), 'couleur stable, accents et casse ignorés');
-  check(B.markerTag({ name: 'X', marker: 'blue', remaining: 4 }) === 'blue@4', 'nombre affiché de 1 à 9');
-  check(B.markerTag({ name: 'X', marker: 'blue', remaining: 10 }) === 'blue', 'pas de nombre au-delà de 9');
-  check(B.markerTag({ name: 'X', marker: 'blue', remaining: null }) === 'blue', 'permanent : sans nombre');
-  check(B.markerTag({ name: 'X', marker: 'none', remaining: 3 }) === null, '--marker none : rien');
-  check(B.markerTag({ name: 'X', hidden: true, remaining: 3 }) === null, 'effet caché : rien sur la carte');
-  check(B.mergeMarkers('red,blue@3,dead', ['blue'], ['blue@2', 'green']) === 'red,dead,blue@2,green', 'remplace les siens, garde les autres');
-  check(B.pickColor('Bénédiction', new Set()) === B.markerFor('Bénédiction'), 'couleur du nom si libre');
-  const pris = new Set([B.markerFor('Bénédiction')]);
-  check(B.pickColor('Bénédiction', pris) !== B.markerFor('Bénédiction') && B.PALETTE.includes(B.pickColor('Bénédiction', pris)), 'sinon une autre couleur libre');
-  check(B.pickColor('X', new Set(B.PALETTE)) === B.markerFor('X'), 'palette pleine : couleur du nom');
-  check(B.markerTag({ name: 'X', color: 'purple', remaining: 2 }) === 'purple@2' && B.markerTag({ name: 'X', marker: 'blue', color: 'purple', remaining: 2 }) === 'blue@2', '--marker prioritaire sur la couleur choisie');
-  check(B.mergeMarkers('red', [], []) === 'red' && B.mergeMarkers('', ['blue'], []) === '', 'rien à poser : inchangé ou vidé');
+  check(B.stripMarkers('red,blue@4,pink', ['blue', 'pink']) === 'red', 'retire les marqueurs posés par le script, avec ou sans nombre');
+  check(B.stripMarkers('red,dead', []) === 'red,dead' && B.stripMarkers('', ['blue']) === '', 'rien à retirer : inchangé');
+  check(B.markerFor === undefined && B.markerTag === undefined, 'plus de marqueur calculé pour un effet');
 });
 
 describe('Recherche par nom', () => {
@@ -339,8 +329,7 @@ describe('Ajout pour une liste de PJ', () => {
   check(b.caster && b.caster.id === p.c.sol.id && b.remaining === 50 && b.owner === 'pC', 'lanceur, durée, créateur');
   check(out.length === 1 && out[0].startsWith('/w "Chloé" ') && out[0].includes('→ Lune, Paz Tarpou, Selea, Solathia'), 'confirmation avec la liste des cibles');
   check(out[0].includes(`href="http://journal.roll20.net/handout/${p.handout().id}"`), 'confirmation avec le lien vers la fenêtre');
-  const coul = B.markerFor('Bénédiction');
-  check(marq(p.t.selea) === `red,${coul}` && marq(p.t.paz) === coul && marq(p.t.lune) === coul && marq(p.t.gob1) === '', 'marqueur sur chaque cible, rien sur les gobelins');
+  check(marq(p.t.selea) === 'red' && marq(p.t.paz) === '' && marq(p.t.lune) === '', 'aucun marqueur posé, ceux des joueurs gardés');
   const notes = p.handout().props.notes;
   check(['Lune', 'Paz Tarpou', 'Selea', 'Solathia'].every((n) => notes.includes(`>${n}</h4>`)) && (notes.match(/Bénédiction/g) || []).length === 4, 'fenêtre : la Bénédiction chez chacun des 4 PJ');
 
@@ -353,13 +342,10 @@ describe('Ajout pour une liste de PJ', () => {
   p.dire('gm', '!buff add --name Ralenti --dur 2r --targets selected', [p.t.gob1, p.t.gob2]);
   const ral = p.buffs()[4];
   check(ral.targets.length === 2 && ral.targets.every((x) => x.kind === 'token'), 'Tokens sélectionnés : gobelins non liés, un par token');
-  p.dire('gm', `!buff add --name Dodo --dur perm --marker sleepy --targets ${p.t.gob1.id}`);
-  check(p.buffs()[5].remaining === null && marq(p.t.gob1).split(',').includes('sleepy'), 'cible par id, perm et --marker');
-  const autre = p.tok('Lune', p.c.lune, true, 'p2');
-  p.dire('pD', '!buff edit 2 --dur 4r');
-  const tagsLune = marq(autre).split(',');
-  check(tagsLune.length === 3 && tagsLune.includes(`${p.buffs()[1].color}@4`), 'effets d\'un personnage affichés sur ses tokens des autres cartes');
-  check(new Set(tagsLune.map((x) => x.split('@')[0])).size === 3, 'Bénédiction et Vision (même couleur par défaut) : couleurs différentes sur Lune');
+  p.dire('gm', `!buff add --name Dodo --dur perm --targets ${p.t.gob1.id}`);
+  check(p.buffs()[5].remaining === null && noms(p.buffs()[5]) === 'Gobelin 1', 'cible par id, perm');
+  check(marq(p.t.gob1) === '' && marq(p.t.gob2) === '', 'gobelins : aucun marqueur');
+  check(p.buffs().every((x) => x.marker === undefined && x.color === undefined), 'plus de couleur ni de marqueur enregistrés');
 });
 
 describe('Ajout : erreurs', () => {
@@ -458,7 +444,6 @@ describe('Relance', () => {
   const out = p.dire('pC', '!buff add --name Bénédiction --dur 5m --caster Solathia --targets group');
   check(p.buffs().length === 1 && p.buffs()[0].targets.length === 4, 'relance sur tout le groupe : un seul lancement reste');
   check(out[0].includes('relancé pour'), 'confirmation : relancé');
-  check(p.buffs()[0].color === B.markerFor('Bénédiction'), 'un relancement garde la couleur du sort');
 });
 
 describe('Droits', () => {
@@ -479,7 +464,7 @@ describe('Droits', () => {
   const menuMJ = p.dire('gm', '!buff')[0];
   check(menuMJ.startsWith('/w gm ') && menuMJ.includes('Malédiction') && menuMJ.includes('(caché)'), 'menu du MJ avec l\'effet caché');
   check(!p.handout().props.notes.includes('Malédiction') && p.handout().props.gmnotes.includes('Malédiction'), 'handout : effet caché seulement dans la partie MJ');
-  check(marq(p.t.paz).split(',').length === 2, 'Paz porte 2 marqueurs (Bénédiction, Rage), pas celui de la Malédiction');
+  check(marq(p.t.paz) === '', 'aucun marqueur sur Paz, même avec l\'effet caché');
   const menuD = p.dire('pD', '!buff')[0];
   check(menuD.includes('Aucun effet en cours') && menuD.includes('Ajouter'), 'menu de Denis : rien à gérer, mais le bouton Ajouter');
   p.dire('gm', '!buff edit 3 --hidden no');
@@ -522,14 +507,13 @@ describe('Modification', () => {
   check(p.buffs().length === 0, 'tombé à 0 : retiré');
   check(out.some((m) => !m.startsWith('/w') && m.includes('Fin') && m.includes('<b>Flou amélioré</b> (Selea, Lune)')), 'fin annoncée à tous, avec les cibles');
   check(out.some((m) => !m.startsWith('/w') && m.includes('Voir les effets')), 'annonce avec le lien vers la fenêtre');
-  check(marq(p.t.selea) === 'red' && marq(p.t.lune) === '', 'marqueurs retirés, les autres gardés');
+  check(marq(p.t.selea) === 'red' && marq(p.t.lune) === '', 'marqueurs des joueurs intacts');
   check(p.dire('pA', '!buff edit 99 --dur 1')[0].includes('introuvable'), 'numéro inconnu');
   p.dire('pA', '!buff add --name X --dur 3r --targets me');
   check(p.dire('pA', '!buff edit 2')[0].includes('Rien à modifier'), 'aucune option');
   p.dire('pA', '!buff edit 2 --caster Solathia');
   check(p.buffs()[0].caster.id === p.c.sol.id, 'lanceur ajouté après coup');
-  p.dire('pA', '!buff edit 2 --marker none');
-  check(marq(p.t.selea) === 'red', '--marker none : marqueur retiré');
+  check(p.dire('pA', '!buff edit 2 --marker none')[0].includes('Rien à modifier'), '--marker n\'existe plus : rien à modifier');
 });
 
 describe('Bouton Cibles : modifier la liste', () => {
@@ -541,7 +525,7 @@ describe('Bouton Cibles : modifier la liste', () => {
   const c2 = cliquer(p, 'pC', c1, '✔ Paz Tarpou')[0];
   cliquer(p, 'pC', c2, 'Valider \\(3\\)');
   check(p.buffs().length === 1 && noms(p.buffs()[0]) === 'Lune,Selea,Solathia' && p.buffs()[0].remaining === 50, 'Paz retiré du lancement, durée intacte');
-  check(marq(p.t.paz) === '' && !p.handout().props.notes.includes('>Paz Tarpou</h4>'), 'marqueur et fenêtre de Paz nettoyés');
+  check(!p.handout().props.notes.includes('>Paz Tarpou</h4>'), 'fenêtre de Paz nettoyée');
   check(p.dire('pD', '!buff edit 1 --targets pick')[0].includes('pick toggle'), 'le joueur d\'une cible peut ouvrir le choix');
   check(p.dire('pB', '!buff edit 1 --targets pick')[0].includes('ne peux pas'), 'Paz, retiré, ne gère plus ce lancement');
 });
@@ -557,7 +541,7 @@ describe('Suppression avec essai à blanc', () => {
   check(p.dire('pA', '!buff remove 3')[0].includes('ne peux pas'), 'effet d\'un autre joueur : refusé');
   p.dire('pA', '!buff remove 1 2 confirm 2');
   check(p.buffs().length === 1 && p.buffs()[0].name === 'C', 'confirmé : retirés');
-  check(marq(p.t.selea) === 'red', 'marqueurs retirés');
+  check(marq(p.t.selea) === 'red', 'marqueurs des joueurs intacts');
   check(p.dire('pB', '!buff remove')[0].includes('numéro'), 'remove sans numéro');
 });
 
@@ -627,11 +611,11 @@ describe('Tracker d\'initiative : tour du lanceur, sinon début du round', () =>
   check(rem() === 'Bénédiction:1 Armure de mage:1798', 'round 3 : Potion finie, Bénédiction au dernier round');
   check(o8.some((m) => !m.startsWith('/w') && m.includes('Dernier round') && m.includes('<b>Bénédiction</b> (Lune, Paz Tarpou, Selea, Solathia)') && m.includes('Voir les effets')), 'dernier round annoncé à tous, avec cibles et lien');
   check(o8.some((m) => !m.startsWith('/w') && m.includes('Fin') && m.includes('<b>Potion</b> (Paz Tarpou)')), 'fin de la Potion annoncée');
-  check(marq(selea) === `red,${B.markerFor('Bénédiction')}@1`, 'marqueur à 1');
+  check(marq(selea) === 'red', 'pas de marqueur de compte à rebours');
   tour(); tour(); tour();
   const o12 = tour(); // Solathia, round 4
   check(rem() === 'Armure de mage:1797' && o12.some((m) => m.includes('Fin') && m.includes('Bénédiction')), 'round 4 : Bénédiction finie juste avant le tour de Solathia (3 rounds complets)');
-  check(marq(selea) === 'red' && !p.handout().props.notes.includes('Bénédiction'), 'marqueurs et fenêtre nettoyés');
+  check(marq(selea) === 'red' && !p.handout().props.notes.includes('Bénédiction'), 'fenêtre nettoyée, marqueurs des joueurs intacts');
   p.ordre([]);
   check(p.sb.state.BuffTracker.dernierTour === null && rem() === 'Armure de mage:1797', 'tracker vidé : fin du combat, rien ne bouge');
 });
@@ -685,6 +669,24 @@ describe('État de la version 1 (une cible par effet)', () => {
   const s = p.sb.state.BuffTracker;
   check(s.version === 2 && s.buffs.length === 1 && noms(s.buffs[0]) === 'Selea' && s.buffs[0].target === undefined, 'converti : cible unique -> liste, effet sans cible retiré');
   check(p.handout().props.notes.includes('Bénédiction'), 'affiché dans la fenêtre');
+});
+
+describe('Marqueurs posés par la version 2.0 : retirés au démarrage', () => {
+  let ids;
+  const p = partie({
+    avantChargement: (r) => {
+      const toks = r.objs.filter((o) => o.type === 'graphic');
+      const sel = toks.find((t) => t.props.name === 'Selea'), paz = toks.find((t) => t.props.name === 'Paz');
+      sel.props.statusmarkers = 'red,pink@3';
+      paz.props.statusmarkers = 'green@2,dead';
+      ids = { sel, paz };
+      r.sb.state.BuffTracker = { version: 2, nextId: 2, buffs: [], markers: { [sel.id]: ['pink'], [paz.id]: ['green'], disparu: ['blue'] } };
+    }
+  });
+  check(marq(ids.sel) === 'red' && marq(ids.paz) === 'dead', 'marqueurs du script retirés, ceux des joueurs gardés');
+  check(p.sb.state.BuffTracker.markers === undefined, 'plus de liste de marqueurs dans l\'état');
+  p.fire('ready');
+  check(marq(ids.sel) === 'red', 'redémarrage : rien de plus retiré');
 });
 
 // ------------------------------------------------------------------- résumé
