@@ -83,15 +83,15 @@ with the content of `macro/BuffTracker.macro.txt` (`!buff`). The script creates 
 the start of each round. The start of a round is a custom tracker entry whose text contains the word "round" or "tour"
 reaching the top (for example the `Round` counter added by AddCustomTurn's `!act --Round`); without one, the
 initiative going back up marks it. Filling or sorting the tracker counts nothing, and going back then forward again
-does not count a turn twice. Out of combat, the GM moves time on with `!buff time 10m`.
+does not count a turn twice. Out of combat, the GM moves time on with `!buff time 10min`.
 
 | Command | Effect |
 | --- | --- |
 | `!buff` | Menu: one line per cast with its targets and buttons (-1, +1, Durée, Effet, Cibles, X). |
-| `!buff add --name <name> --dur <duration> [--caster <name>] [--targets <list>] [--effect <text>] [--hidden]` | Adds a cast. Targets: `group`, `me`, `selected`, `pick` (tick boxes) or names/token ids separated by commas (any name works, see below). Durations: `3r`, `3`, `10m`, `2h`, `1d`, `perm`. Recasting an effect of the same name replaces it on the new targets. |
+| `!buff add --name <name> --dur <duration> [--caster <name>] [--targets <list>] [--effect <text>] [--hidden]` | Adds a cast. Targets: `group`, `me`, `selected`, `pick` (tick boxes) or names/token ids separated by commas (any name works, see below). Durations: `3r`, `3`, `10min`, `2h`, `1d`, `perm`. Recasting an effect of the same name replaces it on the new targets. |
 | `!buff add --spell <id> --cl <level> ...` | Adds a common spell with its duration computed from the caster level. |
 | `!buff fav` | Buttons for the common spells. |
-| `!buff edit <n> --dur -1` | Changes a cast (`+2`, `4r`, `10m`, `perm`; also `--name`, `--effect`, `--caster`, `--targets`, `--hidden yes\|no` for the GM). |
+| `!buff edit <n> --dur -1` | Changes a cast (`+2`, `4r`, `10min`, `perm`; also `--name`, `--effect`, `--caster`, `--targets`, `--hidden yes\|no` for the GM). |
 | `!buff remove <n> [<n> ...]` | Removes casts: dry run, then `... confirm N`. |
 | `!buff clear` | Removes the selected tokens from all their effects (dry run, then `confirm N`). |
 | `!buff clear all` | GM: removes every effect (dry run, then `confirm N`). |
@@ -99,8 +99,9 @@ does not count a turn twice. Out of combat, the GM moves time on with `!buff tim
 | `!buff show` | Rewrites the handout and gives a link to open it. |
 | `!buff help` | Help. |
 
-**Rights**: anyone can cast an effect on anyone. A player edits or removes the casts they created, those whose caster
-they control and those touching one of their characters. The GM manages everything and alone creates hidden effects.
+**Rights**: anyone can cast an effect on anyone. A player edits or removes the casts they created and those whose caster
+they control. From a cast that only targets one of their characters, they can only remove their own characters ("Me
+retirer" button, or `!buff clear` on their token). The GM manages everything and alone creates hidden effects.
 An effect on a token linked to a sheet follows the character on every page; on an unlinked token (numbered monsters)
 it follows that token only.
 
@@ -109,7 +110,7 @@ character sheets (exact name, or the start of a single sheet's name), and is oth
 played during a role-play scene with no map keeps the effect afterwards. "Tout le groupe", "Moi seul" and "Choisir..."
 use the PCs of the page, or all the campaign's PCs when none is on it.
 
-**Tests**: `node tests/bufftracker.test.js` (Node, no dependency) runs 301 checks: the pure logic (durations, targets, countdown) and then the full flow with a fake Roll20. They are no substitute for a try-out in a real game.
+**Tests**: `node tests/bufftracker.test.js` (Node, no dependency) runs 310 checks: the pure logic (durations, targets, countdown) and then the full flow with a fake Roll20. They are no substitute for a try-out in a real game.
 
 ## Sync the API scripts with GitHub (userscript)
 

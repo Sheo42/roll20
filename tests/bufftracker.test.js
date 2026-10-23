@@ -212,15 +212,18 @@ describe('Vues, handout, menu et boutons à cocher', () => {
   check(m.includes('→ Selea, Paz &lt;b&gt;, Lune'), 'menu : cibles affichées et échappées');
   check(m.includes('href="!buff edit 1 --dur -1"') && m.includes('href="!buff edit 1 --targets pick"') && m.includes('href="!buff remove 1"'), 'menu : boutons -1, Cibles, X');
   check(!m.includes('!buff edit 2 '), 'menu : pas de bouton sur un lancement non modifiable');
-  check(m.includes('?{Durée : 3r 10m 2h ou perm|4r}'), 'menu : durée actuelle proposée par défaut');
+  check(m.includes('?{Durée : 3r 10min 2h ou perm|4r}'), 'menu : durée actuelle proposée par défaut');
+  check(B.compactDuration(50) === '5min' && B.parseDuration('5min').rounds === 50 && B.parseDuration('5m').rounds === 50, 'minutes écrites « min » (« m » toujours compris)');
+  const moi = B.renderMenu(B.buildCastView(buffs, nom, () => '', () => false, false, (b) => b.id === '1'));
+  check(moi.includes('href="!buff remove 1">Me retirer</a>') && !moi.includes('!buff edit 1 ') && !moi.includes('!buff remove 5'), 'cible seulement : bouton « Me retirer », rien d\'autre');
   const piege = B.renderMenu(B.buildCastView([{ id: '9', name: 'X', targets: [S], remaining: 3, effect: 'a|b}c, d[[1d6]]@{x}' }],
     nom, () => '', () => true, false));
   const req = piege.match(/--effect \?\{Effet\|([^}]*)\}/);
   check(req && !/[|{}[\],@]/.test(req[1]), 'défaut de la requête Effet sans caractère qui la casserait');
   check(!piege.includes('[[') && !piege.includes('@{'), 'texte affiché sans jet en ligne ni référence d\'attribut');
 
-  const pk = B.renderPicker('Bénédiction · 5 min', [{ key: 'char:S', name: 'Selea', on: true }, { key: 'char:P', name: 'Paz', on: false }]);
-  check(!/\n/.test(pk) && pk.includes('href="!buff pick toggle char:S"') && pk.includes('✔ Selea') && !pk.includes('✔ Paz'), 'boutons à cocher : état de chaque PJ');
+  const pk = B.renderPicker('Bénédiction · 5 min', [{ key: 'char.S', name: 'Selea', on: true }, { key: 'char.P', name: 'Paz', on: false }]);
+  check(!/\n/.test(pk) && pk.includes('href="!buff pick toggle char.S"') && pk.includes('✔ Selea') && !pk.includes('✔ Paz'), 'boutons à cocher : état de chaque PJ');
   check(pk.includes('Valider (1)') && pk.includes('href="!buff pick ok"') && pk.includes('href="!buff pick all"') && pk.includes('href="!buff pick cancel"'), 'boutons Valider (nombre), Tout le groupe, Annuler');
   check(B.renderPicker('X', []).includes('Aucun PJ'), 'aucun PJ sur la carte');
 });
@@ -402,8 +405,8 @@ describe('Sans carte : fiches et noms libres', () => {
   const notes = p.handout().props.notes;
   check(notes.includes('>Garde du corps</h4>') && notes.includes('>Zorglub</h4>'), 'fenêtre : les noms libres ont leur section');
   p.dire('gm', `!buff edit ${her.id} --targets pick`);
-  const k = hrefs(p.chat[p.chat.length - 1]).find((h) => h.includes('toggle name:'));
-  check(k === '!buff pick toggle name:zorglub', 'boutons à cocher : nom libre sans espace dans le bouton');
+  const k = hrefs(p.chat[p.chat.length - 1]).find((h) => h.includes('toggle name.'));
+  check(k === '!buff pick toggle name.zorglub', 'boutons à cocher : nom libre sans espace dans le bouton');
   p.dire('gm', k);
   p.dire('gm', '!buff pick ok');
   check(noms(her) === 'Selea,Paz Tarpou', 'nom libre décoché');
@@ -441,6 +444,8 @@ describe('Choisir... : boutons à cocher', () => {
   check(m1.includes('Bouclier de la foi · 5 min · par Solathia'), 'titre : nom, durée, lanceur');
   check(['Lune', 'Paz Tarpou', 'Selea', 'Solathia'].every((n) => m1.includes(`>${n}</a>`)) && !m1.includes('Gobelin'), 'un bouton par PJ de la carte, rien de coché');
   check(m1.includes('Valider (0)'), 'Valider (0)');
+  // Roll20 vide le href d'un bouton qui ressemble à une adresse (« char:... ») : le bouton ne réagit plus
+  check(hrefs(m1).every((h) => /^!buff [^:]*$/.test(h)), 'boutons à cocher : aucun « : » dans les liens');
   const m2 = cliquer(p, 'pC', m1, 'Paz Tarpou')[0];
   check(m2.includes('✔ Paz Tarpou') && m2.includes('Valider (1)'), 'clic : Paz coché, nouveau message');
   const m3 = cliquer(p, 'pC', m2, 'Lune')[0];
@@ -469,6 +474,9 @@ describe('Choisir... : boutons à cocher', () => {
   check(g1.includes('✔ Gobelin 1') && g1.includes('>Selea</a>'), 'Choisir... avec sélection : sélection pré-cochée et ajoutée à la liste');
   check(p.dire('pB', '!buff pick toggle char:nimporte')[0].includes('Aucun choix'), 'chaque joueur a son propre choix en cours');
   check(p.dire('gm', '!buff pick toggle char:nimporte')[0].includes('inconnue'), 'clé inconnue : refusé');
+  const g2 = p.dire('gm', `!buff pick toggle char:${p.c.selea.id}`)[0];
+  check(g2.includes('✔ Selea'), 'ancienne clé tapée à la main (char:...) : acceptée');
+  p.dire('gm', '!buff pick cancel');
 });
 
 describe('Relance', () => {
@@ -490,8 +498,15 @@ describe('Droits', () => {
   p.dire('pC', '!buff add --name Bénédiction --dur 5m --caster Solathia --targets Selea, Paz');   // 1
   p.dire('pB', '!buff add --name Rage --dur perm --caster Paz --targets me');                      // 2
   check(p.dire('pD', '!buff edit 1 --dur 2r')[0].includes('ne peux pas'), 'Denis (Lune, ni lanceur ni cible) ne modifie pas la Bénédiction');
-  p.dire('pA', '!buff edit 1 --dur 7r');
-  check(p.buffs()[0].remaining === 7, 'Alice (Selea est une cible) modifie le lancement');
+  check(p.dire('pA', '!buff edit 1 --dur 7r')[0].includes('ne peux pas') && p.buffs()[0].remaining === 50, 'Alice (Selea n\'est qu\'une cible) ne modifie pas le lancement');
+  check(p.dire('pA', '!buff edit 1 --targets group')[0].includes('ne peux pas'), 'ni ses cibles');
+  const menuA = p.dire('pA', '!buff')[0];
+  check(menuA.includes('Bénédiction') && menuA.includes('>Me retirer</a>') && !menuA.includes('!buff edit 1 '), 'menu d\'Alice : la Bénédiction avec seulement « Me retirer »');
+  const essaiA = p.dire('pA', '!buff remove 1')[0];
+  check(essaiA.includes('Selea seulement') && essaiA.includes('href="!buff remove 1 confirm 1"'), 'X d\'une cible : essai à blanc, Selea seulement');
+  p.dire('pA', '!buff remove 1 confirm 1');
+  check(noms(p.buffs()[0]) === 'Paz Tarpou', 'Selea retirée, Paz garde la Bénédiction');
+  p.dire('pC', '!buff edit 1 --targets Selea, Paz');
   p.dire('pC', '!buff edit 1 --dur 6r');
   check(p.buffs()[0].remaining === 6, 'Chloé (lanceur) modifie le lancement');
   p.dire('pA', '!buff edit 2 --dur 1r');
@@ -508,7 +523,7 @@ describe('Droits', () => {
   check(menuD.includes('Aucun effet en cours') && menuD.includes('Ajouter'), 'menu de Denis : rien à gérer, mais le bouton Ajouter');
   p.dire('gm', '!buff edit 3 --hidden no');
   check(p.handout().props.notes.includes('Malédiction'), 'MJ : effet rendu visible');
-  check(p.dire('pA', '!buff edit 1 --hidden yes')[0].includes('MJ'), 'joueur : ne peut pas cacher');
+  check(p.dire('pC', '!buff edit 1 --hidden yes')[0].includes('MJ'), 'joueur : ne peut pas cacher');
 });
 
 describe('Menu et lien vers la fenêtre', () => {
@@ -516,7 +531,7 @@ describe('Menu et lien vers la fenêtre', () => {
   p.dire('pC', '!buff add --name Bénédiction --dur 5m --caster Solathia --targets group --effect +1 attaque');
   const m = p.dire('pC', '!buff')[0];
   const url = `http://journal.roll20.net/handout/${p.handout().id}`;
-  check(m.startsWith('/w "Chloé" ') && m.includes('Effets que tu gères'), 'menu chuchoté au joueur');
+  check(m.startsWith('/w "Chloé" ') && m.includes('Tes effets'), 'menu chuchoté au joueur');
   check(m.includes('→ Lune, Paz Tarpou, Selea, Solathia') && m.includes('par Solathia') && m.includes('+1 attaque'), 'lancement : cibles, lanceur, effet');
   check(m.includes(`href="${url}">Ouvrir la fenêtre</a>`), 'bouton « Ouvrir la fenêtre » = lien direct vers le handout');
   check(hrefs(m).every((h) => !/\n/.test(h)), 'liens sans retour à la ligne');
@@ -565,7 +580,10 @@ describe('Bouton Cibles : modifier la liste', () => {
   cliquer(p, 'pC', c2, 'Valider \\(3\\)');
   check(p.buffs().length === 1 && noms(p.buffs()[0]) === 'Lune,Selea,Solathia' && p.buffs()[0].remaining === 50, 'Paz retiré du lancement, durée intacte');
   check(!p.handout().props.notes.includes('>Paz Tarpou</h4>'), 'fenêtre de Paz nettoyée');
-  check(p.dire('pD', '!buff edit 1 --targets pick')[0].includes('pick toggle'), 'le joueur d\'une cible peut ouvrir le choix');
+  check(p.dire('pD', '!buff edit 1 --targets pick')[0].includes('ne peux pas'), 'le joueur d\'une cible ne modifie pas la liste');
+  p.dire('pD', '!buff clear', [p.t.lune]);
+  p.dire('pD', '!buff clear confirm 1', [p.t.lune]);
+  check(noms(p.buffs()[0]) === 'Selea,Solathia', '!buff clear sur son token : Lune se retire du lancement de Chloé');
   check(p.dire('pB', '!buff edit 1 --targets pick')[0].includes('ne peux pas'), 'Paz, retiré, ne gère plus ce lancement');
 });
 
@@ -590,7 +608,7 @@ describe('clear : retirer un personnage de ses effets', () => {
   p.dire('pB', '!buff add --name Rage --dur perm --targets me');                              // 2 (Paz)
   p.dire('pA', '!buff add --name Flou --dur 3m --targets me');                                // 3 (Selea)
   const essai = p.dire('pB', '!buff clear', [p.t.paz])[0];
-  check(essai.includes('Retirerait 2') && essai.includes(`href="!buff clear --keys char:${p.c.paz.id} confirm 2"`), 'essai à blanc : 2 effets sur Paz, clés dans le bouton');
+  check(essai.includes('Retirerait 2') && essai.includes(`href="!buff clear --keys char.${p.c.paz.id} confirm 2"`), 'essai à blanc : 2 effets sur Paz, clés dans le bouton');
   const conf = essai.match(/href="([^"]*)">Confirmer/)[1];
   p.dire('pB', conf); // le bouton fonctionne même si la sélection a changé
   check(p.buffs().length === 2 && noms(p.buffs()[0]) === 'Lune,Selea,Solathia', 'Paz quitte la Bénédiction, les autres la gardent ; Rage retirée');
@@ -609,7 +627,7 @@ describe('Passage du temps (MJ)', () => {
   p.dire('pA', '!buff add --name Rage --dur perm --targets me');
   check(p.dire('pA', '!buff time 10m')[0].includes('MJ'), 'joueur : refusé');
   const essai = p.dire('gm', '!buff time 10m')[0];
-  check(essai.includes('2 effets raccourcis') && essai.includes('Bénédiction') && essai.includes('href="!buff time 10m confirm 2"'), 'essai à blanc : effets concernés et fins');
+  check(essai.includes('2 effets raccourcis') && essai.includes('Bénédiction') && essai.includes('href="!buff time 10min confirm 2"'), 'essai à blanc : effets concernés et fins');
   check(p.buffs()[0].remaining === 50, 'essai à blanc : rien ne change');
   const out = p.dire('gm', '!buff time 10m confirm 2');
   check(p.buffs().length === 2 && p.buffs()[0].name === 'Armure de mage' && p.buffs()[0].remaining === 1700, 'confirmé : Bénédiction finie, Armure raccourcie, Rage intacte');

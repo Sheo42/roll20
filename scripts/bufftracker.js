@@ -5,6 +5,8 @@
  *               boutons à cocher ; lien direct vers la fenêtre « Effets actifs ».
  * Version 2.1 — plus de marqueur d'état sur les tokens (ceux d'avant sont retirés).
  * Version 2.2 — plus besoin de carte : cibles et lanceur par fiche ou par nom libre.
+ * Version 2.3 — boutons à cocher réparés ; minutes écrites « min » ; un joueur seulement
+ *               ciblé ne retire que ses personnages.
  *
  * MISE EN PLACE (une seule fois)
  *   1. Coller ce fichier dans un nouveau script API, enregistrer.
@@ -43,21 +45,21 @@
  *     (tracker trié par ordre décroissant). Remplir, trier le tracker ou y déplacer
  *     quelqu'un ne décompte rien. Revenir en arrière ne rend pas le round, mais
  *     repasser ensuite au même tour ne le décompte pas une seconde fois.
- *   - Hors combat : le MJ avance le temps avec !buff time 10m.
+ *   - Hors combat : le MJ avance le temps avec !buff time 10min.
  *   Un effet qui tombe à 0 est retiré et annoncé.
  *
  * COMMANDES (options en anglais)
  *   !buff                         menu (lancements des tokens sélectionnés, sinon les tiens)
- *   !buff add --name Bénédiction --dur 5m [--caster Solathia] [--targets group]
+ *   !buff add --name Bénédiction --dur 5min [--caster Solathia] [--targets group]
  *             [--effect +1 attaque] [--hidden]
  *       --targets : group, me, selected, pick, ou des noms ou ids de tokens séparés
  *       par des virgules (Selea, Paz). Sans --targets : les tokens sélectionnés, sinon
- *       les boutons à cocher. Durées : 3r, 3 (rounds), 10m, 2h, 1d, perm (jusqu'à ce
+ *       les boutons à cocher. Durées : 3r, 3 (rounds), 10min, 2h, 1d, perm (jusqu'à ce
  *       qu'on le retire). Relancer un effet du même nom remplace l'ancien sur les
  *       cibles du nouveau lancement (pas de cumul).
  *   !buff add --spell bless --cl 5 [--caster Solathia] [--targets group]   sort courant
  *   !buff fav                     boutons des sorts courants
- *   !buff edit 3 --dur -1         -1 round (ou +2, 4r, 10m, perm) ; aussi --name,
+ *   !buff edit 3 --dur -1         -1 round (ou +2, 4r, 10min, perm) ; aussi --name,
  *                                 --effect, --caster, --targets (comme add),
  *                                 --hidden yes|no (MJ)
  *   !buff pick toggle|all|none|ok|cancel   boutons à cocher (envoyés par le script)
@@ -65,7 +67,7 @@
  *   !buff clear                   retire les tokens sélectionnés de tous leurs effets
  *                                 (essai à blanc, puis confirm N)
  *   !buff clear all               MJ : tous les effets (essai à blanc, puis confirm N)
- *   !buff time 10m                MJ : fait passer le temps (essai à blanc, puis confirm N)
+ *   !buff time 10min                MJ : fait passer le temps (essai à blanc, puis confirm N)
  *   !buff show                    met à jour le handout et donne le lien pour l'ouvrir
  *   !buff help
  *   Les modifications d'un seul lancement (edit) s'appliquent tout de suite : elles se
@@ -73,8 +75,10 @@
  *
  * DROITS
  *   Tout le monde peut lancer un effet sur n'importe qui. Un joueur modifie ou retire
- *   les lancements qu'il a créés, ceux dont il contrôle le lanceur et ceux qui touchent
- *   un de ses personnages. Le MJ gère tout, et lui seul crée des effets cachés (--hidden).
+ *   les lancements qu'il a créés et ceux dont il contrôle le lanceur. D'un lancement qui
+ *   ne fait que viser un de ses personnages, il ne peut que retirer ses personnages
+ *   (bouton « Me retirer », ou !buff clear sur son token). Le MJ gère tout, et lui seul
+ *   crée des effets cachés (--hidden).
  *
  * CIBLES
  *   Un token lié à une fiche (une barre liée à un attribut, comme les PJ) : l'effet
@@ -138,7 +142,7 @@
   const compactDuration = (r) => {
     if (r === null || r === undefined) return 'perm';
     if (r && r % 600 === 0) return `${r / 600}h`;
-    if (r && r % 10 === 0) return `${r / 10}m`;
+    if (r && r % 10 === 0) return `${r / 10}min`;
     return `${r}r`;
   };
 
@@ -204,7 +208,10 @@
   };
 
   // ---- entités : {kind:'char'|'token', id}
-  const entityKey = (e) => `${e.kind}:${e.id}`;
+  // clé « char.-Mabc » : pas de « : », Roll20 retire des boutons du chat les liens
+  // qui ressemblent à une adresse (char:...) et le bouton ne réagit plus
+  const entityKey = (e) => `${e.kind}.${e.id}`;
+  const lireCle = (k) => String(k || '').replace(/^(char|token|name):/, '$1.');
   const sameEntity = (a, b) => !!(a && b && a.kind === b.kind && a.id === b.id);
 
   // ---- décompte
@@ -343,13 +350,18 @@
   };
 
   // ---- vue par lancement (menu) : une ligne par effet avec la liste de ses cibles
-  const buildCastView = (buffs, nameOf, casterNameOf, editable, includeHidden) => buffs
+  // editable(b) : boutons complets ; selfOnly(b) : seulement « Me retirer » (un joueur
+  // ciblé par le lancement d'un autre)
+  const buildCastView = (buffs, nameOf, casterNameOf, editable, includeHidden, selfOnly = () => false) => buffs
     .filter((b) => includeHidden || !b.hidden)
-    .map((b) => ({
-      id: b.id, name: b.name, remaining: b.remaining, effect: b.effect || '', hidden: !!b.hidden,
-      caster: casterNameOf(b) || '', targets: b.targets.map((t) => nameOf(t) || t.name || '?'),
-      editable: !!editable(b)
-    }))
+    .map((b) => {
+      const ed = !!editable(b);
+      return {
+        id: b.id, name: b.name, remaining: b.remaining, effect: b.effect || '', hidden: !!b.hidden,
+        caster: casterNameOf(b) || '', targets: b.targets.map((t) => nameOf(t) || t.name || '?'),
+        editable: ed, selfOnly: !ed && !!selfOnly(b)
+      };
+    })
     .sort(parDuree);
 
   const couleurDuree = (r) => {
@@ -390,7 +402,7 @@
   const handoutUrl = (id) => `http://journal.roll20.net/handout/${id}`;
   const lienFenetre = (id, label) => bouton(label || 'Ouvrir la fenêtre', handoutUrl(id));
 
-  const Q_DUREE = 'Durée : 3r 10m 2h ou perm';
+  const Q_DUREE = 'Durée : 3r 10min 2h ou perm';
   const Q_LANCEUR = 'Lanceur';
   const Q_CIBLES = '?{Cibles|Tout le groupe,group|Moi seul,me|Tokens sélectionnés,selected|Choisir...,pick}';
   const boutonsLancement = (r) => [
@@ -412,7 +424,7 @@
         ` <span style="color:#888888;font-size:10px">#${escapeHtml(r.id)}</span>` +
         `<br><span style="font-size:11px">→ ${escapeHtml(r.targets.join(', '))}</span>` +
         (r.effect ? `<br><span style="color:#666666;font-size:11px">${escapeHtml(r.effect)}</span>` : '') +
-        (r.editable ? `<br>${boutonsLancement(r)}` : '') +
+        (r.editable ? `<br>${boutonsLancement(r)}` : (r.selfOnly ? `<br>${bouton('Me retirer', `${CMD} remove ${r.id}`)}` : '')) +
         '</div>';
     });
     if (opts.footer) h += `<div style="margin-top:2px;border-top:1px solid #cccccc;padding-top:2px">${opts.footer}</div>`;
@@ -435,7 +447,7 @@
   };
 
   const boutonAjouter = (lanceur) => bouton('Ajouter',
-    `${CMD} add --name ?{Nom} --dur ?{${Q_DUREE}|1m} --caster ?{${Q_LANCEUR}|${escapeHtml(pourRequete(lanceur))}} --targets ${Q_CIBLES} --effect ?{Effet|}`);
+    `${CMD} add --name ?{Nom} --dur ?{${Q_DUREE}|1min} --caster ?{${Q_LANCEUR}|${escapeHtml(pourRequete(lanceur))}} --targets ${Q_CIBLES} --effect ?{Effet|}`);
   const boutonFavori = (f, lanceur) => bouton(f.name,
     `${CMD} add --spell ${f.key} --cl ?{Niveau de lanceur|1} --caster ?{${Q_LANCEUR}|${escapeHtml(pourRequete(lanceur))}} --targets ${Q_CIBLES}`);
 
@@ -520,8 +532,11 @@
     const l = controleurs(e);
     return l.includes('all') || l.includes(pid);
   };
+  // gérer un lancement (durée, cibles, retrait pour tous) : le MJ, son créateur, ou qui
+  // contrôle son lanceur. Un joueur seulement ciblé peut juste en retirer ses personnages.
   const peutGerer = (pid, b) => playerIsGM(pid) ||
-    (!b.hidden && (b.owner === pid || (!!b.caster && controle(pid, b.caster)) || b.targets.some((t) => controle(pid, t))));
+    (!b.hidden && (b.owner === pid || (!!b.caster && controle(pid, b.caster))));
+  const mesCibles = (pid, b) => (b.hidden ? [] : b.targets.filter((t) => controle(pid, t)));
 
   // PJ = personnage contrôlé par au moins un joueur, présent sur la carte
   const pjsDeLaPage = (pageid) => entitesUniques(tokensPage(pageid).filter((t) => {
@@ -741,10 +756,10 @@
       buffs = s.buffs.filter((b) => b.targets.some((t) => sel.some((e) => sameEntity(e, t))) && (!b.hidden || gm));
       titre = 'Effets : ' + sel.map((e) => e.name || nomEntite(e)).join(', ');
     } else {
-      buffs = s.buffs.filter((b) => peutGerer(pid, b));
-      titre = gm ? 'Tous les effets' : 'Effets que tu gères';
+      buffs = s.buffs.filter((b) => peutGerer(pid, b) || mesCibles(pid, b).length);
+      titre = gm ? 'Tous les effets' : 'Tes effets';
     }
-    const rows = buildCastView(buffs, nomEntite, nomLanceur, (b) => peutGerer(pid, b), gm);
+    const rows = buildCastView(buffs, nomEntite, nomLanceur, (b) => peutGerer(pid, b), gm, (b) => mesCibles(pid, b).length > 0);
     const footer = [boutonAjouter(lanceurParDefaut(pid, pageid)), bouton('Sorts courants', `${CMD} fav`), lienFenetre(handout().id)].join('');
     dire(pid, renderMenu(rows, {
       title: titre,
@@ -762,7 +777,7 @@
     let rounds;
     if (texte(o.dur)) {
       const d = parseDuration(o.dur);
-      if (!d || d.sign < 0 || d.rounds === 0) return erreur(pid, `Durée illisible : ${o.dur}. Exemples : 3r, 10m, 2h, perm.`);
+      if (!d || d.sign < 0 || d.rounds === 0) return erreur(pid, `Durée illisible : ${o.dur}. Exemples : 3r, 10min, 2h, perm.`);
       rounds = d.rounds;
     } else if (fav) {
       const cl = parseInt(o.cl, 10);
@@ -791,7 +806,7 @@
     const action = normalize(c.args[0]);
     if (action === 'toggle') {
       const key = c.args[1];
-      const cand = d.candidates.find((x) => entityKey(x) === key);
+      const cand = d.candidates.find((x) => entityKey(x) === lireCle(key));
       if (!cand) return erreur(pid, 'Cible inconnue.');
       if (d.targets.some((t) => sameEntity(t, cand))) d.targets = d.targets.filter((t) => !sameEntity(t, cand));
       else d.targets.push(copieEntite(cand));
@@ -831,8 +846,8 @@
     let dur = null;
     if (o.dur !== undefined) {
       dur = parseDuration(o.dur);
-      if (!dur) return erreur(pid, `Durée illisible : ${o.dur}. Exemples : -1, +2, 4r, 10m, perm.`);
-      if (dur.sign && (b.remaining === null || dur.rounds === null)) return erreur(pid, 'Effet permanent : donne une durée (4r, 10m...) plutôt qu\'un ajout.');
+      if (!dur) return erreur(pid, `Durée illisible : ${o.dur}. Exemples : -1, +2, 4r, 10min, perm.`);
+      if (dur.sign && (b.remaining === null || dur.rounds === null)) return erreur(pid, 'Effet permanent : donne une durée (4r, 10min...) plutôt qu\'un ajout.');
     }
     if (o.hidden !== undefined) {
       if (!gm) return erreur(pid, 'Seul le MJ peut cacher un effet.');
@@ -873,22 +888,27 @@
     const pid = msg.playerid, s = etat(), gm = playerIsGM(pid);
     const ids = c.args.join(' ').split(/[,\s]+/).filter(Boolean);
     if (!ids.length) return erreur(pid, 'Donne le numéro de l\'effet : !buff remove 3');
+    // {b, seul} : seul = null (tout le lancement) ou les seuls personnages du joueur
     const cibles = [];
     for (const id of ids) {
       const b = trouver(id);
       if (!b || (b.hidden && !gm)) return erreur(pid, `Effet introuvable : ${id}.`);
-      if (!peutGerer(pid, b)) return erreur(pid, `Tu ne peux pas retirer ${libelle(b)}.`);
-      if (!cibles.includes(b)) cibles.push(b);
+      if (cibles.some((x) => x.b === b)) continue;
+      if (peutGerer(pid, b)) { cibles.push({ b, seul: null }); continue; }
+      const miens = mesCibles(pid, b);
+      if (!miens.length) return erreur(pid, `Tu ne peux pas retirer ${libelle(b)}.`);
+      // tous ses personnages et personne d'autre : c'est tout le lancement
+      cibles.push({ b, seul: miens.length === b.targets.length ? null : miens });
     }
-    const noms = cibles.map((b) => `<b>${escapeHtml(b.name)}</b> (${escapeHtml(nomsCibles(b))})`).join(', ');
+    const noms = cibles.map(({ b, seul }) => `<b>${escapeHtml(b.name)}</b> (${escapeHtml(seul ? seul.map(nomEntite).join(', ') + ' seulement' : nomsCibles(b))})`).join(', ');
     const n = cibles.length;
     if (c.confirm === null) {
       return dire(pid, boite(`Retirerait ${n} effet${n > 1 ? 's' : ''} : ${noms}<br>` +
-        bouton('Confirmer', `${CMD} remove ${cibles.map((b) => b.id).join(' ')} confirm ${n}`)));
+        bouton('Confirmer', `${CMD} remove ${cibles.map((x) => x.b.id).join(' ')} confirm ${n}`)));
     }
     if (c.confirm !== n) return erreur(pid, `Le nombre ne correspond pas (${n} effet(s), pas ${c.confirm}) : rien n'a été retiré.`);
-    const set = new Set(cibles);
-    s.buffs = s.buffs.filter((b) => !set.has(b));
+    cibles.forEach(({ b, seul }) => { b.targets = seul ? b.targets.filter((t) => !seul.includes(t)) : []; });
+    s.buffs = s.buffs.filter((b) => b.targets.length);
     rafraichir();
     dire(pid, boite(`Retiré : ${noms}`));
   };
@@ -909,13 +929,15 @@
       return dire(pid, boite(`${n} effet${n > 1 ? 's' : ''} effacé${n > 1 ? 's' : ''}.`));
     }
     const keys = typeof c.opts.keys === 'string'
-      ? c.opts.keys.split(/[,\s]+/).filter(Boolean)
+      ? c.opts.keys.split(/[,\s]+/).filter(Boolean).map(lireCle)
       : entitesUniques(selection(msg)).map(entityKey);
     if (!keys.length) return erreur(pid, 'Sélectionne des tokens (ou !buff clear all pour le MJ).');
     const paires = [];
+    // ses propres personnages se retirent de tout ; les autres, des lancements qu'on gère
     s.buffs.forEach((b) => {
-      if (!peutGerer(pid, b)) return;
-      b.targets.forEach((t) => { if (keys.includes(entityKey(t))) paires.push({ b, t }); });
+      if (b.hidden && !playerIsGM(pid)) return;
+      const gere = peutGerer(pid, b);
+      b.targets.forEach((t) => { if (keys.includes(entityKey(t)) && (gere || controle(pid, t))) paires.push({ b, t }); });
     });
     const n = paires.length;
     if (!n) return erreur(pid, 'Aucun effet que tu peux retirer sur la sélection.');
@@ -935,7 +957,7 @@
     const pid = msg.playerid, s = etat();
     if (!playerIsGM(pid)) return erreur(pid, 'Seul le MJ fait passer le temps.');
     const d = parseDuration(c.args.join(' '));
-    if (!d || d.sign < 0 || !d.rounds) return erreur(pid, 'Durée à faire passer : !buff time 10m (ou 3r, 1h).');
+    if (!d || d.sign < 0 || !d.rounds) return erreur(pid, 'Durée à faire passer : !buff time 10min (ou 3r, 1h).');
     const concernes = s.buffs.filter((b) => b.remaining !== null && b.remaining !== undefined);
     const n = concernes.length;
     if (!n) return erreur(pid, 'Aucun effet avec une durée.');
@@ -962,12 +984,12 @@
 
   const cmdHelp = (msg) => {
     dire(msg.playerid, boite('<b>!buff</b> : menu des effets<br>' +
-      '<b>!buff add --name X --dur 5m</b> [--caster Nom] [--targets group|me|selected|pick|Selea,Paz] [--effect texte] [--hidden]<br>' +
+      '<b>!buff add --name X --dur 5min</b> [--caster Nom] [--targets group|me|selected|pick|Selea,Paz] [--effect texte] [--hidden]<br>' +
       '<b>!buff add --spell bless --cl 5</b> · <b>!buff fav</b> : sorts courants<br>' +
-      '<b>!buff edit 3 --dur -1</b> (ou +2, 4r, 10m, perm), --name, --effect, --caster, --targets, --hidden yes|no<br>' +
+      '<b>!buff edit 3 --dur -1</b> (ou +2, 4r, 10min, perm), --name, --effect, --caster, --targets, --hidden yes|no<br>' +
       '<b>!buff remove 3</b> · <b>!buff clear</b> (sélection) · <b>!buff clear all</b> (MJ)<br>' +
-      '<b>!buff time 10m</b> (MJ) · <b>!buff show</b> : lien vers la fenêtre<br>' +
-      'Durées : 3r ou 3 (rounds), 10m, 2h, 1d, perm.'));
+      '<b>!buff time 10min</b> (MJ) · <b>!buff show</b> : lien vers la fenêtre<br>' +
+      'Durées : 3r ou 3 (rounds), 10min, 2h, 1d, perm.'));
   };
 
   // ------------------------------------------------------- tracker d'initiative

@@ -87,15 +87,15 @@ le tracker perdent 1 round au début de chaque round. Le début du round, c'est 
 texte contient le mot « round » ou « tour » qui arrive en tête (par exemple le compteur `Round` ajouté par
 `!act --Round` d'AddCustomTurn) ; sans elle, c'est l'initiative qui remonte. Remplir ou trier le tracker ne décompte
 rien, et revenir en arrière puis repasser au même tour ne le décompte pas deux fois. Hors combat, le MJ fait passer le
-temps avec `!buff time 10m`.
+temps avec `!buff time 10min`.
 
 | Commande | Effet |
 | --- | --- |
 | `!buff` | Menu : une ligne par lancement avec ses cibles et des boutons (-1, +1, Durée, Effet, Cibles, X). |
-| `!buff add --name <nom> --dur <durée> [--caster <nom>] [--targets <liste>] [--effect <texte>] [--hidden]` | Ajoute un lancement. Cibles : `group`, `me`, `selected`, `pick` (boutons à cocher) ou des noms ou ids de tokens séparés par des virgules (n'importe quel nom, voir plus bas). Durées : `3r`, `3`, `10m`, `2h`, `1d`, `perm`. Relancer un effet du même nom le remplace sur les nouvelles cibles. |
+| `!buff add --name <nom> --dur <durée> [--caster <nom>] [--targets <liste>] [--effect <texte>] [--hidden]` | Ajoute un lancement. Cibles : `group`, `me`, `selected`, `pick` (boutons à cocher) ou des noms ou ids de tokens séparés par des virgules (n'importe quel nom, voir plus bas). Durées : `3r`, `3`, `10min`, `2h`, `1d`, `perm`. Relancer un effet du même nom le remplace sur les nouvelles cibles. |
 | `!buff add --spell <id> --cl <niveau> ...` | Ajoute un sort courant, durée calculée d'après le niveau de lanceur. |
 | `!buff fav` | Boutons des sorts courants. |
-| `!buff edit <n> --dur -1` | Modifie un lancement (`+2`, `4r`, `10m`, `perm` ; aussi `--name`, `--effect`, `--caster`, `--targets`, `--hidden yes\|no` pour le MJ). |
+| `!buff edit <n> --dur -1` | Modifie un lancement (`+2`, `4r`, `10min`, `perm` ; aussi `--name`, `--effect`, `--caster`, `--targets`, `--hidden yes\|no` pour le MJ). |
 | `!buff remove <n> [<n> ...]` | Retire des lancements : essai à blanc, puis `... confirm N`. |
 | `!buff clear` | Retire les tokens sélectionnés de tous leurs effets (essai à blanc, puis `confirm N`). |
 | `!buff clear all` | MJ : retire tous les effets (essai à blanc, puis `confirm N`). |
@@ -104,7 +104,8 @@ temps avec `!buff time 10m`.
 | `!buff help` | Aide. |
 
 **Droits** : tout le monde peut lancer un effet sur n'importe qui. Un joueur modifie ou retire les lancements qu'il a
-créés, ceux dont il contrôle le lanceur et ceux qui touchent un de ses personnages. Le MJ gère tout, et lui seul crée des
+créés et ceux dont il contrôle le lanceur. D'un lancement qui ne fait que viser un de ses personnages, il ne peut que
+retirer ses personnages (bouton « Me retirer », ou `!buff clear` sur son token). Le MJ gère tout, et lui seul crée des
 effets cachés. Un effet sur un token lié à une fiche suit le personnage sur toutes les cartes ; sur un token non lié
 (monstres numérotés), il suit ce token seulement.
 
@@ -113,7 +114,7 @@ partie (nom exact, ou début du nom d'une seule fiche), et sinon gardé comme no
 RP sans carte garde son effet ensuite. « Tout le groupe », « Moi seul » et « Choisir... » prennent les PJ de la carte,
 ou tous les PJ de la partie s'il n'y en a aucun dessus.
 
-**Tests** : `node tests/bufftracker.test.js` (Node, sans dépendance) lance 301 vérifications : la logique pure (durées, cibles, décompte) puis le flux complet avec un faux Roll20. Ils n'ont pas remplacé un essai en partie réelle.
+**Tests** : `node tests/bufftracker.test.js` (Node, sans dépendance) lance 310 vérifications : la logique pure (durées, cibles, décompte) puis le flux complet avec un faux Roll20. Ils n'ont pas remplacé un essai en partie réelle.
 
 ## Synchroniser les scripts API avec GitHub (userscript)
 
