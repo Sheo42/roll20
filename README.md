@@ -88,7 +88,7 @@ does not count a turn twice. Out of combat, the GM moves time on with `!buff tim
 | Command | Effect |
 | --- | --- |
 | `!buff` | Menu: one line per cast with its targets and buttons (-1, +1, Durée, Effet, Cibles, X). |
-| `!buff add --name <name> --dur <duration> [--caster <name>] [--targets <list>] [--effect <text>] [--hidden]` | Adds a cast. Targets: `group`, `me`, `selected`, `pick` (tick boxes) or names/token ids separated by commas. Durations: `3r`, `3`, `10m`, `2h`, `1d`, `perm`. Recasting an effect of the same name replaces it on the new targets. |
+| `!buff add --name <name> --dur <duration> [--caster <name>] [--targets <list>] [--effect <text>] [--hidden]` | Adds a cast. Targets: `group`, `me`, `selected`, `pick` (tick boxes) or names/token ids separated by commas (any name works, see below). Durations: `3r`, `3`, `10m`, `2h`, `1d`, `perm`. Recasting an effect of the same name replaces it on the new targets. |
 | `!buff add --spell <id> --cl <level> ...` | Adds a common spell with its duration computed from the caster level. |
 | `!buff fav` | Buttons for the common spells. |
 | `!buff edit <n> --dur -1` | Changes a cast (`+2`, `4r`, `10m`, `perm`; also `--name`, `--effect`, `--caster`, `--targets`, `--hidden yes\|no` for the GM). |
@@ -104,7 +104,12 @@ they control and those touching one of their characters. The GM manages everythi
 An effect on a token linked to a sheet follows the character on every page; on an unlinked token (numbered monsters)
 it follows that token only.
 
-**Tests**: `node tests/bufftracker.test.js` (Node, no dependency) runs 289 checks: the pure logic (durations, targets, countdown) and then the full flow with a fake Roll20. They are no substitute for a try-out in a real game.
+**No map needed**: a target or caster name is looked up among the tokens of your page, then among the campaign's
+character sheets (exact name, or the start of a single sheet's name), and is otherwise kept as a free name: an NPC
+played during a role-play scene with no map keeps the effect afterwards. "Tout le groupe", "Moi seul" and "Choisir..."
+use the PCs of the page, or all the campaign's PCs when none is on it.
+
+**Tests**: `node tests/bufftracker.test.js` (Node, no dependency) runs 301 checks: the pure logic (durations, targets, countdown) and then the full flow with a fake Roll20. They are no substitute for a try-out in a real game.
 
 ## Sync the API scripts with GitHub (userscript)
 

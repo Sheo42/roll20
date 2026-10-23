@@ -92,7 +92,7 @@ temps avec `!buff time 10m`.
 | Commande | Effet |
 | --- | --- |
 | `!buff` | Menu : une ligne par lancement avec ses cibles et des boutons (-1, +1, Durée, Effet, Cibles, X). |
-| `!buff add --name <nom> --dur <durée> [--caster <nom>] [--targets <liste>] [--effect <texte>] [--hidden]` | Ajoute un lancement. Cibles : `group`, `me`, `selected`, `pick` (boutons à cocher) ou des noms ou ids de tokens séparés par des virgules. Durées : `3r`, `3`, `10m`, `2h`, `1d`, `perm`. Relancer un effet du même nom le remplace sur les nouvelles cibles. |
+| `!buff add --name <nom> --dur <durée> [--caster <nom>] [--targets <liste>] [--effect <texte>] [--hidden]` | Ajoute un lancement. Cibles : `group`, `me`, `selected`, `pick` (boutons à cocher) ou des noms ou ids de tokens séparés par des virgules (n'importe quel nom, voir plus bas). Durées : `3r`, `3`, `10m`, `2h`, `1d`, `perm`. Relancer un effet du même nom le remplace sur les nouvelles cibles. |
 | `!buff add --spell <id> --cl <niveau> ...` | Ajoute un sort courant, durée calculée d'après le niveau de lanceur. |
 | `!buff fav` | Boutons des sorts courants. |
 | `!buff edit <n> --dur -1` | Modifie un lancement (`+2`, `4r`, `10m`, `perm` ; aussi `--name`, `--effect`, `--caster`, `--targets`, `--hidden yes\|no` pour le MJ). |
@@ -108,7 +108,12 @@ créés, ceux dont il contrôle le lanceur et ceux qui touchent un de ses person
 effets cachés. Un effet sur un token lié à une fiche suit le personnage sur toutes les cartes ; sur un token non lié
 (monstres numérotés), il suit ce token seulement.
 
-**Tests** : `node tests/bufftracker.test.js` (Node, sans dépendance) lance 289 vérifications : la logique pure (durées, cibles, décompte) puis le flux complet avec un faux Roll20. Ils n'ont pas remplacé un essai en partie réelle.
+**Sans carte** : le nom d'une cible ou d'un lanceur est cherché parmi les tokens de ta carte, puis parmi les fiches de la
+partie (nom exact, ou début du nom d'une seule fiche), et sinon gardé comme nom libre : un PNJ joué pendant une scène de
+RP sans carte garde son effet ensuite. « Tout le groupe », « Moi seul » et « Choisir... » prennent les PJ de la carte,
+ou tous les PJ de la partie s'il n'y en a aucun dessus.
+
+**Tests** : `node tests/bufftracker.test.js` (Node, sans dépendance) lance 301 vérifications : la logique pure (durées, cibles, décompte) puis le flux complet avec un faux Roll20. Ils n'ont pas remplacé un essai en partie réelle.
 
 ## Synchroniser les scripts API avec GitHub (userscript)
 

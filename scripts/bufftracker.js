@@ -4,6 +4,7 @@
  *               alliés = une seule ligne) ; choix des cibles par leur nom ou avec des
  *               boutons à cocher ; lien direct vers la fenêtre « Effets actifs ».
  * Version 2.1 — plus de marqueur d'état sur les tokens (ceux d'avant sont retirés).
+ * Version 2.2 — plus besoin de carte : cibles et lanceur par fiche ou par nom libre.
  *
  * MISE EN PLACE (une seule fois)
  *   1. Coller ce fichier dans un nouveau script API, enregistrer.
@@ -23,7 +24,8 @@
  *   Cliquer sur « Buffs » : menu chuchoté, une ligne par lancement avec ses cibles et
  *   des boutons (-1, +1, Durée, Effet, Cibles, X). « Ajouter » et « Sorts courants »
  *   demandent le lanceur (ton personnage par défaut) puis les cibles :
- *     Tout le groupe   les PJ présents sur ta carte
+ *     Tout le groupe   les PJ présents sur ta carte (sans carte ou sans PJ dessus :
+ *                      tous les PJ de la partie)
  *     Moi seul         le lanceur
  *     Tokens sélectionnés
  *     Choisir...       boutons à cocher, un par PJ, puis « Valider »
@@ -78,6 +80,9 @@
  *   Un token lié à une fiche (une barre liée à un attribut, comme les PJ) : l'effet
  *   suit le PERSONNAGE, sur toutes les cartes. Un token non lié (monstres en série) :
  *   l'effet suit ce token seulement ; si le token est supprimé, il quitte l'effet.
+ *   Un nom (cible ou lanceur) est cherché parmi les tokens de la carte, puis parmi les
+ *   fiches de la partie ; sinon c'est un nom libre (un PNJ joué sans carte ni fiche) :
+ *   l'effet le suit par son nom et dure jusqu'à la scène suivante.
  *   « PJ » = personnage contrôlé par au moins un joueur.
  *
  * Données : state.BuffTracker. Ne touche pas aux fiches de personnage.
@@ -475,16 +480,21 @@
     const c = getObj('character', tok.get('represents'));
     return c ? c.get('name') : '';
   };
+  // nom libre : un PNJ sans token ni fiche (scène jouée sans carte)
+  // (id sans espace : il sert d'argument aux boutons à cocher)
+  const entiteNom = (nom) => ({ kind: 'name', id: normalize(nom).replace(/[^a-z0-9]+/g, '-'), name: String(nom || '').trim() });
+  const entiteDuPerso = (c) => ({ kind: 'char', id: c.id, name: c.get('name') });
   const nomEntite = (e) => {
-    if (!e || !e.id) return (e && e.name) || '';
+    if (!e || !e.id || e.kind === 'name') return (e && e.name) || '';
     if (e.kind === 'char') { const c = getObj('character', e.id); return c ? c.get('name') : (e.name || ''); }
     return nomToken(getObj('graphic', e.id)) || e.name || '';
   };
   const tokensDe = (e) => {
+    if (e.kind === 'name') return [];
     if (e.kind === 'token') { const t = getObj('graphic', e.id); return t ? [t] : []; }
     return findObjs({ _type: 'graphic', represents: e.id });
   };
-  const tokenEst = (e, tok) => !!(e && e.id && tok && (e.kind === 'token' ? tok.id === e.id : tok.get('represents') === e.id));
+  const tokenEst = (e, tok) => !!(e && e.id && e.kind !== 'name' && tok && (e.kind === 'token' ? tok.id === e.id : tok.get('represents') === e.id));
   const entitesUniques = (toks) => {
     const out = [];
     toks.forEach((t) => {
@@ -498,7 +508,7 @@
   // ---- joueurs et droits
   const liste = (s) => String(s || '').split(',').map((x) => x.trim()).filter(Boolean);
   const controleurs = (e) => {
-    if (!e || !e.id) return [];
+    if (!e || !e.id || e.kind === 'name') return [];
     if (e.kind === 'char') { const c = getObj('character', e.id); return c ? liste(c.get('controlledby')) : []; }
     const t = getObj('graphic', e.id);
     if (!t) return [];
@@ -518,8 +528,35 @@
     const c = getObj('character', t.get('represents'));
     return !!c && liste(c.get('controlledby')).length > 0;
   })).sort((a, b) => normalize(a.name).localeCompare(normalize(b.name)));
-  // personnages de ce joueur sur la carte (contrôlés nommément, pas par « all »)
-  const persosDuJoueur = (pid, pageid) => pjsDeLaPage(pageid).filter((e) => controleurs(e).includes(pid));
+  const fiches = () => findObjs({ _type: 'character' }).filter((c) => !c.get('archived'));
+  const pjsDeLaPartie = () => fiches().filter((c) => liste(c.get('controlledby')).length > 0).map(entiteDuPerso)
+    .sort((a, b) => normalize(a.name).localeCompare(normalize(b.name)));
+  // PJ de la carte, sinon (scène sans carte, ou PJ absents) tous les PJ de la partie
+  const pjsDuGroupe = (pageid) => { const l = pjsDeLaPage(pageid); return l.length ? l : pjsDeLaPartie(); };
+  // personnages de ce joueur (contrôlés nommément, pas par « all ») : sur la carte, sinon dans la partie
+  const persosDuJoueur = (pid, pageid) => {
+    const siens = (e) => controleurs(e).includes(pid);
+    const l = pjsDeLaPage(pageid).filter(siens);
+    return l.length ? l : pjsDeLaPartie().filter(siens);
+  };
+
+  // nom -> entité : token de la carte, sinon fiche de la partie (nom exact, ou début de
+  // nom s'il n'y en a qu'une), sinon nom libre. Renvoie {entity} ou {ambiguous: [noms]}.
+  const trouverEntite = (nom, pageid) => {
+    const direct = getObj('graphic', nom);
+    if (direct) return { entity: entitesUniques([direct])[0] };
+    const toks = tokensPage(pageid).map((t) => ({ tok: t, name: nomToken(t) })).filter((c) => c.name);
+    const surCarte = entitesUniques(resolveByName(nom, toks).map((c) => c.tok));
+    if (surCarte.length === 1) return { entity: surCarte[0] };
+    if (surCarte.length > 1) return { ambiguous: surCarte.map((e) => e.name) };
+    const q = normalize(nom);
+    const toutes = fiches();
+    const exactes = toutes.filter((c) => normalize(c.get('name')) === q);
+    if (exactes.length > 1) return { ambiguous: exactes.map((c) => c.get('name')) };
+    const debut = exactes.length ? exactes : toutes.filter((c) => normalize(c.get('name')).startsWith(q));
+    if (debut.length === 1) return { entity: entiteDuPerso(debut[0]) };
+    return { entity: entiteNom(nom) };
+  };
 
   const selection = (msg) => (msg.selected || []).map((x) => getObj('graphic', x._id)).filter(Boolean);
   // carte du joueur : celle des tokens sélectionnés, sinon celle où il se trouve
@@ -611,14 +648,13 @@
 
   const trouver = (id) => etat().buffs.find((b) => b.id === String(id || '').replace(/^#/, ''));
 
-  // ---- lanceur donné par son nom : cherché parmi les tokens de la carte
+  // ---- lanceur donné par son nom : token de la carte, fiche, sinon nom libre (suivi
+  // par son nom dans le tracker)
   const trouverLanceur = (nom, pageid) => {
     const q = String(nom || '').trim();
     if (!q) return null;
-    const cands = tokensPage(pageid).map((t) => ({ tok: t, name: nomToken(t) })).filter((c) => c.name);
-    const ents = entitesUniques(resolveByName(q, cands).map((c) => c.tok));
-    if (ents.length === 1) return { kind: ents[0].kind, id: ents[0].id, name: ents[0].name };
-    return { kind: null, id: null, name: q }; // inconnu ou ambigu : suivi par son nom dans le tracker
+    const r = trouverEntite(q, pageid);
+    return r.entity ? copieEntite(r.entity) : entiteNom(q);
   };
   const lanceurParDefaut = (pid, pageid) => {
     const l = persosDuJoueur(pid, pageid);
@@ -634,25 +670,20 @@
       case 'pick': return { pick: sel };
       case 'selected': return sel.length ? { targets: sel } : { error: 'Aucun token sélectionné. Tu ne peux sélectionner que tes propres tokens : pour un allié, choisis « Tout le groupe » ou « Choisir... ».' };
       case 'group': {
-        const l = pjsDeLaPage(pageid);
-        return l.length ? { targets: l } : { error: 'Aucun PJ sur la carte.' };
+        const l = pjsDuGroupe(pageid);
+        return l.length ? { targets: l } : { error: 'Aucun PJ dans la partie.' };
       }
       case 'me': {
-        if (caster && caster.id) return { targets: [{ kind: caster.kind, id: caster.id, name: caster.name }] };
+        if (caster) return { targets: [copieEntite(caster.kind ? caster : entiteNom(caster.name))] };
         const l = persosDuJoueur(pid, pageid);
-        return l.length ? { targets: l } : { error: 'Lanceur introuvable sur la carte : choisis les cibles autrement.' };
+        return l.length ? { targets: l } : { error: 'Moi seul : indique le lanceur (--caster).' };
       }
       default: {
-        const toks = tokensPage(pageid);
         const out = [];
         for (const nom of spec.names) {
-          const direct = getObj('graphic', nom);
-          let ents;
-          if (direct) ents = entitesUniques([direct]);
-          else ents = entitesUniques(resolveByName(nom, toks.map((t) => ({ tok: t, name: nomToken(t) })).filter((c) => c.name)).map((c) => c.tok));
-          if (!ents.length) return { error: `Cible introuvable sur la carte : ${nom}.` };
-          if (ents.length > 1) return { error: `Cible ambiguë : ${nom} (${ents.map((e) => e.name).join(', ')}).` };
-          if (!out.some((o) => sameEntity(o, ents[0]))) out.push(ents[0]);
+          const r = trouverEntite(nom, pageid);
+          if (r.ambiguous) return { error: `Cible ambiguë : ${nom} (${r.ambiguous.join(', ')}).` };
+          if (!out.some((o) => sameEntity(o, r.entity))) out.push(r.entity);
         }
         return { targets: out };
       }
@@ -671,7 +702,7 @@
     dire(pid, renderPicker(titre, cands));
   };
   const ouvrirChoix = (pid, pageid, d, preselection) => {
-    const cands = pjsDeLaPage(pageid);
+    const cands = pjsDuGroupe(pageid);
     preselection.forEach((e) => { if (!cands.some((c) => sameEntity(c, e))) cands.push(e); });
     d.candidates = cands.map(copieEntite);
     d.targets = preselection.map(copieEntite);
@@ -695,8 +726,7 @@
     s.buffs.push(b);
     rafraichir();
     const relance = res.relaunched.length ? ` <i>(relancé pour ${escapeHtml(res.relaunched.map(nomEntite).join(', '))})</i>` : '';
-    const avert = b.caster && !b.caster.id ? ` <i>(lanceur « ${escapeHtml(b.caster.name)} » introuvable sur la carte : suivi par son nom dans le tracker)</i>` : '';
-    dire(pid, boite(`<b>${escapeHtml(b.name)}</b> (${escapeHtml(formatDuration(b.remaining))}) → ${escapeHtml(nomsCibles(b))}${relance}${avert} ` +
+    dire(pid, boite(`<b>${escapeHtml(b.name)}</b> (${escapeHtml(formatDuration(b.remaining))}) → ${escapeHtml(nomsCibles(b))}${relance} ` +
       lienFenetre(handout().id, 'Voir les effets')));
     return b;
   };
@@ -768,7 +798,7 @@
       return montrerChoix(pid);
     }
     if (action === 'all') {
-      const pjs = pjsDeLaPage(d.pageid);
+      const pjs = pjsDuGroupe(d.pageid);
       pjs.forEach((e) => {
         if (!d.candidates.some((x) => sameEntity(x, e))) d.candidates.push(copieEntite(e));
         if (!d.targets.some((t) => sameEntity(t, e))) d.targets.push(copieEntite(e));

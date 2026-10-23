@@ -351,7 +351,6 @@ describe('Ajout pour une liste de PJ', () => {
 describe('Ajout : erreurs', () => {
   const p = partie();
   check(p.dire('pA', '!buff add --name X --dur 1m --targets selected')[0].includes('propres tokens'), 'selected sans sélection : refusé, avec l\'explication');
-  check(p.dire('pA', '!buff add --name X --dur 1m --targets Zorglub')[0].includes('introuvable'), 'nom inconnu : refusé');
   check(p.dire('pA', '!buff add --name X --dur 1m --targets gobelin')[0].includes('ambiguë'), 'nom ambigu : refusé');
   check(p.dire('pA', '!buff add --name X --dur 3 parsecs --targets group')[0].includes('illisible'), 'durée illisible : refusé');
   check(p.dire('pA', '!buff add --dur 1m --targets group')[0].includes('nom'), 'sans nom : refusé');
@@ -359,7 +358,7 @@ describe('Ajout : erreurs', () => {
   check(p.dire('pA', '!buff add --name X --dur 0 --targets group')[0].includes('illisible'), 'durée nulle : refusé');
   check(p.dire('pA', '!buff add --spell xyz --cl 3 --targets group')[0].includes('inconnu'), 'sort courant inconnu : refusé');
   check(p.dire('pA', '!buff add --spell haste --targets group')[0].includes('niveau de lanceur'), 'sort courant sans --cl : refusé');
-  check(p.dire('gm', '!buff add --name X --dur 1m --caster --targets me')[0].includes('Lanceur introuvable'), 'MJ, Moi seul sans lanceur : refusé');
+  check(p.dire('gm', '!buff add --name X --dur 1m --caster --targets me')[0].includes('indique le lanceur'), 'MJ, Moi seul sans lanceur : refusé');
   check(p.buffs().length === 0, 'rien n\'a été créé');
 });
 
@@ -367,17 +366,57 @@ describe('Carte du MJ : la dernière qu\'il a ouverte', () => {
   const p = partie();
   p.mk('page', { name: 'Préparation' }, 'p2');
   const ogre = p.tok('Ogre', null, false, 'p2');
-  // sans objet joueur pour le MJ : carte des joueurs
-  check(p.dire('gm', '!buff add --name X --dur 1m --targets Ogre')[0].includes('introuvable'), 'MJ sans carte connue : cherche sur la carte des joueurs');
+  // sans objet joueur pour le MJ : carte des joueurs, où l'Ogre n'est pas : nom libre
+  p.dire('gm', '!buff add --name X --dur 1m --targets Ogre');
+  check(p.buffs()[0].targets[0].kind === 'name', 'MJ sans carte connue : cherche sur la carte des joueurs');
   const mj = p.mk('player', { _displayname: 'MJ', _lastpage: 'p2' }, 'gm');
   p.dire('gm', '!buff add --name Lenteur --dur 2r --targets Ogre');
-  check(p.buffs().length === 1 && p.buffs()[0].targets[0].id === ogre.id, 'MJ : cible trouvée sur la carte qu\'il regarde');
-  check(p.dire('gm', '!buff add --name Y --dur 1m --targets group')[0].includes('Aucun PJ'), 'MJ : Tout le groupe = les PJ de sa carte');
+  const lent = p.buffs().find((b) => b.name === 'Lenteur');
+  check(lent && lent.targets[0].id === ogre.id, 'MJ : cible trouvée sur la carte qu\'il regarde');
+  p.dire('gm', '!buff add --name Y --dur 1m --targets group');
+  check(noms(p.buffs().find((b) => b.name === 'Y')) === 'Lune,Paz Tarpou,Selea,Solathia', 'MJ, aucun PJ sur sa carte : Tout le groupe = tous les PJ de la partie');
   mj.props._lastpage = 'disparue';
   p.dire('gm', '!buff add --name Z --dur 1m --targets Selea');
   check(p.buffs().some((b) => b.name === 'Z'), 'carte du MJ supprimée : carte des joueurs');
   p.dire('pA', '!buff add --name W --dur 1m --targets Selea');
   check(p.buffs().some((b) => b.name === 'W'), 'joueur : toujours sa propre carte');
+});
+
+describe('Sans carte : fiches et noms libres', () => {
+  const p = partie();
+  p.campagne.props.playerpageid = 'p3'; // scène jouée sans carte : aucun token
+  p.dire('gm', '!buff add --name Faveur --dur 10m --caster Garde du corps --targets Garde du corps');
+  const fav = p.buffs()[0];
+  check(fav && fav.targets[0].kind === 'name' && noms(fav) === 'Garde du corps' && fav.caster.name === 'Garde du corps', 'PNJ sans token ni fiche : cible et lanceur par leur nom');
+  p.dire('gm', '!buff add --name Héroïsme --dur 1h --targets Zorglub, Selea, paz');
+  const her = p.buffs()[1];
+  check(noms(her) === 'Zorglub,Selea,Paz Tarpou' && her.targets[1].kind === 'char' && her.targets[1].id === p.c.selea.id && her.targets[2].id === p.c.paz.id,
+    'PJ hors carte trouvés par leur fiche (nom exact ou début), nom inconnu gardé tel quel');
+  p.dire('gm', '!buff add --name Prière --dur 5r --targets group');
+  check(noms(p.buffs()[2]) === 'Lune,Paz Tarpou,Selea,Solathia', 'Tout le groupe sans carte : tous les PJ de la partie');
+  p.dire('pA', '!buff add --name Flou --dur 3m --targets me');
+  check(noms(p.buffs()[3]) === 'Selea', 'Moi seul sans carte : le personnage du joueur');
+  const choix = p.dire('pA', '!buff add --name Vol --dur 5m')[0];
+  check(['Selea', 'Paz Tarpou', 'Lune', 'Solathia'].every((n) => choix.includes(n)), 'Choisir... sans carte : un bouton par PJ de la partie');
+  p.dire('pA', '!buff pick cancel');
+  const notes = p.handout().props.notes;
+  check(notes.includes('>Garde du corps</h4>') && notes.includes('>Zorglub</h4>'), 'fenêtre : les noms libres ont leur section');
+  p.dire('gm', `!buff edit ${her.id} --targets pick`);
+  const k = hrefs(p.chat[p.chat.length - 1]).find((h) => h.includes('toggle name:'));
+  check(k === '!buff pick toggle name:zorglub', 'boutons à cocher : nom libre sans espace dans le bouton');
+  p.dire('gm', k);
+  p.dire('gm', '!buff pick ok');
+  check(noms(her) === 'Selea,Paz Tarpou', 'nom libre décoché');
+  const dry = p.dire('gm', '!buff time 1m')[0];
+  const n = dry.match(/confirm (\d+)/)[1];
+  p.dire('gm', `!buff time 1m confirm ${n}`);
+  check(fav.remaining === 90, 'le temps passe aussi pour un nom libre');
+  check(p.dire('pA', `!buff edit ${fav.id} --dur -1`)[0].includes('ne peux pas'), 'effet du MJ sur un PNJ : un joueur ne le modifie pas');
+  p.mk('character', { name: 'Garde', controlledby: '' });
+  p.mk('character', { name: 'Garde', controlledby: '' });
+  check(p.dire('gm', '!buff add --name X --dur 1m --targets Garde')[0].includes('ambiguë'), 'deux fiches du même nom : refusé');
+  p.dire('gm', '!buff add --name X --dur 1m --targets Gar');
+  check(p.buffs().some((b) => b.name === 'X' && b.targets[0].kind === 'name'), 'début de nom commun à plusieurs fiches : nom libre');
 });
 
 describe('Sorts courants et bouton Ajouter', () => {
@@ -623,9 +662,10 @@ describe('Tracker d\'initiative : tour du lanceur, sinon début du round', () =>
 describe('Tracker : entrée de round, lanceur suivi par son nom', () => {
   const p = partie();
   p.dire('pA', '!buff add --name Mystère --dur 3r --caster Ombre --targets me'); // Ombre n'existe pas encore
-  check(p.buffs()[0].caster.id === null && p.buffs()[0].caster.name === 'Ombre', 'lanceur introuvable : gardé par son nom');
+  check(p.buffs()[0].caster.kind === 'name' && p.buffs()[0].caster.name === 'Ombre', 'lanceur introuvable : gardé par son nom');
+  check(noms(p.buffs()[0]) === 'Ombre', 'Moi seul avec un lanceur sans token : le lanceur, par son nom');
   p.dire('pB', '!buff add --name Ambigu --dur 3r --caster gobelin --targets me');
-  check(p.buffs()[1].caster.id === null, 'lanceur ambigu (2 gobelins) : pas de choix au hasard');
+  check(p.buffs()[1].caster.kind === 'name', 'lanceur ambigu (2 gobelins) : pas de choix au hasard');
   const ombre = p.tok('Ombre', null, false);
   // tracker non trié (Selea avant Ombre malgré l'initiative) avec une entrée « -- Début du round -- »
   const o = [{ id: '-1', pr: 0, custom: '-- Début du round --' }, entree(p.t.selea, 5), entree(ombre, 12)];
