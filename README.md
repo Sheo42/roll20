@@ -105,7 +105,7 @@ they control and those touching one of their characters. The GM manages everythi
 An effect on a token linked to a sheet follows the character on every page; on an unlinked token (numbered monsters)
 it follows that token only.
 
-**Tests**: `node tests/bufftracker.test.js` (Node, no dependency) runs 291 checks: the pure logic (durations, targets, countdown,
+**Tests**: `node tests/bufftracker.test.js` (Node, no dependency) runs 296 checks: the pure logic (durations, targets, countdown,
 markers) and then the full flow with a fake Roll20. They are no substitute for a try-out in a real game.
 
 ## Sync the API scripts with GitHub (userscript)

@@ -377,6 +377,23 @@ describe('Ajout : erreurs', () => {
   check(p.buffs().length === 0, 'rien n\'a été créé');
 });
 
+describe('Carte du MJ : la dernière qu\'il a ouverte', () => {
+  const p = partie();
+  p.mk('page', { name: 'Préparation' }, 'p2');
+  const ogre = p.tok('Ogre', null, false, 'p2');
+  // sans objet joueur pour le MJ : carte des joueurs
+  check(p.dire('gm', '!buff add --name X --dur 1m --targets Ogre')[0].includes('introuvable'), 'MJ sans carte connue : cherche sur la carte des joueurs');
+  const mj = p.mk('player', { _displayname: 'MJ', _lastpage: 'p2' }, 'gm');
+  p.dire('gm', '!buff add --name Lenteur --dur 2r --targets Ogre');
+  check(p.buffs().length === 1 && p.buffs()[0].targets[0].id === ogre.id, 'MJ : cible trouvée sur la carte qu\'il regarde');
+  check(p.dire('gm', '!buff add --name Y --dur 1m --targets group')[0].includes('Aucun PJ'), 'MJ : Tout le groupe = les PJ de sa carte');
+  mj.props._lastpage = 'disparue';
+  p.dire('gm', '!buff add --name Z --dur 1m --targets Selea');
+  check(p.buffs().some((b) => b.name === 'Z'), 'carte du MJ supprimée : carte des joueurs');
+  p.dire('pA', '!buff add --name W --dur 1m --targets Selea');
+  check(p.buffs().some((b) => b.name === 'W'), 'joueur : toujours sa propre carte');
+});
+
 describe('Sorts courants et bouton Ajouter', () => {
   const p = partie();
   p.dire('pC', '!buff add --spell bless --cl 4 --caster Solathia --targets group');

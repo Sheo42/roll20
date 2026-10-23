@@ -546,11 +546,16 @@
 
   const selection = (msg) => (msg.selected || []).map((x) => getObj('graphic', x._id)).filter(Boolean);
   // carte du joueur : celle des tokens sélectionnés, sinon celle où il se trouve
+  // (pour le MJ, la dernière carte qu'il a ouverte, pas forcément celle des joueurs)
   const pageDu = (msg) => {
     const sel = selection(msg);
     if (sel.length) return sel[0].get('_pageid');
     const c = Campaign();
-    if (!playerIsGM(msg.playerid)) {
+    if (playerIsGM(msg.playerid)) {
+      const pl = getObj('player', msg.playerid);
+      const last = pl && pl.get('_lastpage');
+      if (last && getObj('page', last)) return last;
+    } else {
       const psp = c.get('playerspecificpages');
       if (psp && psp[msg.playerid]) return psp[msg.playerid];
     }

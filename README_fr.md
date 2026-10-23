@@ -109,7 +109,7 @@ créés, ceux dont il contrôle le lanceur et ceux qui touchent un de ses person
 effets cachés. Un effet sur un token lié à une fiche suit le personnage sur toutes les cartes ; sur un token non lié
 (monstres numérotés), il suit ce token seulement.
 
-**Tests** : `node tests/bufftracker.test.js` (Node, sans dépendance) lance 291 vérifications : la logique pure (durées, cibles, décompte,
+**Tests** : `node tests/bufftracker.test.js` (Node, sans dépendance) lance 296 vérifications : la logique pure (durées, cibles, décompte,
 marqueurs) puis le flux complet avec un faux Roll20. Ils n'ont pas remplacé un essai en partie réelle.
 
 ## Synchroniser les scripts API avec GitHub (userscript)
