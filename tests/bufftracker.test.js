@@ -166,6 +166,14 @@ describe('Relance : remplace l\'ancien lancement sur ses cibles', () => {
   check(!r.buffs.some((b) => b.id === '1') && r.relaunched.length === 3, 'toutes les cibles relancées : l\'ancien lancement disparaît');
   r = B.replaceTargets(mk(), 'Bouclier', false, [S]);
   check(r.buffs.length === 3 && !r.relaunched.length, 'autre nom : rien ne change');
+  const sol = { kind: 'char', id: 'C', name: 'Solathia' }, ael = { kind: 'name', id: 'aelric', name: 'Aelric' };
+  const mk2 = () => [{ id: '1', name: 'Bénédiction', caster: sol, targets: [S, P] }, { id: '2', name: 'Bénédiction', caster: ael, targets: [S] }];
+  r = B.replaceTargets(mk2(), 'Bénédiction', false, [S], { kind: 'char', id: 'C', name: 'Solathia' });
+  check(deepEq(r.buffs.find((b) => b.id === '1').targets, [P]) && r.buffs.find((b) => b.id === '2').targets.length === 1, 'même lanceur : remplacé ; autre lanceur : gardé');
+  r = B.replaceTargets(mk2(), 'Bénédiction', false, [S], { kind: 'name', id: 'aelric', name: 'aelric' });
+  check(!r.buffs.some((b) => b.id === '2') && r.buffs.find((b) => b.id === '1').targets.length === 2, 'lanceur nom libre : même nom = même lanceur');
+  r = B.replaceTargets(mk2(), 'Bénédiction', false, [S], null);
+  check(r.buffs.length === 2 && !r.relaunched.length, 'sans lanceur : ne remplace pas ceux qui en ont un');
 });
 
 describe('Sorts courants', () => {
@@ -541,6 +549,11 @@ describe('Relance', () => {
   const out = p.dire('pC', '!buff add --name Bénédiction --dur 5m --caster Solathia --targets group');
   check(p.buffs().length === 1 && p.buffs()[0].targets.length === 4, 'relance sur tout le groupe : un seul lancement reste');
   check(out[0].includes('relancé pour'), 'confirmation : relancé');
+  p.dire('gm', '!buff add --name Bénédiction --dur 3r --caster =Aelric --targets Selea');
+  check(p.buffs().length === 2 && p.buffs()[0].targets.length === 4 && p.buffs()[0].remaining === 50 && p.buffs()[1].remaining === 3,
+    'même sort d\'un autre lanceur : les deux restent, chacun sa durée');
+  const notes = p.handout().props.notes;
+  check((notes.match(/Bénédiction/g) || []).length === 5, 'fenêtre : Selea a les deux Bénédictions');
 });
 
 describe('Droits', () => {

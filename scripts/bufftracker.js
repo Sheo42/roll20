@@ -8,6 +8,7 @@
  * Version 2.3 — boutons à cocher réparés ; minutes écrites « min » ; un joueur seulement
  *               ciblé ne retire que ses personnages.
  * Version 2.4 — un nom partiel n'est plus deviné : boutons pour choisir ; durées en jours.
+ * Version 2.5 — relancer un sort ne remplace que celui du même lanceur.
  *
  * MISE EN PLACE (une seule fois)
  *   1. Coller ce fichier dans un nouveau script API, enregistrer.
@@ -56,8 +57,9 @@
  *       --targets : group, me, selected, pick, ou des noms ou ids de tokens séparés
  *       par des virgules (Selea, Paz). Sans --targets : les tokens sélectionnés, sinon
  *       les boutons à cocher. Durées : 3r, 3 (rounds), 10min, 2h, 1j, perm (jusqu'à ce
- *       qu'on le retire). Relancer un effet du même nom remplace l'ancien sur les
- *       cibles du nouveau lancement (pas de cumul).
+ *       qu'on le retire). Relancer un effet du même nom et du même lanceur remplace
+ *       l'ancien sur les cibles du nouveau lancement ; d'un autre lanceur, les deux
+ *       restent, chacun avec sa durée.
  *   !buff add --spell bless --cl 5 [--caster Solathia] [--targets group]   sort courant
  *   !buff fav                     boutons des sorts courants
  *   !buff edit 3 --dur -1         -1 round (ou +2, 4r, 10min, perm) ; aussi --name,
@@ -288,13 +290,19 @@
   };
 
   // ---- relance : le nouveau lancement remplace l'ancien sur ses cibles (pas de cumul).
-  // Retire ces cibles des lancements du même nom (et de même visibilité) ; renvoie les
+  // Retire ces cibles des lancements du même nom, du même lanceur (et de même
+  // visibilité) ; le même sort d'un autre lanceur garde sa propre durée. Renvoie les
   // cibles relancées et la liste sans les lancements devenus vides.
-  const replaceTargets = (buffs, name, hidden, targets) => {
+  const memeLanceur = (a, b) => {
+    if (!a || !b) return !a && !b;
+    if (a.id && b.id && a.kind && b.kind) return sameEntity(a, b);
+    return normalize(a.name) === normalize(b.name);
+  };
+  const replaceTargets = (buffs, name, hidden, targets, caster) => {
     const keys = new Set(targets.map(entityKey));
     const relaunched = [];
     buffs.forEach((b) => {
-      if (normalize(b.name) !== normalize(name) || !!b.hidden !== !!hidden) return;
+      if (normalize(b.name) !== normalize(name) || !!b.hidden !== !!hidden || !memeLanceur(b.caster, caster)) return;
       b.targets = b.targets.filter((t) => {
         if (!keys.has(entityKey(t))) return true;
         if (!relaunched.some((r) => sameEntity(r, t))) relaunched.push(t);
@@ -767,7 +775,7 @@
     // même sort sous une autre graphie (casse, accents) : on garde celle déjà en jeu
     const existant = s.buffs.find((b) => normalize(b.name) === normalize(d.name));
     if (existant) d.name = existant.name;
-    const res = replaceTargets(s.buffs, d.name, d.hidden, d.targets);
+    const res = replaceTargets(s.buffs, d.name, d.hidden, d.targets, d.caster);
     s.buffs = res.buffs;
     const b = {
       id: String(s.nextId++), name: d.name, targets: d.targets.map(copieEntite), caster: d.caster || null,

@@ -92,7 +92,7 @@ temps avec `!buff time 10min`.
 | Commande | Effet |
 | --- | --- |
 | `!buff` | Menu : une ligne par lancement avec ses cibles et des boutons (-1, +1, Durée, Effet, Cibles, X). |
-| `!buff add --name <nom> --dur <durée> [--caster <nom>] [--targets <liste>] [--effect <texte>] [--hidden]` | Ajoute un lancement. Cibles : `group`, `me`, `selected`, `pick` (boutons à cocher) ou des noms ou ids de tokens séparés par des virgules (n'importe quel nom, voir plus bas). Durées : `3r`, `3`, `10min`, `2h`, `1j` (jours), `perm`. Relancer un effet du même nom le remplace sur les nouvelles cibles. |
+| `!buff add --name <nom> --dur <durée> [--caster <nom>] [--targets <liste>] [--effect <texte>] [--hidden]` | Ajoute un lancement. Cibles : `group`, `me`, `selected`, `pick` (boutons à cocher) ou des noms ou ids de tokens séparés par des virgules (n'importe quel nom, voir plus bas). Durées : `3r`, `3`, `10min`, `2h`, `1j` (jours), `perm`. Relancer un effet du même nom et du même lanceur le remplace sur les nouvelles cibles ; d'un autre lanceur, les deux restent, chacun avec sa durée. |
 | `!buff add --spell <id> --cl <niveau> ...` | Ajoute un sort courant, durée calculée d'après le niveau de lanceur. |
 | `!buff fav` | Boutons des sorts courants. |
 | `!buff edit <n> --dur -1` | Modifie un lancement (`+2`, `4r`, `10min`, `perm` ; aussi `--name`, `--effect`, `--caster`, `--targets`, `--hidden yes\|no` pour le MJ). |
@@ -115,7 +115,7 @@ chuchote des boutons pour choisir, ou « Nom libre » pour le garder tel quel ; 
 Un nom qui ne correspond à rien est un nom libre : un PNJ joué pendant une scène de RP sans carte garde son effet ensuite. « Tout le groupe », « Moi seul » et « Choisir... » prennent les PJ de la carte,
 ou tous les PJ de la partie s'il n'y en a aucun dessus.
 
-**Tests** : `node tests/bufftracker.test.js` (Node, sans dépendance) lance 329 vérifications : la logique pure (durées, cibles, décompte) puis le flux complet avec un faux Roll20. Ils n'ont pas remplacé un essai en partie réelle.
+**Tests** : `node tests/bufftracker.test.js` (Node, sans dépendance) lance 334 vérifications : la logique pure (durées, cibles, décompte) puis le flux complet avec un faux Roll20. Ils n'ont pas remplacé un essai en partie réelle.
 
 ## Synchroniser les scripts API avec GitHub (userscript)
 
