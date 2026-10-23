@@ -76,8 +76,8 @@ status marker per effect on the targets' tokens (with the rounds left when 9 or 
 effect's last round and when it ends. The script never touches character sheets; its data lives in
 `state.BuffTracker`.
 
-**Installation**: paste `scripts/bufftracker.js` into a new API script and save. Create a macro visible to all players
-with the content of `macro/bufftracker.macro.txt` (`!buff`). The script creates the "Effets actifs" handout itself.
+**Installation**: paste `scripts/bufftracker.js` into a new API script and save. Create the "BuffTracker" macro, visible to all players,
+with the content of `macro/BuffTracker.macro.txt` (`!buff`). The script creates the "Effets actifs" handout itself.
 
 **Countdown**: in combat, when the turn tracker moves to the next turn, effects whose caster takes the turn lose
 1 round (PF1: an effect ends just before its caster's turn). Effects without a caster in the tracker lose 1 round at

@@ -78,8 +78,8 @@ marqueur d'état par effet sur les tokens des cibles (avec les rounds restants �
 au dernier round d'un effet, puis quand il se termine. Le script ne touche pas aux fiches ; ses données sont dans
 `state.BuffTracker`.
 
-**Installation** : coller `scripts/bufftracker.js` dans un nouveau script API et enregistrer. Créer une macro visible par
-tous les joueurs avec le contenu de `macro/bufftracker.macro.txt` (`!buff`). Le script crée lui-même le handout
+**Installation** : coller `scripts/bufftracker.js` dans un nouveau script API et enregistrer. Créer la macro « BuffTracker », visible par
+tous les joueurs avec le contenu de `macro/BuffTracker.macro.txt` (`!buff`). Le script crée lui-même le handout
 « Effets actifs ».
 
 **Décompte** : en combat, quand le tracker d'initiative passe au tour suivant, les effets dont le lanceur prend la main

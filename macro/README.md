@@ -6,7 +6,7 @@ scripts API dont elles dépendent sont à installer dans la partie (Game Setting
 | Macro | Ce qu'elle fait | Dépend de |
 | --- | --- | --- |
 | `Blindroll` | Chuchote au token sélectionné un menu de 13 boutons de compétences (Évaluation, Bluff, Diplomatie, Sabotage, Déguisement, Intimidation, Perception, Psychologie, Art de la magie, Discrétion, Survie, Représentation, Linguistique), chacun avec le bonus du token. Un clic lance `!broll <compétence> 1d20+bonus`, un jet à l'aveugle. | `!broll` (script absent de ce dépôt) |
-| `bufftracker` | Lance `!buff`, le menu du suivi des buffs et durées de sort. Macro visible par tous les joueurs. | `scripts/bufftracker.js` |
+| `BuffTracker` | Lance `!buff`, le menu du suivi des buffs et durées de sort. Macro visible par tous les joueurs. | `scripts/bufftracker.js` |
 | `Climat` | Lance `!climat`, le point d'entrée du générateur de météo. | `scripts/Climat.js` |
 | `Config_init` | Réinitialise le suivi d'initiative de groupe : supprime l'ancien groupe, crée un groupe avec `init` et le bonus d'initiative comme départage. La partie « (Optional) » règle 1 dé, 2 décimales max, jet individuel, tri décroissant et remplacement du jet. | GroupInitiative |
 | `Invisible` | Passe le token sélectionné sur sa 2ᵉ face (`currentside|2`) et cache son nom et ses 3 barres aux joueurs. | TokenMod |
