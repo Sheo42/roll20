@@ -113,6 +113,43 @@ use the PCs of the page, or all the campaign's PCs when none is on it.
 
 **Tests**: `node tests/bufftracker.test.js` (Node, no dependency) runs 343 checks: the pure logic (durations, targets, countdown) and then the full flow with a fake Roll20. They are no substitute for a try-out in a real game.
 
+## Flying combat (altitude)
+
+`scripts/altitude.js` keeps each token's altitude (the map is 2D), shows it under the token ("↑ 9 m") and does the
+Pathfinder 1e flight math, so a player can price a move before making it. Rules applied:
+- Fly skill (Core p. 96): climb at half speed up to 45°, descend at normal speed at any angle. Climbing steeper than 45°:
+  Fly DC 20; moving less than half speed: DC 10; staying in place: DC 15.
+- Paizo FAQ "Fly" (July 2011): no diagonal counting on the vertical axis. With H squares across and V squares of height:
+  climbing costs `V + max(H, V)` (3 squares at 45° = 6 squares), descending costs `max(H, V)`.
+- Falling: 1d6 per 10 ft (max 20d6); a creature able to fly negates it with a DC 10 Fly check, except after a failed Fly
+  check or a collision.
+- 3D distance (reach, range), house rule: height is a third axis counted with the 5/10/5 diagonal rule; a token is as
+  many squares tall as it is wide.
+
+Distances are given in feet (`30`, `30ft`), meters (`9m`) or squares (`6sq`); a bare number uses the page unit (the one
+of the Measure tool). Fly speed is read from the Pathfinder Community sheet (`speed-fly`, in meters if the sheet is set
+to meters); `speed=60` overrides it (Fly spell, for example).
+
+**Installation**: paste `scripts/altitude.js` into a new API script and save. Create the "Vol" macro, visible to all
+players, with the content of `macro/Vol.macro.txt` (`!alt`). It whispers a menu of buttons that act on the token
+selected when the button is clicked.
+
+| Command | Effect |
+| --- | --- |
+| `!alt` | Button menu. |
+| `!alt set [id...] <altitude>` | Sets the altitude of the selected tokens: `9m` (absolute), `+3`, `-3m` (change), `0` (on the ground). |
+| `!alt fly [id] <horizontal> <vertical> [speed=60]` | Cost of a flying move before moving: cost, movement left (move action / double move), max horizontal distance for that climb, Fly checks needed, and an "Apply" button for the new altitude. Vertical: `+` up, `-` down. |
+| `!alt dist <id> <target id>` | 3D distance between two tokens, whether it is within 5 / 10 ft reach, and the flying cost to get adjacent. |
+| `!alt fall [id...]` | Rolls falling damage from the current altitude and sets it to 0. |
+| `!alt show` | Whispers the altitudes on the page (players don't see GM-layer tokens). |
+| `!alt clear all` | GM: sets every altitude back to 0. |
+
+Players act only on tokens they control (token or character); the GM on all.
+
+**Tests**: `node tests/altitude.test.js` (Node, no dependency) runs 126 checks: unit conversion, 2D and 3D distances,
+flight cost (including the FAQ example), Fly DCs, falling dice, then the full flow with a fake Roll20 (label following
+the token, player rights, sheet fly speed in meters, menu buttons). They are no substitute for a try-out in a real game.
+
 ## Sync the API scripts with GitHub (userscript)
 
 `sync/roll20-github-sync.user.js` adds a "⟳ GitHub" button to the Roll20 API Scripts page

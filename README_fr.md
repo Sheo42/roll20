@@ -117,6 +117,46 @@ ou tous les PJ de la partie s'il n'y en a aucun dessus.
 
 **Tests** : `node tests/bufftracker.test.js` (Node, sans dépendance) lance 343 vérifications : la logique pure (durées, cibles, décompte) puis le flux complet avec un faux Roll20. Ils n'ont pas remplacé un essai en partie réelle.
 
+## Combat en vol (altitude)
+
+`scripts/altitude.js` garde l'altitude de chaque token (la carte est en 2D), l'affiche sous le token (« ↑ 9 m ») et
+fait les calculs de vol de Pathfinder 1e, pour qu'un joueur connaisse le coût d'un déplacement avant de bouger.
+Règles appliquées :
+- Compétence Vol (Core p. 96) : on monte à mi-vitesse à 45° au maximum, on descend à vitesse normale sous n'importe quel
+  angle. Monter plus raide que 45° : Vol DD 20 ; se déplacer de moins de la moitié de sa vitesse : DD 10 ; rester sur
+  place : DD 15.
+- FAQ Paizo « Fly » (juillet 2011) : pas de décompte en diagonale sur la verticale. Avec H cases à l'horizontale et V
+  cases de hauteur : monter coûte `V + max(H, V)` (3 cases à 45° = 6 cases), descendre coûte `max(H, V)`.
+- Chute : 1d6 par tranche de 3 m / 10 ft (20d6 max) ; une créature qui sait voler annule les dégâts par un test de Vol
+  DD 10, sauf après un test de Vol raté ou une collision.
+- Distance 3D (allonge, portée), règle maison : la hauteur est un troisième axe, compté avec la règle des diagonales
+  (5/10/5) ; un token est aussi haut que large.
+
+Une distance se donne en pieds (`30`, `30ft`), en mètres (`9m`) ou en cases (`6sq`) ; un nombre seul est dans l'unité de
+la page (celle de l'outil Mesurer). La vitesse de vol est lue sur la fiche Pathfinder Community (`speed-fly`, en mètres
+si la fiche est en mètres) ; `speed=60` la remplace (sort Vol, par exemple).
+
+**Installation** : colle `scripts/altitude.js` dans un nouveau script API et enregistre. Crée la macro « Vol », visible
+par tous les joueurs, avec le contenu de `macro/Vol.macro.txt` (`!alt`). Elle chuchote un menu de boutons qui agissent
+sur le token sélectionné au moment du clic.
+
+| Commande | Effet |
+| --- | --- |
+| `!alt` | Menu de boutons. |
+| `!alt set [id...] <altitude>` | Altitude des tokens sélectionnés : `9m` (absolue), `+3`, `-3m` (changement), `0` (au sol). |
+| `!alt fly [id] <horizontal> <vertical> [speed=60]` | Coût d'un vol avant de bouger : coût, mouvement restant (action de mouvement / double mouvement), distance horizontale max pour cette montée, tests de Vol nécessaires, et bouton « Appliquer » pour la nouvelle altitude. Vertical : `+` monte, `-` descend. |
+| `!alt dist <id> <id cible>` | Distance 3D entre deux tokens, allonge de 1,5 m / 3 m, et coût en vol pour venir au contact. |
+| `!alt fall [id...]` | Jet de dégâts de chute depuis l'altitude actuelle, altitude remise à 0. |
+| `!alt show` | Chuchote les altitudes de la page (les joueurs ne voient pas les tokens du calque MJ). |
+| `!alt clear all` | MJ : remet toutes les altitudes à 0. |
+
+Un joueur n'agit que sur les tokens qu'il contrôle (token ou personnage) ; le MJ sur tous.
+
+**Tests** : `node tests/altitude.test.js` (Node, sans dépendance) lance 126 vérifications : conversions d'unités,
+distances 2D et 3D, coût d'un vol (dont l'exemple de la FAQ), DD de Vol, dés de chute, puis le flux complet avec un faux
+Roll20 (étiquette qui suit le token, droits des joueurs, vitesse de vol de la fiche en mètres, boutons du menu). Ils ne
+remplacent pas un essai dans une vraie partie.
+
 ## Synchroniser les scripts API avec GitHub (userscript)
 
 `sync/roll20-github-sync.user.js` ajoute un bouton « ⟳ GitHub » sur la page des scripts API de Roll20
