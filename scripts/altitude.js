@@ -1,6 +1,6 @@
 /*
  * altitude.js — Combat en vol (Pathfinder 1e) pour l'API Roll20
- * Version 1.0
+ * Version 1.0 — avec gabarit.js v1.5, les gabarits tiennent compte de l'altitude
  *
  * La carte est en 2D : ce script garde l'ALTITUDE de chaque token, l'affiche
  * sous le token, et fait les calculs de vol à la place des joueurs.
@@ -148,7 +148,7 @@
   const chuchoter = (qui, texte) => sendChat(NOM, `/w "${qui}" ${texte}`);
 
   function controle(t, playerid) {
-    if (playerIsGM(playerid)) return true;
+    if (playerid === 'API' || playerIsGM(playerid)) return true; // API : gabarit.js (Viseur)
     const ok = (s) => String(s || '').split(',').some((x) => x === 'all' || x === playerid);
     if (ok(t.get('controlledby'))) return true;
     const c = t.get('represents') && getObj('character', t.get('represents'));
@@ -184,6 +184,12 @@
     if (a > 0) state.Altitude.alt[t.id] = a; else delete state.Altitude.alt[t.id];
     placeEtiquette(t);
     return a;
+  }
+
+  // gabarit.js recalcule les zones touchées en 3D quand une altitude change
+  function signalerGabarit(toks) {
+    if (!state.gabarit) return;
+    [...new Set(toks.map((t) => t.get('_pageid')))].forEach((p) => sendChat(NOM, `!gabarit refresh ${p}`));
   }
 
   // vitesse de vol (en cases) lue sur la fiche, 0 si inconnue
@@ -258,7 +264,8 @@
         const a = fixerAltitude(t, d.relatif ? altDe(t) + d.valeur : d.cases);
         return `${nomDe(t)} : ${a ? enUnite(a, unite) : 'au sol'}`;
       });
-      chuchoter(qui, lignes.join('<br>'));
+      signalerGabarit(permis);
+      if (msg.playerid !== 'API') chuchoter(qui, lignes.join('<br>'));
       return;
     }
 
@@ -312,6 +319,7 @@
         sendChat(NOM, `/em ${nomDe(t)} tombe de ${enUnite(a, unite)} : ${jet}. `
           + `Une créature qui sait voler annule les dégâts avec un test de Vol DD 10 (sauf après un test de Vol raté ou une collision).`);
       });
+      signalerGabarit(permis);
       return;
     }
 
@@ -332,6 +340,7 @@
         if (t) fixerAltitude(t, 0);
         else { delete state.Altitude.alt[id]; const l = getObj('text', state.Altitude.labels[id]); if (l) l.remove(); delete state.Altitude.labels[id]; }
       });
+      if (state.gabarit) sendChat(NOM, '!gabarit refresh');
       chuchoter(qui, `${ids.length} altitude(s) remise(s) à 0.`);
       return;
     }

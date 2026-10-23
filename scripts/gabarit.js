@@ -1,6 +1,8 @@
 /*
  * gabarit.js — Gabarits de zones d'effet (Pathfinder 1e) pour l'API Roll20
- * Version 1.4 — l'émanation n'a plus de Viseur (elle reste sur le lanceur) ;
+ * Version 1.5 — 3D avec altitude.js : sphère, pyramide (cône) et ligne à
+ *               l'altitude du Viseur ; émanation depuis le volume du lanceur ;
+ *               v1.4 : l'émanation n'a plus de Viseur (elle reste sur le lanceur) ;
  *               v1.3 : l'émanation suit son lanceur ; les auras se mettent à
  *               jour quand une créature entre dans une zone ou en sort ;
  *               v1.2 : lignes obliques à N cases exactement (formes du manuel) ;
@@ -95,7 +97,16 @@
  *    l'aura de la couleur du gabarit), recalculée quand une créature se
  *    déplace. Le lanceur n'est jamais touché par son
  *    propre cône, ligne ou émanation.
- *  - Non géré : ligne d'effet (murs), grilles hexagonales.
+ *  - 3D (si altitude.js est installé) : l'altitude du gabarit est celle du
+ *    Viseur (au départ celle du lanceur ; « Altitude » du menu Vol pour la
+ *    changer). Les hauteurs se comptent comme les cases au sol (une diagonale
+ *    sur deux compte double) : cercle = sphère, cône = pyramide qui s'ouvre
+ *    autant en hauteur que sur les côtés, ligne = à la hauteur du Viseur
+ *    seulement, émanation = depuis le volume du lanceur. Le tracé reste en 2D
+ *    (la tranche à l'altitude du gabarit) ; l'aura montre qui est touché.
+ *    Sans altitude.js, ou tout le monde au sol : mêmes résultats qu'en 2D.
+ *  - Non géré : ligne d'effet (murs), grilles hexagonales, cônes vers le haut
+ *    ou le bas.
  */
 (() => {
   const PX = 70; // pixels par unité de page Roll20
@@ -261,6 +272,47 @@
     return set;
   }
 
+  // ---------- 3D (altitudes de altitude.js) ----------
+  // Une case de hauteur k (altitude en cases, 0 = au sol) est-elle dans le volume ?
+  // Les hauteurs se comptent comme les cases au sol, depuis le plan horizontal
+  // de l'origine (z0) : chaque seconde diagonale compte double, la hauteur étant
+  // un axe de plus. Au sol (k = z0 = 0), le résultat est celui de la 2D.
+  //   burst      : sphère depuis l'intersection (ox, oy, z0)
+  //   cone       : pyramide horizontale : elle s'ouvre autant en hauteur que sur
+  //                les côtés (hauteur <= avancée)
+  //   ligne      : seulement à la hauteur de l'origine (k = z0)
+  //   emanation  : depuis le volume du lanceur [ci0..ci1] x [cj0..cj1] x [ck0..ck1]
+  function dansVolume(g, i, j, k) {
+    if (g.forme === 'burst') {
+      return cout(cout(idxAbs(i, g.ox), idxAbs(j, g.oy)), idxAbs(k, g.z0)) <= g.N;
+    }
+    if (g.forme === 'cone') {
+      const [ux, uy] = DIRS[g.dir];
+      const diag = ux !== 0 && uy !== 0;
+      let a, b, ok;
+      if (diag) {
+        a = idxRel(i, g.ox, ux); b = idxRel(j, g.oy, uy);
+        ok = a >= 1 && b >= 1;
+      } else {
+        if (ux !== 0) { a = idxRel(i, g.ox, ux); b = idxAbs(j, g.oy); }
+        else { a = idxRel(j, g.oy, uy); b = idxAbs(i, g.ox); }
+        ok = a >= 1 && b <= a;
+      }
+      const c = idxAbs(k, g.z0);
+      const avance = diag ? Math.max(a, b) : a;
+      return ok && c <= avance && cout(cout(a, b), c) <= g.N;
+    }
+    if (g.forme === 'ligne') return k === g.z0 && g.cases.has(cle(i, j));
+    if (g.forme === 'emanation') {
+      const ecart = (x, x0, x1) => (x < x0 ? x0 - x : x > x1 ? x - x1 : 0);
+      const gx = ecart(i, g.ci0, g.ci1), gy = ecart(j, g.cj0, g.cj1), gz = ecart(k, g.ck0, g.ck1);
+      if (!gx && !gy && !gz) return false; // le lanceur lui-même
+      const h = gx && gy ? cout(gx, gy) : Math.max(gx, gy);
+      return (h && gz ? cout(h, gz) : Math.max(h, gz)) <= g.N;
+    }
+    return false;
+  }
+
   // Contour : boucles fermées (en indices de grille) délimitant l'ensemble de cases
   function contour(set) {
     const arcs = new Map();
@@ -306,7 +358,7 @@
   }
 
   if (typeof module !== 'undefined') {
-    module.exports = { tailleEnCases, dirCone, angleDeRotation, cout, casesBurst, casesCone, casesLigne, casesEmanation, contour };
+    module.exports = { tailleEnCases, dirCone, angleDeRotation, cout, casesBurst, casesCone, casesLigne, casesEmanation, contour, dansVolume };
   }
   if (typeof on !== 'function') return; // hors Roll20 : on s'arrête ici
 
@@ -399,6 +451,7 @@
     if (rec.forme === 'emanation') {
       if (!lanceur) return null;
       const r = rectCases(lanceur, casePx);
+      rec.geo = { forme: 'emanation' };
       return casesEmanation(r.ci0, r.ci1, r.cj0, r.cj1, N);
     }
     const viseur = rec.viseurId && getObj('graphic', rec.viseurId);
@@ -414,7 +467,8 @@
         const c = coins(cible);
         o = c[rec.coin] || plusProche(Object.values(c), centre(lanceur));
       }
-      return casesBurst(Math.round(o[0] / casePx), Math.round(o[1] / casePx), N);
+      rec.geo = { forme: 'burst', ox: Math.round(o[0] / casePx), oy: Math.round(o[1] / casePx) };
+      return casesBurst(rec.geo.ox, rec.geo.oy, N);
     }
 
     // direction et origine : le Viseur donne les deux (rotation = direction,
@@ -442,7 +496,11 @@
     }
     const ox = Math.round(o[0] / casePx), oy = Math.round(o[1] / casePx);
 
-    if (mode) return casesCone(ox, oy, N, dirCone(angle, mode));
+    if (mode) {
+      rec.geo = { forme: 'cone', ox, oy, dir: dirCone(angle, mode) };
+      return casesCone(ox, oy, N, rec.geo.dir);
+    }
+    rec.geo = { forme: 'ligne' };
 
     // ligne : une ligne exactement horizontale ou verticale partant d'une
     // intersection longe la frontière entre deux rangées et ne traverserait aucune
@@ -491,6 +549,29 @@
     return pos(rec.lanceurId) + '|' + pos(rec.cibleId);
   }
 
+  // ---------- altitudes (script altitude.js, facultatif) ----------
+  // altitude d'un token en cases ; 0 si altitude.js n'est pas installé
+  const altitude = (id) => (state.Altitude && state.Altitude.alt && state.Altitude.alt[id]) || 0;
+
+  // volume 3D d'un gabarit pour dansVolume ; null pour un gabarit dessiné avant
+  // la v1.5 (pas d'origine mémorisée) : on garde alors le calcul 2D
+  function volume3D(rec, cases, casePx) {
+    if (!rec.geo) return null;
+    const g = Object.assign({ N: rec.N, cases }, rec.geo);
+    const lanceur = getObj('graphic', rec.lanceurId);
+    if (g.forme === 'emanation') {
+      if (!lanceur) return null;
+      const r = rectCases(lanceur, casePx);
+      g.ci0 = r.ci0; g.ci1 = r.ci1; g.cj0 = r.cj0; g.cj1 = r.cj1;
+      g.ck0 = altitude(lanceur.id);
+      g.ck1 = g.ck0 + Math.max(r.ci1 - r.ci0, r.cj1 - r.cj0);
+      return g;
+    }
+    // origine : le Viseur ; sans Viseur, la cible (cercle) ou le lanceur
+    g.z0 = altitude(rec.viseurId || (g.forme === 'burst' && rec.cibleId) || rec.lanceurId);
+    return g;
+  }
+
   // ---------- auras des créatures touchées ----------
   // Recalculées pour TOUS les gabarits de la page : le dernier gabarit posé
   // l'emporte sur une créature touchée par plusieurs zones.
@@ -506,12 +587,18 @@
       const rec = state.gabarit.liste[gid];
       if (rec.pageId !== pageId) return;
       const cases = new Set(rec.cases);
+      const g = volume3D(rec, cases, casePx);
       tokens.forEach((t) => {
         if (rec.forme !== 'burst' && t.id === rec.lanceurId) return;
         const r = rectCases(t, casePx);
+        // hauteur du token : de son altitude, sur autant de cases que sa largeur
+        const k0 = altitude(t.id), k1 = k0 + Math.max(r.ci1 - r.ci0, r.cj1 - r.cj0);
         for (let i = r.ci0; i <= r.ci1; i++) {
           for (let j = r.cj0; j <= r.cj1; j++) {
-            if (cases.has(cle(i, j))) { touche.set(t.id, rec.couleur); return; }
+            if (!g) { if (cases.has(cle(i, j))) { touche.set(t.id, rec.couleur); return; } continue; }
+            for (let k = k0; k <= k1; k++) {
+              if (dansVolume(g, i, j, k)) { touche.set(t.id, rec.couleur); return; }
+            }
           }
         }
       });
@@ -674,6 +761,13 @@
       return;
     }
 
+    // envoyé par altitude.js quand une altitude change : auras à recalculer
+    if (cmd === 'refresh') {
+      const pages = args[1] ? [args[1]] : [...new Set(Object.values(state.gabarit.liste).map((r) => r.pageId))];
+      pages.forEach((p) => rafraichirAuras(p));
+      return;
+    }
+
     if (cmd === 'aimerimg') {
       if (!estMJ) { parler(qui, 'Réservé au MJ.'); return; }
       const t = getObj('graphic', args.find((x) => /^-[\w-]{10,}$/.test(x)));
@@ -732,6 +826,9 @@
         return;
       }
       rec.viseurId = viseur.id;
+      // le Viseur part à l'altitude du lanceur (altitude.js l'affiche et
+      // relance le calcul des auras)
+      if (altitude(lanceur.id) > 0) sendChat('Gabarit', `!alt set ${viseur.id} ${altitude(lanceur.id)}sq`);
     }
 
     state.gabarit.liste[rec.id] = rec;
@@ -746,7 +843,10 @@
     if (duree > 0) setTimeout(() => effacer(rec.id), duree * 1000);
 
     const aide = forme === 'emanation' ? ' — elle suit ton token' : rec.viseurId ? ' — déplace le Viseur pour ajuster' : '';
-    parler(qui, `<b>${rec.label}</b>${aide} · [Effacer](!gabarit clear ${rec.id}) [Tout effacer](!gabarit clear)`);
+    const vol = state.Altitude && rec.viseurId
+      ? `<br>Altitude du gabarit = celle du Viseur (${altitude(lanceur.id) > 0 ? 'celle du lanceur au départ' : 'au sol'}) : sélectionne-le puis « Altitude » dans le menu Vol.`
+      : '';
+    parler(qui, `<b>${rec.label}</b>${aide} · [Effacer](!gabarit clear ${rec.id}) [Tout effacer](!gabarit clear)${vol}`);
   });
 
   const CLES_POSITION = ['left', 'top', 'rotation', 'width', 'height'];
@@ -794,5 +894,5 @@
     });
   });
 
-  on('ready', () => log('gabarit.js v1.4 chargé'));
+  on('ready', () => log('gabarit.js v1.5 chargé'));
 })();

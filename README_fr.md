@@ -29,6 +29,12 @@ listes. Un Viseur (un par gabarit, de la couleur du gabarit) apparaît près du 
 - Émanation : pas de Viseur. Elle part des bords de la case du lanceur et le suit quand il se déplace.
 - Une créature qui entre dans une zone ou en sort prend ou perd tout de suite l'aura de sa couleur.
 - Plusieurs gabarits peuvent rester en même temps. « Effacer » dans le message reçu, ou supprimer le Viseur.
+- Avec `scripts/altitude.js` (combat en vol), les gabarits fonctionnent en 3D : l'altitude du gabarit est celle de son
+  Viseur (au départ celle du lanceur ; sélectionne le Viseur puis « Altitude » dans le menu Vol pour la changer). Les
+  hauteurs se comptent comme les cases au sol (une diagonale sur deux compte double) : un cercle devient une sphère, un
+  cône une pyramide qui s'ouvre autant en hauteur que sur les côtés, une ligne ne touche qu'à sa hauteur, une émanation
+  part du volume du lanceur. Le tracé reste en 2D (la tranche à l'altitude du gabarit) ; l'aura montre qui est touché.
+  Sans altitude.js, ou si tout le monde est au sol, les résultats sont ceux de la 2D.
 
 | Commande | Effet |
 | --- | --- |
@@ -37,7 +43,7 @@ listes. Un Viseur (un par gabarit, de la couleur du gabarit) apparaît près du 
 | `!gabarit clear all` | MJ : efface tous les gabarits. |
 | `!gabarit aimerimg` | MJ : enregistre le token sélectionné comme image du Viseur. |
 
-**Tests** : `node tests/gabarit.test.js` (Node, sans dépendance) lance 289 vérifications : conversion des tailles,
+**Tests** : `node tests/gabarit.test.js` (Node, sans dépendance) lance 311 vérifications : conversion des tailles,
 formes et nombres de cases, contours, puis le flux complet avec un faux Roll20 (chaque forme et taille de la macro,
 auras quand les créatures bougent, émanation qui suit son lanceur). Ils n'ont pas remplacé un essai en
 campagne réelle.
@@ -133,7 +139,7 @@ Règles appliquées :
   (5/10/5) ; un token est aussi haut que large.
 
 Une distance se donne en pieds (`30`, `30ft`), en mètres (`9m`) ou en cases (`6sq`) ; un nombre seul est dans l'unité de
-la page (celle de l'outil Mesurer). La vitesse de vol est lue sur la fiche Pathfinder Community (`speed-fly`, en mètres
+la page (celle de l'outil Mesurer). Avec gabarit.js v1.5, les gabarits de zone tiennent compte des altitudes (voir plus haut). La vitesse de vol est lue sur la fiche Pathfinder Community (`speed-fly`, en mètres
 si la fiche est en mètres) ; `speed=60` la remplace (sort Vol, par exemple).
 
 **Installation** : colle `scripts/altitude.js` dans un nouveau script API et enregistre. Crée la macro « Vol », visible

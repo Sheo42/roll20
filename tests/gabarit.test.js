@@ -63,7 +63,9 @@ const motif = (set) => {
 };
 
 // ------------------------------------------------------------ faux Roll20
-function creerRoll20({ nested = true, playerIsGM = () => true } = {}) {
+// avec : autres scripts chargés dans le même bac à sable (altitude.js) ; les
+// messages « !... » envoyés par un script sont alors relayés comme dans Roll20
+function creerRoll20({ nested = true, playerIsGM = () => true, avec = [] } = {}) {
   const h = {};
   const objs = [];
   let n = 0;
@@ -100,7 +102,12 @@ function creerRoll20({ nested = true, playerIsGM = () => true } = {}) {
     state: {}, log() {}, setTimeout, console,
     on: (e, f) => { (h[e] = h[e] || []).push(f); },
     playerIsGM,
-    sendChat: (w, t) => chat.push(t),
+    sendChat: (w, t) => {
+      chat.push(t);
+      if (avec.length && /^!/.test(t)) fire('chat:message', { type: 'api', content: t, who: w, playerid: 'API' });
+    },
+    getAttrByName: () => '',
+    Campaign: () => ({ get: () => undefined }),
     getObj: (t, i) => objs.find((o) => o.type === t && o.id === i),
     findObjs: (q) => objs.filter((o) => Object.entries(q).every(([k, v]) => o.props[k] === v)),
     createObj: (t, p) => mk(t, p),
@@ -108,6 +115,7 @@ function creerRoll20({ nested = true, playerIsGM = () => true } = {}) {
   };
   vm.createContext(sb);
   vm.runInContext(CODE, sb);
+  avec.forEach((code) => vm.runInContext(code, sb));
   return { fire, mk, objs, sb, stats, crees, chat };
 }
 
@@ -697,6 +705,83 @@ describe('Ancienne syntaxe (cible = token, sans Viseur) : suit le lanceur et la 
   check(eq(cs, g.casesCone(10, 11, 3, 2)) || eq(cs, g.casesCone(11, 11, 3, 2)), 'cible déplacée au Sud : le cône part vers le Sud');
   cible.remove();
   check(Object.keys(sb.state.gabarit.liste).length === 0 && objs.filter((o) => o.type === 'path').length === 0, 'cible supprimée : le gabarit sans Viseur est effacé');
+});
+
+
+// ====================================================== 3D (avec altitude.js)
+describe('3D : au sol, les volumes donnent exactement les zones 2D', () => {
+  let ecarts = [];
+  const comparer = (nom, set, geo, x0, x1) => {
+    for (let i = x0; i <= x1; i++) for (let j = x0; j <= x1; j++) {
+      if (g.dansVolume(geo, i, j, 0) !== set.has(i + ',' + j)) ecarts.push(`${nom} (${i},${j})`);
+    }
+  };
+  [1, 2, 4, 6, 8].forEach((N) => {
+    comparer(`cercle ${N}`, g.casesBurst(0, 0, N), { forme: 'burst', ox: 0, oy: 0, z0: 0, N }, -N - 3, N + 3);
+    for (let d = 0; d < 8; d++) comparer(`cône ${N} dir ${d}`, g.casesCone(0, 0, N, d), { forme: 'cone', ox: 0, oy: 0, dir: d, z0: 0, N }, -N - 3, N + 3);
+    comparer(`émanation ${N}`, g.casesEmanation(0, 1, 0, 1, N), { forme: 'emanation', ci0: 0, ci1: 1, cj0: 0, cj1: 1, ck0: 0, ck1: 1, N }, -N - 3, N + 4);
+  });
+  check(ecarts.length === 0, 'cercles, 8 directions de cône et émanations (1 à 8 cases) : mêmes cases qu\'en 2D' + (ecarts.length ? ' — écarts : ' + ecarts.slice(0, 5).join(' ') : ''));
+});
+
+describe('3D : sphère, pyramide, ligne, émanation', () => {
+  const boule = { forme: 'burst', ox: 0, oy: 0, z0: 0, N: 4 }; // boule de feu 20 ft au sol
+  check(g.dansVolume(boule, 0, 0, 3), 'boule de 20 ft au sol : touche à 15 ft au-dessus du centre');
+  check(!g.dansVolume(boule, 0, 0, 4), '... mais pas à 20 ft (la case commence à 20 ft, elle finit à 25)');
+  check(g.dansVolume(boule, 2, 0, 2) && !g.dansVolume(boule, 3, 0, 2), 'à 10 ft de haut, la sphère est plus étroite qu\'au sol');
+  const enLAir = { forme: 'burst', ox: 0, oy: 0, z0: 6, N: 4 };
+  check(!g.dansVolume(enLAir, 0, 0, 0), 'boule qui éclate à 30 ft : rien au sol');
+  check(g.dansVolume(enLAir, 0, 0, 6) && g.dansVolume(enLAir, 0, 0, 2) && !g.dansVolume(enLAir, 0, 0, 1), 'elle touche de 10 à 45 ft de haut au-dessus de son centre');
+  const cone = { forme: 'cone', ox: 0, oy: 0, dir: 0, z0: 0, N: 6 };
+  check(g.dansVolume(cone, 2, 0, 2) && !g.dansVolume(cone, 2, 0, 3), 'cône droit : à 3 cases d\'avancée, 3 cases de haut au plus');
+  check(!g.dansVolume(cone, -1, 0, 0), 'rien derrière l\'origine');
+  const ligne = { forme: 'ligne', z0: 2, cases: new Set(['1,0', '2,0']) };
+  check(g.dansVolume(ligne, 1, 0, 2) && !g.dansVolume(ligne, 1, 0, 1) && !g.dansVolume(ligne, 3, 0, 2), 'ligne : ses cases, à sa hauteur seulement');
+  const ema = { forme: 'emanation', ci0: 0, ci1: 0, cj0: 0, cj1: 0, ck0: 4, ck1: 4, N: 2 };
+  check(!g.dansVolume(ema, 0, 0, 4), 'émanation : jamais le lanceur lui-même');
+  check(g.dansVolume(ema, 0, 0, 2) && !g.dansVolume(ema, 0, 0, 1), 'lanceur en vol à 20 ft, émanation de 10 ft : touche jusqu\'à 10 ft sous lui');
+  check(!g.dansVolume(ema, 1, 0, 0), '... mais pas au sol à côté');
+});
+
+describe('3D : gabarit.js et altitude.js ensemble', () => {
+  const ALT = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'altitude.js'), 'utf8');
+  const R = creerRoll20({ avec: [ALT] });
+  const { fire, mk, objs, sb } = R;
+  const pg = mk('page', { snapping_increment: 1, scale_units: 'ft' });
+  const tok = (nm, cx, cy) => mk('graphic', { _subtype: 'token', _pageid: pg.id, layer: 'objects', name: nm, imgsrc: IMG_BIBLIO, left: cx * 70 + 35, top: cy * 70 + 35, width: 70, height: 70, rotation: 0, aura1_radius: '', aura1_color: '', aura1_square: false, controlledby: 'P' });
+  const touche = (t) => t.get('aura1_radius') === '0';
+  const cmd = (c, sel = []) => fire('chat:message', { type: 'api', content: c, who: 'A', playerid: 'P', selected: sel.map((t) => ({ _id: t.id, _type: 'graphic' })) });
+  const mage = tok('Mage', 0, 0);
+  const sol = tok('Gobelin', 15, 10);
+  const vol = tok('Vrock', 15, 10);
+  cmd(`!alt set ${mage.id} 30`);
+  cmd(`!alt set ${vol.id} 30`);
+  cmd(`!gabarit cast ${mage.id} burst 4sq`);
+  const r = Object.values(sb.state.gabarit.liste)[0];
+  const v = objs.find((o) => o.id === r.viseurId);
+  check(sb.state.Altitude.alt[v.id] === 6, 'le Viseur part à l\'altitude du lanceur (30 ft)');
+  check(objs.some((o) => o.type === 'text' && o.get('text') === '↑ 30 ft' && o.get('left') === v.get('left')), 'altitude.js affiche l\'altitude du Viseur');
+  v.set({ left: 15 * 70, top: 10 * 70 });
+  check(touche(vol) && !touche(sol), 'boule à 30 ft : touche le Vrock à 30 ft, pas le Gobelin au sol');
+  cmd('!alt set 0', [v]);
+  check(!touche(vol) && touche(sol), 'Viseur ramené au sol : touche le Gobelin, plus le Vrock (auras mises à jour aussitôt)');
+  cmd('!alt set 15', [vol]);
+  check(touche(vol), 'le Vrock descend à 15 ft : il est dans la sphère');
+  cmd('!alt fall', [vol]);
+  check(touche(vol) && !sb.state.Altitude.alt[vol.id], 'il tombe au sol : toujours touché');
+  check(!R.chat.some((t) => /^\/w "Gabarit"/.test(t)), 'pas de message parasite chuchoté au script');
+});
+
+describe('3D : sans altitude.js, rien ne change', () => {
+  const R = creerRoll20();
+  const { fire, mk, objs, sb } = R;
+  const pg = mk('page', { snapping_increment: 1 });
+  const mage = mk('graphic', { _subtype: 'token', _pageid: pg.id, layer: 'objects', name: 'Mage', imgsrc: IMG_BIBLIO, left: 35, top: 35, width: 70, height: 70, rotation: 0 });
+  fire('chat:message', { type: 'api', content: `!gabarit cast ${mage.id} burst 4sq`, who: 'A', playerid: 'P' });
+  check(!R.chat.some((t) => /^!alt/.test(t)), 'aucune commande !alt envoyée');
+  check(!/menu Vol/.test(R.chat[R.chat.length - 1]), 'pas d\'aide sur l\'altitude dans le message');
+  fire('chat:message', { type: 'api', content: '!gabarit refresh', who: 'A', playerid: 'P' });
+  check(Object.keys(sb.state.gabarit.liste).length === 1, '!gabarit refresh sans effet de bord');
 });
 
 // ------------------------------------------------------------------ bilan

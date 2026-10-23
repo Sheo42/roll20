@@ -28,6 +28,12 @@ template, in the template's color) appears next to the character.
 - Emanation: no Aimer. It starts from the edges of the caster's square and follows the caster when it moves.
 - Creatures that walk into or out of a template get or lose its colored aura right away.
 - Several templates can stay on the map at the same time. Use "Effacer" (clear) in the message you received, or delete the Aimer.
+- With `scripts/altitude.js` (flying combat), templates work in 3D: the template's altitude is its Aimer's (it starts at the
+  caster's altitude; select the Aimer and use "Altitude" in the Vol menu to change it). Heights are counted like squares on
+  the ground (every second diagonal counts double): a burst is a sphere, a cone a pyramid that opens as much up and down as
+  sideways, a line only hits at its own height, an emanation starts from the caster's volume. The outline stays 2D (the
+  slice at the template's altitude); the aura shows who is hit. Without altitude.js, or with everyone on the ground,
+  results are the same as in 2D.
 
 | Command | Effect |
 | --- | --- |
@@ -36,7 +42,7 @@ template, in the template's color) appears next to the character.
 | `!gabarit clear all` | GM: clears all templates. |
 | `!gabarit aimerimg` | GM: saves the selected token as the Aimer image. |
 
-**Tests**: `node tests/gabarit.test.js` (Node, no dependency) runs 289 checks: size conversion, shapes and square
+**Tests**: `node tests/gabarit.test.js` (Node, no dependency) runs 311 checks: size conversion, shapes and square
 counts, outlines, then the full flow with a fake Roll20 (every shape and size of the macro, auras when creatures move,
 emanation following its caster). They are no substitute for a try-out in a real campaign.
 
@@ -127,7 +133,7 @@ Pathfinder 1e flight math, so a player can price a move before making it. Rules 
   many squares tall as it is wide.
 
 Distances are given in feet (`30`, `30ft`), meters (`9m`) or squares (`6sq`); a bare number uses the page unit (the one
-of the Measure tool). Fly speed is read from the Pathfinder Community sheet (`speed-fly`, in meters if the sheet is set
+of the Measure tool). With gabarit.js v1.5, area-of-effect templates take altitudes into account (see above). Fly speed is read from the Pathfinder Community sheet (`speed-fly`, in meters if the sheet is set
 to meters); `speed=60` overrides it (Fly spell, for example).
 
 **Installation**: paste `scripts/altitude.js` into a new API script and save. Create the "Vol" macro, visible to all
