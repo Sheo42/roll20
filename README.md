@@ -129,8 +129,8 @@ Pathfinder 1e flight math, so a player can price a move before making it. Rules 
   climbing costs `V + max(H, V)` (3 squares at 45° = 6 squares), descending costs `max(H, V)`.
 - Falling: 1d6 per 10 ft (max 20d6); a creature able to fly negates it with a DC 10 Fly check, except after a failed Fly
   check or a collision.
-- 3D distance (reach, range), house rule: height is a third axis counted with the 5/10/5 diagonal rule; a token is as
-  many squares tall as it is wide.
+- Getting adjacent to a target: the gap is counted in squares on each axis (5/10/5 diagonals on the ground); a token is
+  as many squares tall as it is wide. Adjacent = at most one square apart on each axis. Reach is not calculated.
 
 Distances are given in feet (`30`, `30ft`), meters (`9m`) or squares (`6sq`); a bare number uses the page unit (the one
 of the Measure tool). With gabarit.js v1.5, area-of-effect templates take altitudes into account (see above). Fly speed is read from the Pathfinder Community sheet (`speed-fly`, in meters if the sheet is set
@@ -145,7 +145,7 @@ selected when the button is clicked.
 | `!alt` | Button menu. |
 | `!alt set [id...] <altitude>` | Sets the altitude of the selected tokens: `9m` (absolute), `+3`, `-3m` (change), `=-9m` (absolute, below level 0), `0`. Level 0 is whatever you choose: the ground, or the top of a cliff so creatures below it are at negative altitudes. |
 | `!alt fly [id] <horizontal> <vertical> [speed=60]` | Cost of a flying move before moving: cost, movement left (move action / double move), max horizontal distance for that climb, Fly checks needed, and an "Apply" button for the new altitude. Vertical: `+` up, `-` down. |
-| `!alt dist <id> <target id>` | 3D distance between two tokens, whether it is within 5 / 10 ft reach, and the flying cost to get adjacent. |
+| `!alt dist <id> <target id>` | Gap between two tokens and the flying movement needed to get adjacent to the target (with the Fly check if the climb is steeper than 45°). Menu button "Rejoindre". |
 | `!alt fall [id...] [to=-9m]` | Rolls falling damage down to the ground (altitude 0, or the one given with `to=`, e.g. the foot of a cliff) and sets the altitude there. |
 | `!alt show` | Whispers the altitudes on the page (players don't see GM-layer tokens). |
 | `!alt clear all` | GM: sets every altitude back to 0. |
@@ -153,7 +153,7 @@ selected when the button is clicked.
 
 Players act only on tokens they control (token or character); the GM on all.
 
-**Tests**: `node tests/altitude.test.js` (Node, no dependency) runs 142 checks: unit conversion, 2D and 3D distances,
+**Tests**: `node tests/altitude.test.js` (Node, no dependency) runs 138 checks: unit conversion, distances, getting adjacent,
 flight cost (including the FAQ example), Fly DCs, falling dice, then the full flow with a fake Roll20 (label following
 the token, player rights, sheet fly speed in meters, menu buttons). They are no substitute for a try-out in a real game.
 

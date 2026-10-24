@@ -1,6 +1,8 @@
 /*
  * altitude.js — Combat en vol (Pathfinder 1e) pour l'API Roll20
- * Version 1.2 — altitudes négatives (niveau 0 au choix, ex. haut d'une falaise),
+ * Version 1.3 — « Rejoindre » : seulement le mouvement pour venir au contact
+ *               (plus de calcul d'allonge ni de distance 3D) ;
+ * v1.2 — altitudes négatives (niveau 0 au choix, ex. haut d'une falaise),
  *               chute vers un sol à une autre altitude (to=) ;
  * v1.1 — étiquette à droite du token (plus sous la plaque du nom),
  *               plus grosse, !alt style ; v1.0 — avec gabarit.js v1.5, les gabarits tiennent compte de l'altitude
@@ -22,9 +24,10 @@
  *   - Chute : 1d6 par tranche de 10 ft (3 m), 20d6 au maximum. Une créature
  *     qui sait voler annule les dégâts par un test de Vol DD 10, sauf si elle
  *     tombe à cause d'un test de Vol raté ou d'une collision.
- *   - Distance 3D (allonge, portée) : règle maison, la hauteur est traitée
- *     comme un troisième axe avec la même règle que les diagonales
- *     (5/10/5). Un token occupe autant de cases en hauteur qu'en largeur.
+ *   - Rejoindre une cible : l'écart se compte en cases sur chaque axe (au
+ *     sol avec la règle des diagonales) ; un token occupe autant de cases en
+ *     hauteur qu'en largeur. Au contact = au plus une case d'écart sur chaque
+ *     axe. L'allonge n'est pas calculée.
  *
  * UNITÉS
  *   Une distance se donne en pieds (30, 30ft), en mètres (9m) ou en cases
@@ -46,8 +49,8 @@
  *   !alt fly [id] <horizontal> <vertical> [speed=60]
  *                                 coût d'un déplacement en vol AVANT de bouger
  *                                 (vertical : + monte, - descend)
- *   !alt dist <id> <id cible>     distance 3D entre deux tokens, et coût pour
- *                                 rejoindre la cible
+ *   !alt dist <id> <id cible>     écart entre deux tokens et mouvement en vol
+ *                                 pour venir au contact de la cible
  *   !alt fall [id...] [to=-9m]    chute jusqu'au sol (altitude 0, ou to=) :
  *                                 jet de dégâts
  *   !alt show                     liste des altitudes de la page (chuchoté)
@@ -86,8 +89,6 @@
     a = Math.abs(a); b = Math.abs(b);
     return Math.max(a, b) + Math.floor(Math.min(a, b) / 2);
   };
-  // distance 3D (règle maison) : la hauteur est un axe de plus
-  const dist3 = (dx, dy, dz) => dist2(dist2(dx, dy), dz);
 
   // écart en cases entre deux intervalles de cases [a0, a1] et [b0, b1] (inclus)
   const ecart = (a0, a1, b0, b1) => (a1 < b0 ? b0 - a1 : b1 < a0 ? a0 - b1 : 0);
@@ -135,7 +136,7 @@
   }
 
   if (typeof module !== 'undefined') {
-    module.exports = { lireDistance, dist2, dist3, ecart, coutVol, horizontalMax, analyseVol, desChute, enUnite };
+    module.exports = { lireDistance, dist2, ecart, coutVol, horizontalMax, analyseVol, desChute, enUnite };
   }
   if (typeof on !== 'function') return; // hors Roll20 : on s'arrête ici
 
@@ -313,14 +314,16 @@
       const dy = ecart(va.j[0], va.j[1], vb.j[0], vb.j[1]);
       const dz = ecart(va.k[0], va.k[1], vb.k[0], vb.k[1]);
       const hz = dist2(dx, dy);
-      const d3 = dist3(dx, dy, dz);
-      const sens = altDe(b) >= altDe(a) ? 1 : -1;
-      // pour être au contact : il reste une case d'écart sur chaque axe
-      const rejoindre = coutVol(Math.max(0, hz - 1), sens * Math.max(0, dz - 1));
       let s = `<b>${nomDe(a)}</b> → <b>${nomDe(b)}</b><br>`;
-      s += `Horizontal ${enUnite(hz, unite)}, hauteur ${enUnite(dz, unite)} : distance <b>${enUnite(d3, unite)}</b>`;
-      s += `<br>${d3 <= 1 ? 'Au contact (allonge de 1,5 m / 5 ft)' : d3 <= 2 ? 'À portée d\'une allonge de 3 m / 10 ft' : 'Hors d\'allonge de 3 m / 10 ft'}`;
-      s += `<br>Pour venir au contact en volant : ${enUnite(rejoindre, unite)} de mouvement`;
+      s += `Écart : ${enUnite(hz, unite)} à l'horizontale, ${enUnite(dz, unite)} en hauteur`;
+      if (hz <= 1 && dz <= 1) s += '<br><b>Déjà au contact</b>';
+      else {
+        // au contact : il reste une case d'écart sur chaque axe
+        const sens = altDe(b) >= altDe(a) ? 1 : -1;
+        const r = analyseVol(Math.max(0, hz - 1), sens * Math.max(0, dz - 1), 0);
+        s += `<br>Pour venir au contact en volant : <b>${enUnite(r.cout, unite)}</b> de mouvement`;
+        r.tests.forEach((x) => { s += `<br>⚠ Test de Vol DD ${x.dd} (${x.raison})`; });
+      }
       chuchoter(qui, s);
       return;
     }
@@ -394,7 +397,7 @@
     return '<b>Vol</b> (sélectionne ton token)<br>'
       + b('Coût d\'un vol', '!alt fly ?{Distance horizontale (outil Mesurer)|0} ?{Hauteur : + monte / - descend|0}') + ' '
       + b('Altitude', '!alt set ?{Altitude : 9 / +3 / -3 (changement) / =-9 (sous le 0) / 0|+3}') + ' '
-      + b('Distance 3D', '!alt dist @{selected|token_id} @{target|Cible|token_id}') + ' '
+      + b('Rejoindre', '!alt dist @{selected|token_id} @{target|Cible|token_id}') + ' '
       + b('Chute', '!alt fall to=?{Altitude du sol d\'arrivée|0}') + ' '
       + b('Liste', '!alt show');
   }
@@ -425,6 +428,6 @@
         delete state.Altitude.labels[id];
       }
     });
-    log('altitude.js v1.2 chargé');
+    log('altitude.js v1.3 chargé');
   });
 })();

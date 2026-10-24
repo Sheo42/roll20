@@ -135,8 +135,8 @@ Règles appliquées :
   cases de hauteur : monter coûte `V + max(H, V)` (3 cases à 45° = 6 cases), descendre coûte `max(H, V)`.
 - Chute : 1d6 par tranche de 3 m / 10 ft (20d6 max) ; une créature qui sait voler annule les dégâts par un test de Vol
   DD 10, sauf après un test de Vol raté ou une collision.
-- Distance 3D (allonge, portée), règle maison : la hauteur est un troisième axe, compté avec la règle des diagonales
-  (5/10/5) ; un token est aussi haut que large.
+- Rejoindre une cible : l'écart se compte en cases sur chaque axe (règle des diagonales 5/10/5 au sol) ; un token est
+  aussi haut que large. Au contact = au plus une case d'écart sur chaque axe. L'allonge n'est pas calculée.
 
 Une distance se donne en pieds (`30`, `30ft`), en mètres (`9m`) ou en cases (`6sq`) ; un nombre seul est dans l'unité de
 la page (celle de l'outil Mesurer). Avec gabarit.js v1.5, les gabarits de zone tiennent compte des altitudes (voir plus haut). La vitesse de vol est lue sur la fiche Pathfinder Community (`speed-fly`, en mètres
@@ -151,7 +151,7 @@ sur le token sélectionné au moment du clic.
 | `!alt` | Menu de boutons. |
 | `!alt set [id...] <altitude>` | Altitude des tokens sélectionnés : `9m` (absolue), `+3`, `-3m` (changement), `=-9m` (absolue, sous le niveau 0), `0`. Le niveau 0 est au choix : le sol, ou le haut d'une falaise, les créatures en bas étant alors à une altitude négative. |
 | `!alt fly [id] <horizontal> <vertical> [speed=60]` | Coût d'un vol avant de bouger : coût, mouvement restant (action de mouvement / double mouvement), distance horizontale max pour cette montée, tests de Vol nécessaires, et bouton « Appliquer » pour la nouvelle altitude. Vertical : `+` monte, `-` descend. |
-| `!alt dist <id> <id cible>` | Distance 3D entre deux tokens, allonge de 1,5 m / 3 m, et coût en vol pour venir au contact. |
+| `!alt dist <id> <id cible>` | Écart entre deux tokens et mouvement en vol pour venir au contact de la cible (avec le test de Vol si la montée dépasse 45°). Bouton « Rejoindre » du menu. |
 | `!alt fall [id...] [to=-9m]` | Jet de dégâts de chute jusqu'au sol (altitude 0, ou celle donnée par `to=`, par exemple le pied d'une falaise), altitude mise à celle du sol. |
 | `!alt show` | Chuchote les altitudes de la page (les joueurs ne voient pas les tokens du calque MJ). |
 | `!alt clear all` | MJ : remet toutes les altitudes à 0. |
@@ -159,8 +159,8 @@ sur le token sélectionné au moment du clic.
 
 Un joueur n'agit que sur les tokens qu'il contrôle (token ou personnage) ; le MJ sur tous.
 
-**Tests** : `node tests/altitude.test.js` (Node, sans dépendance) lance 142 vérifications : conversions d'unités,
-distances 2D et 3D, coût d'un vol (dont l'exemple de la FAQ), DD de Vol, dés de chute, puis le flux complet avec un faux
+**Tests** : `node tests/altitude.test.js` (Node, sans dépendance) lance 138 vérifications : conversions d'unités,
+distances, rejoindre une cible, coût d'un vol (dont l'exemple de la FAQ), DD de Vol, dés de chute, puis le flux complet avec un faux
 Roll20 (étiquette qui suit le token, droits des joueurs, vitesse de vol de la fiche en mètres, boutons du menu). Ils ne
 remplacent pas un essai dans une vraie partie.
 

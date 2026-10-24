@@ -60,15 +60,6 @@ describe('Distance PF1 en 2D (une diagonale sur deux compte double)', () => {
   });
 });
 
-describe('Distance 3D (règle maison : la hauteur est un axe de plus)', () => {
-  check(A.dist3(0, 0, 4) === 4, 'droit au-dessus, 4 cases de haut : 4 cases');
-  check(A.dist3(4, 0, 0) === 4, 'même altitude : distance 2D');
-  check(A.dist3(1, 0, 1) === 1, 'une case en diagonale verticale : au contact');
-  check(A.dist3(1, 1, 1) === 1, 'coin de cube : au contact');
-  check(A.dist3(4, 0, 6) === 8, '20 ft à l\'horizontale, 30 ft de haut : 40 ft');
-  check(A.dist3(2, 2, 2) === 4, '(2,2,2) : 3 cases à plat puis 4 avec la hauteur');
-});
-
 describe('Écart entre deux intervalles de cases', () => {
   check(A.ecart(0, 0, 1, 1) === 1, 'cases voisines : écart 1');
   check(A.ecart(0, 1, 1, 2) === 0, 'cases qui se chevauchent : 0');
@@ -303,32 +294,35 @@ describe('Coût d\'un vol : vitesse donnée, pieds, descente', () => {
   check(/Usage/.test(R.dernier()), 'saisie illisible : rappel de l\'usage');
 });
 
-describe('Distance 3D : !alt dist', () => {
+describe('Rejoindre une cible : !alt dist', () => {
   const R = creerRoll20({ unite: 'ft' });
   const a = R.token('Lune', 0, 0), b = R.token('Dragon', 4, 0);
   R.cmd(`!alt set ${b.id} 30`, 'GM');
   R.cmd(`!alt dist ${a.id} ${b.id}`, 'GM');
   let m = R.dernier();
-  check(/Horizontal 20 ft, hauteur 30 ft : distance <b>40 ft<\/b>/.test(m), '4 cases en avant, 6 en hauteur : 40 ft');
-  check(/Hors d'allonge/.test(m), 'hors d\'allonge');
-  check(/au contact en volant : 50 ft/.test(m), 'pour venir au contact : 3 cases en avant, 5 vers le haut (plus raide que 45°) = 2 × 25 = 50 ft');
+  check(/Écart : 20 ft à l'horizontale, 30 ft en hauteur/.test(m), 'écart : 4 cases en avant, 6 en hauteur');
+  check(!/allonge|distance/i.test(m), 'plus de calcul d\'allonge ni de distance 3D');
+  check(/au contact en volant : <b>50 ft<\/b>/.test(m), 'pour venir au contact : 3 cases en avant, 5 vers le haut (plus raide que 45°) = 2 × 25 = 50 ft');
+  check(/DD 20/.test(m), 'montée plus raide que 45° : DD 20 signalé');
   R.cmd(`!alt set ${a.id} 25`, 'GM');
   R.cmd(`!alt dist ${a.id} ${b.id}`, 'GM');
-  check(/hauteur 5 ft/.test(R.dernier()), 'altitudes 25 et 30 ft : 1 case d\'écart en hauteur');
+  check(/5 ft en hauteur/.test(R.dernier()) && /au contact en volant : <b>15 ft<\/b>/.test(R.dernier()) && !/DD/.test(R.dernier()), 'altitudes 25 et 30 ft : 3 cases en avant pour venir au contact, sans test');
+  R.cmd(`!alt dist ${b.id} ${a.id}`, 'GM');
+  check(/au contact en volant : <b>15 ft<\/b>/.test(R.dernier()), 'dans l\'autre sens (descendre) : 15 ft aussi');
   const grand = R.token('Géant', 1, 0, { width: 140, height: 140, left: 140, top: 70 });
   R.cmd(`!alt set ${a.id} 0`, 'GM');
   R.cmd(`!alt dist ${a.id} ${grand.id}`, 'GM');
-  check(/distance <b>5 ft<\/b>/.test(R.dernier()) && /Au contact/.test(R.dernier()), 'créature Grande voisine : au contact');
+  check(/Déjà au contact/.test(R.dernier()), 'créature Grande voisine : déjà au contact');
   R.cmd(`!alt set ${a.id} 10`, 'GM');
   R.cmd(`!alt dist ${a.id} ${grand.id}`, 'GM');
-  check(/hauteur 5 ft/.test(R.dernier()) && /Au contact/.test(R.dernier()), 'à 10 ft d\'altitude, au-dessus d\'une créature Grande (haute de 10 ft) : 1 case d\'écart en hauteur, au contact en diagonale');
+  check(/5 ft en hauteur/.test(R.dernier()) && /Déjà au contact/.test(R.dernier()), 'à 10 ft d\'altitude, au-dessus d\'une créature Grande (haute de 10 ft) : 1 case d\'écart en hauteur, au contact en diagonale');
   // sort Vol suivi seulement au BuffTracker : vitesse de vol à 0 sur la fiche
   const c = R.perso('Lune', { 'speed-fly': '0' }, 'p1');
   const sansVol = R.token('Lune', 0, 3, { represents: c.id });
   R.cmd(`!alt set ${sansVol.id} 15`, 'p1');
   R.cmd(`!alt dist ${sansVol.id} ${b.id}`, 'p1');
-  check(/Horizontal 25 ft, hauteur 15 ft : distance <b>30 ft/.test(R.dernier()) && !/undefined|NaN/.test(R.dernier()),
-    'sans vitesse de vol sur la fiche (sort Vol) : la distance s\'affiche quand même');
+  check(/25 ft à l'horizontale, 15 ft en hauteur/.test(R.dernier()) && /au contact en volant : <b>30 ft<\/b>/.test(R.dernier()) && !/undefined|NaN/.test(R.dernier()),
+    'sans vitesse de vol sur la fiche (sort Vol) : le mouvement pour venir au contact s\'affiche quand même');
   R.cmd('!alt fly 30 10', 'p1', [sansVol]);
   check(/coût <b>40 ft<\/b>/.test(R.dernier()) && /vitesse de vol inconnue/.test(R.dernier()) && !/undefined|NaN/.test(R.dernier()),
     'sans vitesse de vol : le coût s\'affiche, sans mouvement restant');
@@ -374,7 +368,7 @@ describe('Liste et menu', () => {
   const m = R.dernier();
   check(/\[Coût d'un vol\]\(!alt fly &#63;\{/.test(m), 'menu : bouton Coût d\'un vol avec requête encodée');
   check(!/\?\{|@\{|\(outil/.test(m.replace(/^[^\]]*\]/, '')), 'menu : ni ?{ ni @{ ni parenthèse en clair dans les commandes');
-  check(/&#64;\{target&#124;Cible&#124;token_id\}/.test(m), 'menu : cible encodée pour la distance 3D');
+  check(/&#64;\{target&#124;Cible&#124;token_id\}/.test(m), 'menu : cible encodée pour Rejoindre');
   const macro = fs.readFileSync(path.join(__dirname, '..', 'macro', 'Vol.macro.txt'), 'utf8').trim();
   R.cmd(macro, 'p1');
   check(R.dernier() === m, 'la macro Vol affiche le menu');
