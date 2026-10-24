@@ -1,6 +1,7 @@
 /*
  * altitude.js — Combat en vol (Pathfinder 1e) pour l'API Roll20
  * Version 1.5 — chute avec bottes du chat (cat : 1 dégât par dé) ;
+ * v1.5 — meessage de chute en whisper;
  * v1.4 — menu en mètres, plus de message « vitesse de vol inconnue » ;
  * v1.3 — « Rejoindre » : seulement le mouvement pour venir au contact
  *               (plus de calcul d'allonge ni de distance 3D) ;
