@@ -760,7 +760,7 @@ describe('3D : gabarit.js et altitude.js ensemble', () => {
   const r = Object.values(sb.state.gabarit.liste)[0];
   const v = objs.find((o) => o.id === r.viseurId);
   check(sb.state.Altitude.alt[v.id] === 6, 'le Viseur part à l\'altitude du lanceur (30 ft)');
-  check(objs.some((o) => o.type === 'text' && o.get('text') === '↑ 30 ft' && o.get('left') === v.get('left')), 'altitude.js affiche l\'altitude du Viseur');
+  check(objs.some((o) => o.type === 'text' && o.get('text') === '↑ 30 ft' && o.get('left') > v.get('left') + v.get('width') / 2), 'altitude.js affiche l\'altitude du Viseur');
   v.set({ left: 15 * 70, top: 10 * 70 });
   check(touche(vol) && !touche(sol), 'boule à 30 ft : touche le Vrock à 30 ft, pas le Gobelin au sol');
   cmd('!alt set 0', [v]);

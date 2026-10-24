@@ -1,6 +1,7 @@
 /*
  * altitude.js — Combat en vol (Pathfinder 1e) pour l'API Roll20
- * Version 1.0 — avec gabarit.js v1.5, les gabarits tiennent compte de l'altitude
+ * Version 1.1 — étiquette à droite du token (plus sous la plaque du nom),
+ *               plus grosse, !alt style ; v1.0 — avec gabarit.js v1.5, les gabarits tiennent compte de l'altitude
  *
  * La carte est en 2D : ce script garde l'ALTITUDE de chaque token, l'affiche
  * sous le token, et fait les calculs de vol à la place des joueurs.
@@ -46,6 +47,8 @@
  *   !alt fall [id...]             chute : jet de dégâts, altitude remise à 0
  *   !alt show                     liste des altitudes de la page (chuchoté)
  *   !alt clear all                MJ : remet toutes les altitudes à 0
+ *   !alt style color=#ff3300 size=26
+ *                                 MJ : couleur et taille des étiquettes
  *
  * Un joueur n'agit que sur les tokens qu'il contrôle ; le MJ sur tous.
  * Vitesse de vol lue sur la fiche Pathfinder Community (speed-fly, en mètres
@@ -137,7 +140,7 @@
   state.Altitude.labels = state.Altitude.labels || {}; // token -> texte affiché
 
   const PX = 70;
-  const COULEUR = '#ffd400';
+  const COULEUR = '#ff3300';
   const NOM = 'Altitude';
 
   const pageDe = (t) => getObj('page', t.get('_pageid'));
@@ -156,6 +159,12 @@
   }
 
   // ---------- étiquette sous le token ----------
+  // tailles de police acceptées par Roll20 pour un texte
+  const TAILLES = [12, 14, 16, 18, 20, 22, 26, 32, 40, 56];
+  const style = () => Object.assign({ couleur: COULEUR, taille: 26 }, state.Altitude.style || {});
+
+  // étiquette à DROITE du token, à hauteur de sa barre : sous le token, elle
+  // serait cachée par la plaque du nom
   function placeEtiquette(t) {
     const id = state.Altitude.labels[t.id];
     let txt = id && getObj('text', id);
@@ -165,17 +174,18 @@
       delete state.Altitude.labels[t.id];
       return;
     }
+    const st = style();
+    const texte = '↑ ' + enUnite(a, unitePage(pageDe(t)));
+    const largeur = texte.length * st.taille * 0.6; // estimation : le texte est centré sur left
     const props = {
-      text: '↑ ' + enUnite(a, unitePage(pageDe(t))),
-      left: t.get('left'),
-      top: t.get('top') + t.get('height') / 2 + 10,
-      layer: t.get('layer')
+      text: texte,
+      left: t.get('left') + t.get('width') / 2 + 4 + largeur / 2,
+      top: t.get('top') - t.get('height') / 2 + st.taille / 2,
+      layer: t.get('layer'),
+      font_size: st.taille, font_family: 'Contrail One', color: st.couleur
     };
     if (txt) { txt.set(props); return; }
-    txt = createObj('text', Object.assign({
-      pageid: t.get('_pageid'),
-      font_size: 16, font_family: 'Arial', color: COULEUR
-    }, props));
+    txt = createObj('text', Object.assign({ pageid: t.get('_pageid') }, props));
     if (txt) state.Altitude.labels[t.id] = txt.id;
   }
 
@@ -332,6 +342,22 @@
       return;
     }
 
+    if (cmd === 'style') {
+      if (!estMJ) { chuchoter(qui, 'Réservé au MJ.'); return; }
+      const st = Object.assign({}, state.Altitude.style || {});
+      reste.forEach((a) => {
+        const m = a.match(/^(color|size)=(.+)$/i);
+        if (!m) return;
+        if (/^color$/i.test(m[1]) && /^#[0-9a-f]{6}$/i.test(m[2])) st.couleur = m[2];
+        if (/^size$/i.test(m[1])) { const n = parseInt(m[2], 10); st.taille = TAILLES.reduce((x, y) => (Math.abs(y - n) < Math.abs(x - n) ? y : x)); }
+      });
+      state.Altitude.style = st;
+      Object.keys(state.Altitude.alt).forEach((id) => { const t = getObj('graphic', id); if (t) placeEtiquette(t); });
+      const s2 = style();
+      chuchoter(qui, `Étiquettes : couleur ${s2.couleur}, taille ${s2.taille}. Usage : !alt style color=#ff3300 size=26`);
+      return;
+    }
+
     if (cmd === 'clear') {
       if (!estMJ) { chuchoter(qui, 'Réservé au MJ.'); return; }
       const ids = (reste[0] || '').toLowerCase() === 'all' ? Object.keys(state.Altitude.alt) : toks.map((t) => t.id);
@@ -388,6 +414,6 @@
         delete state.Altitude.labels[id];
       }
     });
-    log('altitude.js v1.0 chargé');
+    log('altitude.js v1.1 chargé');
   });
 })();

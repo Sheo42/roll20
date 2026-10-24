@@ -121,7 +121,7 @@ use the PCs of the page, or all the campaign's PCs when none is on it.
 
 ## Flying combat (altitude)
 
-`scripts/altitude.js` keeps each token's altitude (the map is 2D), shows it under the token ("↑ 9 m") and does the
+`scripts/altitude.js` keeps each token's altitude (the map is 2D), shows it to the right of the token, level with its bar ("↑ 9 m") and does the
 Pathfinder 1e flight math, so a player can price a move before making it. Rules applied:
 - Fly skill (Core p. 96): climb at half speed up to 45°, descend at normal speed at any angle. Climbing steeper than 45°:
   Fly DC 20; moving less than half speed: DC 10; staying in place: DC 15.
@@ -149,10 +149,11 @@ selected when the button is clicked.
 | `!alt fall [id...]` | Rolls falling damage from the current altitude and sets it to 0. |
 | `!alt show` | Whispers the altitudes on the page (players don't see GM-layer tokens). |
 | `!alt clear all` | GM: sets every altitude back to 0. |
+| `!alt style color=#ff3300 size=26` | GM: color and size of the altitude labels. |
 
 Players act only on tokens they control (token or character); the GM on all.
 
-**Tests**: `node tests/altitude.test.js` (Node, no dependency) runs 128 checks: unit conversion, 2D and 3D distances,
+**Tests**: `node tests/altitude.test.js` (Node, no dependency) runs 134 checks: unit conversion, 2D and 3D distances,
 flight cost (including the FAQ example), Fly DCs, falling dice, then the full flow with a fake Roll20 (label following
 the token, player rights, sheet fly speed in meters, menu buttons). They are no substitute for a try-out in a real game.
 

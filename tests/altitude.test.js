@@ -184,19 +184,21 @@ function creerRoll20({ unite = 'm', gm = ['GM'] } = {}) {
 }
 
 // =============================================================== FLUX COMPLET
-describe('Altitude : !alt set, étiquette sous le token', () => {
+describe('Altitude : !alt set, étiquette à droite du token', () => {
   const R = creerRoll20();
   const t = R.token('Lune', 5, 5);
   R.cmd('!alt set 9', 'GM', [t]);
   check(R.sb.state.Altitude.alt[t.id] === 6, '« 9 » sur une page en mètres -> 6 cases');
   check(R.textes().length === 1 && R.textes()[0].get('text') === '↑ 9 m', 'étiquette « ↑ 9 m » créée');
   const lab = R.textes()[0];
-  check(lab.get('left') === t.get('left') && lab.get('top') > t.get('top') + 35, 'étiquette sous le token');
+  check(lab.get('left') - lab.get('font_size') * 0.6 * lab.get('text').length / 2 > t.get('left') + 35, 'étiquette à droite du token, sans le chevaucher');
+  check(lab.get('top') < t.get('top') && lab.get('top') > t.get('top') - 35, 'à hauteur du haut du token (pas sous la plaque du nom)');
+  check(lab.get('font_size') === 26 && lab.get('font_family') === 'Contrail One', 'police épaisse, taille 26');
   R.cmd('!alt set +3', 'GM', [t]);
   check(R.sb.state.Altitude.alt[t.id] === 8 && lab.get('text') === '↑ 12 m', '« +3 » : 12 m, même étiquette mise à jour');
   check(R.textes().length === 1, 'toujours une seule étiquette');
   t.set({ left: 700, top: 140 });
-  check(lab.get('left') === 700 && lab.get('top') > 140 + 35, 'l\'étiquette suit le token quand il bouge');
+  check(lab.get('left') > 700 + 35 && lab.get('top') < 140, 'l\'étiquette suit le token quand il bouge');
   t.set({ layer: 'gmlayer' });
   check(lab.get('layer') === 'gmlayer', 'l\'étiquette suit le token sur le calque MJ');
   R.cmd('!alt set -30m', 'GM', [t]);
@@ -205,6 +207,21 @@ describe('Altitude : !alt set, étiquette sous le token', () => {
   check(R.sb.state.Altitude.alt[t.id] === 4, 'token donné par son id, « 20ft » -> 4 cases');
   t.remove();
   check(R.textes().length === 0 && !R.sb.state.Altitude.alt[t.id], 'token supprimé : étiquette et altitude effacées');
+});
+
+describe('Style des étiquettes : !alt style', () => {
+  const R = creerRoll20();
+  const t = R.token('Lune', 5, 5);
+  R.cmd('!alt set 9', 'GM', [t]);
+  R.cmd('!alt style color=#00ffff size=30', 'p1');
+  check(/MJ/.test(R.dernier()) && R.textes()[0].get('color') === '#ff3300', 'réservé au MJ');
+  R.cmd('!alt style color=#00ffff size=30', 'GM');
+  const lab = R.textes()[0];
+  check(lab.get('color') === '#00ffff' && lab.get('font_size') === 32, 'couleur changée, taille arrondie à une taille Roll20 (32)');
+  R.cmd('!alt style color=bleu', 'GM');
+  check(lab.get('color') === '#00ffff', 'couleur invalide ignorée');
+  R.cmd('!alt set +3', 'GM', [t]);
+  check(R.textes()[0].get('font_size') === 32, 'le style reste pour les étiquettes mises à jour');
 });
 
 describe('Altitude : plusieurs tokens, page en pieds', () => {

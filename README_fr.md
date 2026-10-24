@@ -125,7 +125,7 @@ ou tous les PJ de la partie s'il n'y en a aucun dessus.
 
 ## Combat en vol (altitude)
 
-`scripts/altitude.js` garde l'altitude de chaque token (la carte est en 2D), l'affiche sous le token (« ↑ 9 m ») et
+`scripts/altitude.js` garde l'altitude de chaque token (la carte est en 2D), l'affiche à droite du token, à hauteur de sa barre (« ↑ 9 m ») et
 fait les calculs de vol de Pathfinder 1e, pour qu'un joueur connaisse le coût d'un déplacement avant de bouger.
 Règles appliquées :
 - Compétence Vol (Core p. 96) : on monte à mi-vitesse à 45° au maximum, on descend à vitesse normale sous n'importe quel
@@ -155,10 +155,11 @@ sur le token sélectionné au moment du clic.
 | `!alt fall [id...]` | Jet de dégâts de chute depuis l'altitude actuelle, altitude remise à 0. |
 | `!alt show` | Chuchote les altitudes de la page (les joueurs ne voient pas les tokens du calque MJ). |
 | `!alt clear all` | MJ : remet toutes les altitudes à 0. |
+| `!alt style color=#ff3300 size=26` | MJ : couleur et taille des étiquettes d'altitude. |
 
 Un joueur n'agit que sur les tokens qu'il contrôle (token ou personnage) ; le MJ sur tous.
 
-**Tests** : `node tests/altitude.test.js` (Node, sans dépendance) lance 128 vérifications : conversions d'unités,
+**Tests** : `node tests/altitude.test.js` (Node, sans dépendance) lance 134 vérifications : conversions d'unités,
 distances 2D et 3D, coût d'un vol (dont l'exemple de la FAQ), DD de Vol, dés de chute, puis le flux complet avec un faux
 Roll20 (étiquette qui suit le token, droits des joueurs, vitesse de vol de la fiche en mètres, boutons du menu). Ils ne
 remplacent pas un essai dans une vraie partie.
