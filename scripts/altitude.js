@@ -1,6 +1,8 @@
 /*
  * altitude.js — Combat en vol (Pathfinder 1e) pour l'API Roll20
- * Version 1.1 — étiquette à droite du token (plus sous la plaque du nom),
+ * Version 1.2 — altitudes négatives (niveau 0 au choix, ex. haut d'une falaise),
+ *               chute vers un sol à une autre altitude (to=) ;
+ * v1.1 — étiquette à droite du token (plus sous la plaque du nom),
  *               plus grosse, !alt style ; v1.0 — avec gabarit.js v1.5, les gabarits tiennent compte de l'altitude
  *
  * La carte est en 2D : ce script garde l'ALTITUDE de chaque token, l'affiche
@@ -38,13 +40,16 @@
  * sur les ids donnés)
  *   !alt                          menu de boutons
  *   !alt set [id...] <altitude>   30 / 9m / 6sq (altitude absolue),
- *                                 +10 / -3m (changement), 0 = au sol
+ *                                 +10 / -3m (changement), =-9m (absolue
+ *                                 négative : sous le niveau 0, par exemple
+ *                                 en bas d'une falaise prise comme 0)
  *   !alt fly [id] <horizontal> <vertical> [speed=60]
  *                                 coût d'un déplacement en vol AVANT de bouger
  *                                 (vertical : + monte, - descend)
  *   !alt dist <id> <id cible>     distance 3D entre deux tokens, et coût pour
  *                                 rejoindre la cible
- *   !alt fall [id...]             chute : jet de dégâts, altitude remise à 0
+ *   !alt fall [id...] [to=-9m]    chute jusqu'au sol (altitude 0, ou to=) :
+ *                                 jet de dégâts
  *   !alt show                     liste des altitudes de la page (chuchoté)
  *   !alt clear all                MJ : remet toutes les altitudes à 0
  *   !alt style color=#ff3300 size=26
@@ -59,20 +64,21 @@
 
   // ===================== LOGIQUE PURE =====================
 
-  // texte -> { cases, relatif, signe } ; unite = unité par défaut ('ft' ou 'm')
+  // texte -> { cases, relatif, signe, valeur } ; unite = unité par défaut ('ft' ou 'm')
+  // « +10 » / « -10 » : changement ; « 10 » : valeur ; « =-10 » : valeur négative
   function lireDistance(txt, unite = 'ft') {
     const m = String(txt || '').trim().toLowerCase()
-      .match(/^([+-]?)\s*(\d+(?:[.,]\d+)?)\s*(sq|squares?|cases?|ft|feet|m)?$/);
+      .match(/^(=?)\s*([+-]?)\s*(\d+(?:[.,]\d+)?)\s*(sq|squares?|cases?|ft|feet|m)?$/);
     if (!m) return null;
-    const n = parseFloat(m[2].replace(',', '.'));
-    const u = m[3] || unite;
+    const n = parseFloat(m[3].replace(',', '.'));
+    const u = m[4] || unite;
     let cases;
     if (/^(sq|square|squares|case|cases)$/.test(u)) cases = n;
     else if (u === 'm') cases = n / 1.5;
     else cases = n / 5;
     cases = Math.round(cases);
-    const signe = m[1] === '-' ? -1 : 1;
-    return { cases, relatif: m[1] !== '', signe, valeur: signe * cases };
+    const signe = m[2] === '-' ? -1 : 1;
+    return { cases, relatif: m[2] !== '' && m[1] !== '=', signe, valeur: signe * cases || 0 };
   }
 
   // distance PF1 sur 2 axes, en cases : une diagonale sur deux compte double
@@ -147,6 +153,7 @@
   const unitePage = (page) => (page && /^m/i.test(page.get('scale_units') || '') ? 'm' : 'ft');
   const casePx = (page) => PX * (parseFloat(page && page.get('snapping_increment')) || 1);
   const altDe = (t) => state.Altitude.alt[t.id] || 0;
+  const altTexte = (a, u) => (a < 0 ? '-' : '') + enUnite(Math.abs(a), u);
   const nomDe = (t) => t.get('name') || 'token';
   const chuchoter = (qui, texte) => sendChat(NOM, `/w "${qui}" ${texte}`);
 
@@ -169,13 +176,13 @@
     const id = state.Altitude.labels[t.id];
     let txt = id && getObj('text', id);
     const a = altDe(t);
-    if (a <= 0) {
+    if (!a) {
       if (txt) txt.remove();
       delete state.Altitude.labels[t.id];
       return;
     }
     const st = style();
-    const texte = '↑ ' + enUnite(a, unitePage(pageDe(t)));
+    const texte = (a > 0 ? '↑ ' : '↓ ') + enUnite(Math.abs(a), unitePage(pageDe(t)));
     const largeur = texte.length * st.taille * 0.6; // estimation : le texte est centré sur left
     const props = {
       text: texte,
@@ -190,8 +197,8 @@
   }
 
   function fixerAltitude(t, cases) {
-    const a = Math.max(0, Math.round(cases));
-    if (a > 0) state.Altitude.alt[t.id] = a; else delete state.Altitude.alt[t.id];
+    const a = Math.round(cases) || 0; // négative : sous le niveau de référence (0)
+    if (a) state.Altitude.alt[t.id] = a; else delete state.Altitude.alt[t.id];
     placeEtiquette(t);
     return a;
   }
@@ -271,8 +278,8 @@
       if (!d) { chuchoter(qui, 'Usage : !alt set &lt;altitude&gt; (30, 9m, 6sq, +10, -3m, 0)'); return; }
       if (!permis.length) { chuchoter(qui, 'Sélectionne un token que tu contrôles.'); return; }
       const lignes = permis.map((t) => {
-        const a = fixerAltitude(t, d.relatif ? altDe(t) + d.valeur : d.cases);
-        return `${nomDe(t)} : ${a ? enUnite(a, unite) : 'au sol'}`;
+        const a = fixerAltitude(t, d.relatif ? altDe(t) + d.valeur : d.valeur);
+        return `${nomDe(t)} : ${altTexte(a, unite)}`;
       });
       signalerGabarit(permis);
       if (msg.playerid !== 'API') chuchoter(qui, lignes.join('<br>'));
@@ -291,8 +298,8 @@
       let s = (t ? `<b>${nomDe(t)}</b>${manoeuvrabilite(t) ? ' (' + manoeuvrabilite(t) + ')' : ''}<br>` : '') + ligneVol(r, unite);
       if (!vitesse) s += '<br>(vitesse de vol inconnue : ajoute speed=60 pour le mouvement restant)';
       if (t && permis.includes(t) && v.valeur !== 0) {
-        const apres = Math.max(0, altDe(t) + v.valeur);
-        s += `<br>[Appliquer : altitude ${enUnite(apres, unite)}](!alt set ${t.id} ${apres}sq)`;
+        const apres = altDe(t) + v.valeur;
+        s += `<br>[Appliquer : altitude ${altTexte(apres, unite)}](!alt set ${t.id} =${apres}sq)`;
       }
       chuchoter(qui, s);
       return;
@@ -320,13 +327,17 @@
 
     if (cmd === 'fall') {
       if (!permis.length) { chuchoter(qui, 'Sélectionne un token que tu contrôles.'); return; }
+      // altitude du sol où l'on tombe (to=-9m sous une falaise) ; 0 par défaut
+      const opt = reste.find((a) => /^to=/i.test(a));
+      const sol = opt ? lireDistance(opt.slice(3).replace(/^([+-])/, '=$1'), unite) : { valeur: 0 };
+      if (!sol) { chuchoter(qui, 'Usage : !alt fall [to=-9m] (altitude du sol, 0 par défaut)'); return; }
       permis.forEach((t) => {
-        const a = altDe(t);
-        if (!a) { chuchoter(qui, `${nomDe(t)} est déjà au sol.`); return; }
-        const n = desChute(a);
-        fixerAltitude(t, 0);
+        const hauteur = altDe(t) - sol.valeur;
+        if (hauteur <= 0) { chuchoter(qui, `${nomDe(t)} n'est pas au-dessus du sol (${altTexte(sol.valeur, unite)}).`); return; }
+        const n = desChute(hauteur);
+        fixerAltitude(t, sol.valeur);
         const jet = n ? `[[${n}d6]] dégâts` : 'aucun dégât (moins de 3 m / 10 ft)';
-        sendChat(NOM, `/em ${nomDe(t)} tombe de ${enUnite(a, unite)} : ${jet}. `
+        sendChat(NOM, `/em ${nomDe(t)} tombe de ${enUnite(hauteur, unite)} : ${jet}. `
           + `Une créature qui sait voler annule les dégâts avec un test de Vol DD 10 (sauf après un test de Vol raté ou une collision).`);
       });
       signalerGabarit(permis);
@@ -337,8 +348,8 @@
       const page = toks[0] ? toks[0].get('_pageid') : Campaign().get('playerpageid');
       const lignes = Object.keys(state.Altitude.alt).map((id) => getObj('graphic', id))
         .filter((t) => t && t.get('_pageid') === page && (estMJ || t.get('layer') !== 'gmlayer'))
-        .map((t) => `${nomDe(t)} : ${enUnite(altDe(t), unite)}`);
-      chuchoter(qui, lignes.length ? lignes.join('<br>') : 'Tout le monde est au sol.');
+        .map((t) => `${nomDe(t)} : ${altTexte(altDe(t), unite)}`);
+      chuchoter(qui, lignes.length ? lignes.join('<br>') : 'Tout le monde est à l\'altitude 0.');
       return;
     }
 
@@ -382,9 +393,9 @@
     const b = (txt, cmd) => `[${txt}](${q(cmd)})`;
     return '<b>Vol</b> (sélectionne ton token)<br>'
       + b('Coût d\'un vol', '!alt fly ?{Distance horizontale (outil Mesurer)|0} ?{Hauteur : + monte / - descend|0}') + ' '
-      + b('Altitude', '!alt set ?{Altitude : 9 / +3 / -3 / 0 (au sol)|+3}') + ' '
+      + b('Altitude', '!alt set ?{Altitude : 9 / +3 / -3 (changement) / =-9 (sous le 0) / 0|+3}') + ' '
       + b('Distance 3D', '!alt dist @{selected|token_id} @{target|Cible|token_id}') + ' '
-      + b('Chute', '!alt fall') + ' '
+      + b('Chute', '!alt fall to=?{Altitude du sol d\'arrivée|0}') + ' '
       + b('Liste', '!alt show');
   }
 
@@ -414,6 +425,6 @@
         delete state.Altitude.labels[id];
       }
     });
-    log('altitude.js v1.1 chargé');
+    log('altitude.js v1.2 chargé');
   });
 })();

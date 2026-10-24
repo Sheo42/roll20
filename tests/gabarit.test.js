@@ -770,6 +770,16 @@ describe('3D : gabarit.js et altitude.js ensemble', () => {
   cmd('!alt fall', [vol]);
   check(touche(vol) && !sb.state.Altitude.alt[vol.id], 'il tombe au sol : toujours touché');
   check(!R.chat.some((t) => /^\/w "Gabarit"/.test(t)), 'pas de message parasite chuchoté au script');
+  // falaise prise comme 0 : le lanceur est en bas, à -30 ft
+  cmd(`!alt set ${mage.id} =-30`);
+  cmd(`!gabarit cast ${mage.id} burst 4sq`);
+  const r2 = Object.values(sb.state.gabarit.liste).find((x) => x.id !== r.id);
+  check(sb.state.Altitude.alt[r2.viseurId] === -6, 'lanceur à -30 ft : le Viseur part à -30 ft');
+  const v2 = objs.find((o) => o.id === r2.viseurId);
+  const bas = tok('Ogre', 30, 30);
+  cmd(`!alt set ${bas.id} =-25`);
+  v2.set({ left: 30 * 70, top: 30 * 70 });
+  check(touche(bas), 'boule à -30 ft : touche l\'ogre à -25 ft');
 });
 
 describe('3D : sans altitude.js, rien ne change', () => {

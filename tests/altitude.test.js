@@ -47,6 +47,8 @@ describe('Lecture des distances (5 ft = 1,5 m = 1 case)', () => {
     ['6 cases', 'ft', 6], ['0', 'ft', 0], ['+10', 'ft', 2], ['-3m', 'ft', -2], ['- 20', 'ft', -4], ['1m', 'ft', 1], ['4.5m', 'ft', 3]];
   table.forEach(([t, u, v]) => check(L(t, u) === v, `« ${t} » (page en ${u}) -> ${v} case(s)`));
   check(A.lireDistance('+10').relatif && !A.lireDistance('10').relatif, '« +10 » est relatif, « 10 » est absolu');
+  check(A.lireDistance('=-9', 'm').valeur === -6 && !A.lireDistance('=-9', 'm').relatif, '« =-9 » : valeur négative absolue');
+  check(A.lireDistance('=6sq').valeur === 6 && !A.lireDistance('=6sq').relatif, '« =6sq » : absolue');
   ['', 'abc', '10x', '--3', 'm'].forEach((t) => check(A.lireDistance(t) === null, `« ${t} » -> refusé`));
 });
 
@@ -202,7 +204,12 @@ describe('Altitude : !alt set, étiquette à droite du token', () => {
   t.set({ layer: 'gmlayer' });
   check(lab.get('layer') === 'gmlayer', 'l\'étiquette suit le token sur le calque MJ');
   R.cmd('!alt set -30m', 'GM', [t]);
-  check(!R.sb.state.Altitude.alt[t.id] && R.textes().length === 0, 'altitude négative -> au sol, étiquette supprimée');
+  check(R.sb.state.Altitude.alt[t.id] === -12 && R.textes()[0].get('text') === '↓ 18 m', '12 m puis -30 m : -18 m (sous le niveau 0), étiquette « ↓ 18 m »');
+  R.cmd('!alt set =-9', 'GM', [t]);
+  check(R.sb.state.Altitude.alt[t.id] === -6 && R.textes()[0].get('text') === '↓ 9 m', '« =-9 » : altitude absolue négative, -9 m');
+  check(/Lune : -9 m/.test(R.dernier()), 'message : « -9 m »');
+  R.cmd('!alt set 0', 'GM', [t]);
+  check(!R.sb.state.Altitude.alt[t.id] && R.textes().length === 0, 'altitude 0 : étiquette supprimée');
   R.cmd(`!alt set ${t.id} 20ft`, 'GM');
   check(R.sb.state.Altitude.alt[t.id] === 4, 'token donné par son id, « 20ft » -> 4 cases');
   t.remove();
@@ -263,7 +270,7 @@ describe('Coût d\'un vol : !alt fly', () => {
   check(/Vitesse de vol 18 m/.test(m) && /reste 9 m/.test(m), 'vitesse lue sur la fiche en mètres (18 m) : reste 9 m');
   check(/\(bonne\)/.test(m), 'manœuvrabilité affichée');
   check(/distance horizontale max : jusqu'à 13,5 m/.test(m), 'monter de 4,5 m avec 18 m : jusqu\'à 13,5 m à l\'horizontale');
-  check(/!alt set -ID\d+ 3sq/.test(m), 'bouton Appliquer : altitude 3 cases');
+  check(/!alt set -ID\d+ =3sq/.test(m), 'bouton Appliquer : altitude absolue 3 cases');
   check(!/Test de Vol/.test(m), '45° : aucun test de Vol');
   R.cmd('!alt fly 0 6', 'p1', [t]);
   m = R.dernier();
@@ -280,7 +287,7 @@ describe('Coût d\'un vol : vitesse donnée, pieds, descente', () => {
   m = R.dernier();
   check(/descendre de 30 ft : coût <b>30 ft<\/b>/.test(m), 'descente à 45° : coût 30 ft');
   check(/jusqu'à 60 ft/.test(m), 'en descendant, toute la vitesse reste disponible à l\'horizontale');
-  check(!/Appliquer/.test(m) || /0sq/.test(m), 'au sol, descendre ne propose pas d\'altitude négative');
+  check(/Appliquer : altitude -30 ft\]\(!alt set -ID\d+ =-6sq\)/.test(m), 'à 0, descendre de 30 ft propose l\'altitude -30 ft (bas de la falaise)');
   R.cmd('!alt fly 10 0 speed=60', 'GM', [t]);
   check(/DD 10/.test(R.dernier()), '10 ft avec 60 ft : DD 10');
   R.cmd('!alt fly 30 0', 'GM', [t]);
@@ -339,7 +346,14 @@ describe('Chute : !alt fall', () => {
   check(/DD 10/.test(m), 'rappel : test de Vol DD 10 pour annuler');
   check(!R.sb.state.Altitude.alt[t.id] && R.textes().length === 0, 'altitude remise à 0, étiquette retirée');
   R.cmd('!alt fall', 'GM', [t]);
-  check(/déjà au sol/.test(R.dernier()), 'déjà au sol : rien à lancer');
+  check(/n'est pas au-dessus du sol/.test(R.dernier()), 'déjà au sol : rien à lancer');
+  R.cmd('!alt set 20', 'GM', [t]);
+  R.cmd('!alt fall to=-40', 'GM', [t]);
+  check(/tombe de 60 ft : \[\[6d6\]\]/.test(R.dernier()) && R.sb.state.Altitude.alt[t.id] === -8, 'falaise prise comme 0 : de 20 ft au fond à -40 ft = 60 ft, 6d6, altitude -40 ft');
+  R.cmd('!alt fall to=0', 'GM', [t]);
+  check(/n'est pas au-dessus du sol \(0 ft\)/.test(R.dernier()), 'sol plus haut que le token : pas de chute');
+  R.cmd('!alt fall to=abc', 'GM', [t]);
+  check(/Usage/.test(R.dernier()), 'to= illisible : rappel de l\'usage');
   R.cmd('!alt set 5', 'GM', [t]);
   R.cmd('!alt fall', 'GM', [t]);
   check(/aucun dégât/.test(R.dernier()), '5 ft : aucun dégât');

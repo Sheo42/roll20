@@ -273,7 +273,8 @@
   }
 
   // ---------- 3D (altitudes de altitude.js) ----------
-  // Une case de hauteur k (altitude en cases, 0 = au sol) est-elle dans le volume ?
+  // Une case de hauteur k (altitude en cases, 0 = niveau de référence, négatif
+  // possible) est-elle dans le volume ?
   // Les hauteurs se comptent comme les cases au sol, depuis le plan horizontal
   // de l'origine (z0) : chaque seconde diagonale compte double, la hauteur étant
   // un axe de plus. Au sol (k = z0 = 0), le résultat est celui de la 2D.
@@ -828,7 +829,7 @@
       rec.viseurId = viseur.id;
       // le Viseur part à l'altitude du lanceur (altitude.js l'affiche et
       // relance le calcul des auras)
-      if (altitude(lanceur.id) > 0) sendChat('Gabarit', `!alt set ${viseur.id} ${altitude(lanceur.id)}sq`);
+      if (altitude(lanceur.id)) sendChat('Gabarit', `!alt set ${viseur.id} =${altitude(lanceur.id)}sq`);
     }
 
     state.gabarit.liste[rec.id] = rec;
@@ -844,7 +845,7 @@
 
     const aide = forme === 'emanation' ? ' — elle suit ton token' : rec.viseurId ? ' — déplace le Viseur pour ajuster' : '';
     const vol = state.Altitude && rec.viseurId
-      ? `<br>Altitude du gabarit = celle du Viseur (${altitude(lanceur.id) > 0 ? 'celle du lanceur au départ' : 'au sol'}) : sélectionne-le puis « Altitude » dans le menu Vol.`
+      ? `<br>Altitude du gabarit = celle du Viseur (${altitude(lanceur.id) ? 'celle du lanceur au départ' : 'altitude 0'}) : sélectionne-le puis « Altitude » dans le menu Vol.`
       : '';
     parler(qui, `<b>${rec.label}</b>${aide} · [Effacer](!gabarit clear ${rec.id}) [Tout effacer](!gabarit clear)${vol}`);
   });

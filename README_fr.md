@@ -43,7 +43,7 @@ listes. Un Viseur (un par gabarit, de la couleur du gabarit) apparaît près du 
 | `!gabarit clear all` | MJ : efface tous les gabarits. |
 | `!gabarit aimerimg` | MJ : enregistre le token sélectionné comme image du Viseur. |
 
-**Tests** : `node tests/gabarit.test.js` (Node, sans dépendance) lance 311 vérifications : conversion des tailles,
+**Tests** : `node tests/gabarit.test.js` (Node, sans dépendance) lance 313 vérifications : conversion des tailles,
 formes et nombres de cases, contours, puis le flux complet avec un faux Roll20 (chaque forme et taille de la macro,
 auras quand les créatures bougent, émanation qui suit son lanceur). Ils n'ont pas remplacé un essai en
 campagne réelle.
@@ -149,17 +149,17 @@ sur le token sélectionné au moment du clic.
 | Commande | Effet |
 | --- | --- |
 | `!alt` | Menu de boutons. |
-| `!alt set [id...] <altitude>` | Altitude des tokens sélectionnés : `9m` (absolue), `+3`, `-3m` (changement), `0` (au sol). |
+| `!alt set [id...] <altitude>` | Altitude des tokens sélectionnés : `9m` (absolue), `+3`, `-3m` (changement), `=-9m` (absolue, sous le niveau 0), `0`. Le niveau 0 est au choix : le sol, ou le haut d'une falaise, les créatures en bas étant alors à une altitude négative. |
 | `!alt fly [id] <horizontal> <vertical> [speed=60]` | Coût d'un vol avant de bouger : coût, mouvement restant (action de mouvement / double mouvement), distance horizontale max pour cette montée, tests de Vol nécessaires, et bouton « Appliquer » pour la nouvelle altitude. Vertical : `+` monte, `-` descend. |
 | `!alt dist <id> <id cible>` | Distance 3D entre deux tokens, allonge de 1,5 m / 3 m, et coût en vol pour venir au contact. |
-| `!alt fall [id...]` | Jet de dégâts de chute depuis l'altitude actuelle, altitude remise à 0. |
+| `!alt fall [id...] [to=-9m]` | Jet de dégâts de chute jusqu'au sol (altitude 0, ou celle donnée par `to=`, par exemple le pied d'une falaise), altitude mise à celle du sol. |
 | `!alt show` | Chuchote les altitudes de la page (les joueurs ne voient pas les tokens du calque MJ). |
 | `!alt clear all` | MJ : remet toutes les altitudes à 0. |
 | `!alt style color=#ff3300 size=26` | MJ : couleur et taille des étiquettes d'altitude. |
 
 Un joueur n'agit que sur les tokens qu'il contrôle (token ou personnage) ; le MJ sur tous.
 
-**Tests** : `node tests/altitude.test.js` (Node, sans dépendance) lance 134 vérifications : conversions d'unités,
+**Tests** : `node tests/altitude.test.js` (Node, sans dépendance) lance 142 vérifications : conversions d'unités,
 distances 2D et 3D, coût d'un vol (dont l'exemple de la FAQ), DD de Vol, dés de chute, puis le flux complet avec un faux
 Roll20 (étiquette qui suit le token, droits des joueurs, vitesse de vol de la fiche en mètres, boutons du menu). Ils ne
 remplacent pas un essai dans une vraie partie.
