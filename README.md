@@ -138,7 +138,7 @@ to meters); `speed=60` overrides it (Fly spell, for example).
 
 **Installation**: paste `scripts/altitude.js` into a new API script and save. Create the "Vol" macro, visible to all
 players, with the content of `macro/Vol.macro.txt` (`!alt`). It whispers a menu of buttons that act on the token
-selected when the button is clicked.
+selected when the button is clicked. The menu asks for distances in meters, whatever the page unit.
 
 | Command | Effect |
 | --- | --- |
@@ -153,7 +153,7 @@ selected when the button is clicked.
 
 Players act only on tokens they control (token or character); the GM on all.
 
-**Tests**: `node tests/altitude.test.js` (Node, no dependency) runs 138 checks: unit conversion, distances, getting adjacent,
+**Tests**: `node tests/altitude.test.js` (Node, no dependency) runs 143 checks: unit conversion, distances, getting adjacent,
 flight cost (including the FAQ example), Fly DCs, falling dice, then the full flow with a fake Roll20 (label following
 the token, player rights, sheet fly speed in meters, menu buttons). They are no substitute for a try-out in a real game.
 

@@ -1,6 +1,7 @@
 /*
  * altitude.js — Combat en vol (Pathfinder 1e) pour l'API Roll20
- * Version 1.3 — « Rejoindre » : seulement le mouvement pour venir au contact
+ * Version 1.4 — menu en mètres, plus de message « vitesse de vol inconnue » ;
+ * v1.3 — « Rejoindre » : seulement le mouvement pour venir au contact
  *               (plus de calcul d'allonge ni de distance 3D) ;
  * v1.2 — altitudes négatives (niveau 0 au choix, ex. haut d'une falaise),
  *               chute vers un sol à une autre altitude (to=) ;
@@ -297,7 +298,6 @@
       let vitesse = opt ? (lireDistance(opt.split('=')[1], unite) || {}).cases || 0 : t ? vitesseVol(t) : 0;
       const r = analyseVol(h.cases, v.valeur, vitesse);
       let s = (t ? `<b>${nomDe(t)}</b>${manoeuvrabilite(t) ? ' (' + manoeuvrabilite(t) + ')' : ''}<br>` : '') + ligneVol(r, unite);
-      if (!vitesse) s += '<br>(vitesse de vol inconnue : ajoute speed=60 pour le mouvement restant)';
       if (t && permis.includes(t) && v.valeur !== 0) {
         const apres = altDe(t) + v.valeur;
         s += `<br>[Appliquer : altitude ${altTexte(apres, unite)}](!alt set ${t.id} =${apres}sq)`;
@@ -388,17 +388,18 @@
     chuchoter(qui, menu());
   });
 
-  // menu de boutons ; les requêtes ?{...} et @{...} sont encodées pour n'être
+  // menu de boutons, distances en mètres quelle que soit l'unité de la page ;
+  // les requêtes ?{...} et @{...} sont encodées pour n'être
   // évaluées qu'au clic, avec le token sélectionné à ce moment-là
   function menu() {
     const q = (s) => s.replace(/\?/g, '&#63;').replace(/\|/g, '&#124;').replace(/@/g, '&#64;')
       .replace(/\(/g, '&#40;').replace(/\)/g, '&#41;');
     const b = (txt, cmd) => `[${txt}](${q(cmd)})`;
     return '<b>Vol</b> (sélectionne ton token)<br>'
-      + b('Coût d\'un vol', '!alt fly ?{Distance horizontale (outil Mesurer)|0} ?{Hauteur : + monte / - descend|0}') + ' '
-      + b('Altitude', '!alt set ?{Altitude : 9 / +3 / -3 (changement) / =-9 (sous le 0) / 0|+3}') + ' '
+      + b('Coût d\'un vol', '!alt fly ?{Distance horizontale en m (outil Mesurer)|0}m ?{Hauteur en m : + monte / - descend|0}m') + ' '
+      + b('Altitude', '!alt set ?{Altitude en m : 9 / +3 / -3 (changement) / =-9 (sous le 0) / 0|+3}m') + ' '
       + b('Rejoindre', '!alt dist @{selected|token_id} @{target|Cible|token_id}') + ' '
-      + b('Chute', '!alt fall to=?{Altitude du sol d\'arrivée|0}') + ' '
+      + b('Chute', '!alt fall to=?{Altitude du sol d\'arrivée en m|0}m') + ' '
       + b('Liste', '!alt show');
   }
 
@@ -428,6 +429,6 @@
         delete state.Altitude.labels[id];
       }
     });
-    log('altitude.js v1.3 chargé');
+    log('altitude.js v1.4 chargé');
   });
 })();

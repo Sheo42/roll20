@@ -282,7 +282,7 @@ describe('Coût d\'un vol : vitesse donnée, pieds, descente', () => {
   R.cmd('!alt fly 10 0 speed=60', 'GM', [t]);
   check(/DD 10/.test(R.dernier()), '10 ft avec 60 ft : DD 10');
   R.cmd('!alt fly 30 0', 'GM', [t]);
-  check(/vitesse de vol inconnue/.test(R.dernier()), 'pas de fiche ni de speed= : vitesse inconnue signalée');
+  check(/coût <b>30 ft<\/b>/.test(R.dernier()) && !/inconnue|Vitesse de vol|reste/.test(R.dernier()), 'pas de fiche ni de speed= : le coût seul, sans message sur la vitesse');
   R.cmd('!alt fly 80 40 speed=60', 'GM', [t]);
   check(/possible en double mouvement \(reste 0 ft\)/.test(R.dernier()) && /max : impossible \(double mouvement : 80 ft\)/.test(R.dernier()),
     'monter de 40 ft avec 60 ft : impossible en une action, 80 ft à l\'horizontale en double mouvement');
@@ -324,7 +324,7 @@ describe('Rejoindre une cible : !alt dist', () => {
   check(/25 ft à l'horizontale, 15 ft en hauteur/.test(R.dernier()) && /au contact en volant : <b>30 ft<\/b>/.test(R.dernier()) && !/undefined|NaN/.test(R.dernier()),
     'sans vitesse de vol sur la fiche (sort Vol) : le mouvement pour venir au contact s\'affiche quand même');
   R.cmd('!alt fly 30 10', 'p1', [sansVol]);
-  check(/coût <b>40 ft<\/b>/.test(R.dernier()) && /vitesse de vol inconnue/.test(R.dernier()) && !/undefined|NaN/.test(R.dernier()),
+  check(/coût <b>40 ft<\/b>/.test(R.dernier()) && !/inconnue/.test(R.dernier()) && !/undefined|NaN/.test(R.dernier()),
     'sans vitesse de vol : le coût s\'affiche, sans mouvement restant');
   R.cmd(`!alt dist ${a.id}`, 'GM');
   check(/Usage/.test(R.dernier()), 'un seul token : rappel de l\'usage');
@@ -367,6 +367,18 @@ describe('Liste et menu', () => {
   R.cmd('!alt', 'p1');
   const m = R.dernier();
   check(/\[Coût d'un vol\]\(!alt fly &#63;\{/.test(m), 'menu : bouton Coût d\'un vol avec requête encodée');
+  check(/Distance horizontale en m/.test(m) && /Hauteur en m/.test(m) && /Altitude en m/.test(m) && /arrivée en m/.test(m), 'menu : les questions précisent « en m »');
+  // valeurs saisies dans le menu, sur une page en pieds : lues en mètres
+  const P = creerRoll20({ unite: 'ft' });
+  const t = P.token('Lune', 1, 1);
+  P.cmd('!alt set +3m', 'GM', [t]);
+  check(P.sb.state.Altitude.alt[t.id] === 2, 'menu sur une page en pieds : « +3 » saisi devient +3m = 2 cases');
+  P.cmd('!alt set =-9m', 'GM', [t]);
+  check(P.sb.state.Altitude.alt[t.id] === -6, '« =-9 » saisi devient =-9m = -6 cases');
+  P.cmd('!alt fly 9m 4.5m', 'GM', [t]);
+  check(/coût <b>45 ft<\/b>/.test(P.dernier()), 'coût d\'un vol : 9 m + 4,5 m vers le haut = 9 cases');
+  P.cmd('!alt fall to=-12m', 'GM', [t]);
+  check(P.sb.state.Altitude.alt[t.id] === -8, 'chute vers -12 m : altitude -8 cases');
   check(!/\?\{|@\{|\(outil/.test(m.replace(/^[^\]]*\]/, '')), 'menu : ni ?{ ni @{ ni parenthèse en clair dans les commandes');
   check(/&#64;\{target&#124;Cible&#124;token_id\}/.test(m), 'menu : cible encodée pour Rejoindre');
   const macro = fs.readFileSync(path.join(__dirname, '..', 'macro', 'Vol.macro.txt'), 'utf8').trim();

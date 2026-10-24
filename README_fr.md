@@ -144,7 +144,7 @@ si la fiche est en mètres) ; `speed=60` la remplace (sort Vol, par exemple).
 
 **Installation** : colle `scripts/altitude.js` dans un nouveau script API et enregistre. Crée la macro « Vol », visible
 par tous les joueurs, avec le contenu de `macro/Vol.macro.txt` (`!alt`). Elle chuchote un menu de boutons qui agissent
-sur le token sélectionné au moment du clic.
+sur le token sélectionné au moment du clic. Le menu demande les distances en mètres, quelle que soit l'unité de la page.
 
 | Commande | Effet |
 | --- | --- |
@@ -159,7 +159,7 @@ sur le token sélectionné au moment du clic.
 
 Un joueur n'agit que sur les tokens qu'il contrôle (token ou personnage) ; le MJ sur tous.
 
-**Tests** : `node tests/altitude.test.js` (Node, sans dépendance) lance 138 vérifications : conversions d'unités,
+**Tests** : `node tests/altitude.test.js` (Node, sans dépendance) lance 143 vérifications : conversions d'unités,
 distances, rejoindre une cible, coût d'un vol (dont l'exemple de la FAQ), DD de Vol, dés de chute, puis le flux complet avec un faux
 Roll20 (étiquette qui suit le token, droits des joueurs, vitesse de vol de la fiche en mètres, boutons du menu). Ils ne
 remplacent pas un essai dans une vraie partie.
