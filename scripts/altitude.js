@@ -347,7 +347,7 @@
         const jet = !n ? 'aucun dégât (moins de 3 m / 10 ft)'
           : chat ? `<b>${n}</b> dégât${n > 1 ? 's' : ''} (bottes du chat : 1 par dé, retombe sur ses pieds)`
             : `[[${n}d6]] dégâts`;
-        sendChat(NOM, `/em ${nomDe(t)} tombe de ${enUnite(hauteur, unite)} : ${jet}. `
+         chuchoter(qui,` tombe de ${enUnite(hauteur, unite)} : ${jet}.`
           + `Une créature qui sait voler annule les dégâts avec un test de Vol DD 10 (sauf après un test de Vol raté ou une collision).`);
       });
       signalerGabarit(permis);
