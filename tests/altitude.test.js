@@ -346,6 +346,12 @@ describe('Chute : !alt fall', () => {
   check(/tombe de 60 ft : \[\[6d6\]\]/.test(R.dernier()) && R.sb.state.Altitude.alt[t.id] === -8, 'falaise prise comme 0 : de 20 ft au fond à -40 ft = 60 ft, 6d6, altitude -40 ft');
   R.cmd('!alt fall to=0', 'GM', [t]);
   check(/n'est pas au-dessus du sol \(0 ft\)/.test(R.dernier()), 'sol plus haut que le token : pas de chute');
+  R.cmd('!alt set 60', 'GM', [t]);
+  R.cmd('!alt fall cat', 'GM', [t]);
+  check(/tombe de 60 ft : <b>6<\/b> dégâts \(bottes du chat/.test(R.dernier()) && !/\[\[/.test(R.dernier()), 'bottes du chat : 6 dés -> 6 dégâts, sans jet');
+  R.cmd('!alt set 15', 'GM', [t]);
+  R.cmd('!alt fall to=0m no', 'GM', [t]);
+  check(/\[\[1d6\]\]/.test(R.dernier()), 'réponse « Non » du menu (no) : jet normal');
   R.cmd('!alt fall to=abc', 'GM', [t]);
   check(/Usage/.test(R.dernier()), 'to= illisible : rappel de l\'usage');
   R.cmd('!alt set 5', 'GM', [t]);
@@ -367,7 +373,7 @@ describe('Liste et menu', () => {
   R.cmd('!alt', 'p1');
   const m = R.dernier();
   check(/\[Coût d'un vol\]\(!alt fly &#63;\{/.test(m), 'menu : bouton Coût d\'un vol avec requête encodée');
-  check(/Distance horizontale en m/.test(m) && /Hauteur en m/.test(m) && /Altitude en m/.test(m) && /arrivée en m/.test(m), 'menu : les questions précisent « en m »');
+  check(/Distance horizontale en m/.test(m) && /Hauteur en m/.test(m) && /Altitude en m/.test(m) && /arrivée en m/.test(m) && /Bottes du chat/.test(m), 'menu : les questions précisent « en m », la chute demande les bottes du chat');
   // valeurs saisies dans le menu, sur une page en pieds : lues en mètres
   const P = creerRoll20({ unite: 'ft' });
   const t = P.token('Lune', 1, 1);

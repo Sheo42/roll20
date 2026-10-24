@@ -146,14 +146,14 @@ selected when the button is clicked. The menu asks for distances in meters, what
 | `!alt set [id...] <altitude>` | Sets the altitude of the selected tokens: `9m` (absolute), `+3`, `-3m` (change), `=-9m` (absolute, below level 0), `0`. Level 0 is whatever you choose: the ground, or the top of a cliff so creatures below it are at negative altitudes. |
 | `!alt fly [id] <horizontal> <vertical> [speed=60]` | Cost of a flying move before moving: cost, movement left (move action / double move), max horizontal distance for that climb, Fly checks needed, and an "Apply" button for the new altitude. Vertical: `+` up, `-` down. |
 | `!alt dist <id> <target id>` | Gap between two tokens and the flying movement needed to get adjacent to the target (with the Fly check if the climb is steeper than 45°). Menu button "Rejoindre". |
-| `!alt fall [id...] [to=-9m]` | Rolls falling damage down to the ground (altitude 0, or the one given with `to=`, e.g. the foot of a cliff) and sets the altitude there. |
+| `!alt fall [id...] [to=-9m] [cat]` | Rolls falling damage down to the ground (altitude 0, or the one given with `to=`, e.g. the foot of a cliff) and sets the altitude there. `cat`: Boots of the Cat, 1 damage per die. |
 | `!alt show` | Whispers the altitudes on the page (players don't see GM-layer tokens). |
 | `!alt clear all` | GM: sets every altitude back to 0. |
 | `!alt style color=#ff3300 size=26` | GM: color and size of the altitude labels. |
 
 Players act only on tokens they control (token or character); the GM on all.
 
-**Tests**: `node tests/altitude.test.js` (Node, no dependency) runs 143 checks: unit conversion, distances, getting adjacent,
+**Tests**: `node tests/altitude.test.js` (Node, no dependency) runs 145 checks: unit conversion, distances, getting adjacent,
 flight cost (including the FAQ example), Fly DCs, falling dice, then the full flow with a fake Roll20 (label following
 the token, player rights, sheet fly speed in meters, menu buttons). They are no substitute for a try-out in a real game.
 

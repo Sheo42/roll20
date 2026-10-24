@@ -152,14 +152,14 @@ sur le token sélectionné au moment du clic. Le menu demande les distances en m
 | `!alt set [id...] <altitude>` | Altitude des tokens sélectionnés : `9m` (absolue), `+3`, `-3m` (changement), `=-9m` (absolue, sous le niveau 0), `0`. Le niveau 0 est au choix : le sol, ou le haut d'une falaise, les créatures en bas étant alors à une altitude négative. |
 | `!alt fly [id] <horizontal> <vertical> [speed=60]` | Coût d'un vol avant de bouger : coût, mouvement restant (action de mouvement / double mouvement), distance horizontale max pour cette montée, tests de Vol nécessaires, et bouton « Appliquer » pour la nouvelle altitude. Vertical : `+` monte, `-` descend. |
 | `!alt dist <id> <id cible>` | Écart entre deux tokens et mouvement en vol pour venir au contact de la cible (avec le test de Vol si la montée dépasse 45°). Bouton « Rejoindre » du menu. |
-| `!alt fall [id...] [to=-9m]` | Jet de dégâts de chute jusqu'au sol (altitude 0, ou celle donnée par `to=`, par exemple le pied d'une falaise), altitude mise à celle du sol. |
+| `!alt fall [id...] [to=-9m] [cat]` | Jet de dégâts de chute jusqu'au sol (altitude 0, ou celle donnée par `to=`, par exemple le pied d'une falaise), altitude mise à celle du sol. `cat` : bottes du chat, 1 dégât par dé. |
 | `!alt show` | Chuchote les altitudes de la page (les joueurs ne voient pas les tokens du calque MJ). |
 | `!alt clear all` | MJ : remet toutes les altitudes à 0. |
 | `!alt style color=#ff3300 size=26` | MJ : couleur et taille des étiquettes d'altitude. |
 
 Un joueur n'agit que sur les tokens qu'il contrôle (token ou personnage) ; le MJ sur tous.
 
-**Tests** : `node tests/altitude.test.js` (Node, sans dépendance) lance 143 vérifications : conversions d'unités,
+**Tests** : `node tests/altitude.test.js` (Node, sans dépendance) lance 145 vérifications : conversions d'unités,
 distances, rejoindre une cible, coût d'un vol (dont l'exemple de la FAQ), DD de Vol, dés de chute, puis le flux complet avec un faux
 Roll20 (étiquette qui suit le token, droits des joueurs, vitesse de vol de la fiche en mètres, boutons du menu). Ils ne
 remplacent pas un essai dans une vraie partie.

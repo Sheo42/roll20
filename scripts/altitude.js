@@ -1,6 +1,7 @@
 /*
  * altitude.js — Combat en vol (Pathfinder 1e) pour l'API Roll20
- * Version 1.4 — menu en mètres, plus de message « vitesse de vol inconnue » ;
+ * Version 1.5 — chute avec bottes du chat (cat : 1 dégât par dé) ;
+ * v1.4 — menu en mètres, plus de message « vitesse de vol inconnue » ;
  * v1.3 — « Rejoindre » : seulement le mouvement pour venir au contact
  *               (plus de calcul d'allonge ni de distance 3D) ;
  * v1.2 — altitudes négatives (niveau 0 au choix, ex. haut d'une falaise),
@@ -52,8 +53,10 @@
  *                                 (vertical : + monte, - descend)
  *   !alt dist <id> <id cible>     écart entre deux tokens et mouvement en vol
  *                                 pour venir au contact de la cible
- *   !alt fall [id...] [to=-9m]    chute jusqu'au sol (altitude 0, ou to=) :
- *                                 jet de dégâts
+ *   !alt fall [id...] [to=-9m] [cat]
+ *                                 chute jusqu'au sol (altitude 0, ou to=) :
+ *                                 jet de dégâts ; cat = bottes du chat
+ *                                 (1 dégât par dé)
  *   !alt show                     liste des altitudes de la page (chuchoté)
  *   !alt clear all                MJ : remet toutes les altitudes à 0
  *   !alt style color=#ff3300 size=26
@@ -332,6 +335,7 @@
       if (!permis.length) { chuchoter(qui, 'Sélectionne un token que tu contrôles.'); return; }
       // altitude du sol où l'on tombe (to=-9m sous une falaise) ; 0 par défaut
       const opt = reste.find((a) => /^to=/i.test(a));
+      const chat = reste.some((a) => /^cat$/i.test(a));
       const sol = opt ? lireDistance(opt.slice(3).replace(/^([+-])/, '=$1'), unite) : { valeur: 0 };
       if (!sol) { chuchoter(qui, 'Usage : !alt fall [to=-9m] (altitude du sol, 0 par défaut)'); return; }
       permis.forEach((t) => {
@@ -339,7 +343,10 @@
         if (hauteur <= 0) { chuchoter(qui, `${nomDe(t)} n'est pas au-dessus du sol (${altTexte(sol.valeur, unite)}).`); return; }
         const n = desChute(hauteur);
         fixerAltitude(t, sol.valeur);
-        const jet = n ? `[[${n}d6]] dégâts` : 'aucun dégât (moins de 3 m / 10 ft)';
+        // Bottes du chat (Boots of the Cat) : dégâts minimum (1 par dé), retombe sur ses pieds
+        const jet = !n ? 'aucun dégât (moins de 3 m / 10 ft)'
+          : chat ? `<b>${n}</b> dégât${n > 1 ? 's' : ''} (bottes du chat : 1 par dé, retombe sur ses pieds)`
+            : `[[${n}d6]] dégâts`;
         sendChat(NOM, `/em ${nomDe(t)} tombe de ${enUnite(hauteur, unite)} : ${jet}. `
           + `Une créature qui sait voler annule les dégâts avec un test de Vol DD 10 (sauf après un test de Vol raté ou une collision).`);
       });
@@ -399,7 +406,7 @@
       + b('Coût d\'un vol', '!alt fly ?{Distance horizontale en m (outil Mesurer)|0}m ?{Hauteur en m : + monte / - descend|0}m') + ' '
       + b('Altitude', '!alt set ?{Altitude en m : 9 / +3 / -3 (changement) / =-9 (sous le 0) / 0|+3}m') + ' '
       + b('Rejoindre', '!alt dist @{selected|token_id} @{target|Cible|token_id}') + ' '
-      + b('Chute', '!alt fall to=?{Altitude du sol d\'arrivée en m|0}m') + ' '
+      + b('Chute', '!alt fall to=?{Altitude du sol d\'arrivée en m|0}m ?{Bottes du chat|Non,no|Oui,cat}') + ' '
       + b('Liste', '!alt show');
   }
 
@@ -429,6 +436,6 @@
         delete state.Altitude.labels[id];
       }
     });
-    log('altitude.js v1.4 chargé');
+    log('altitude.js v1.5 chargé');
   });
 })();
