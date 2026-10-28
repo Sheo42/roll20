@@ -117,7 +117,7 @@ buttons to pick one, or "Nom libre" to keep the name as typed; `=Moi` forces a f
 matches nothing is a free name: an NPC played during a role-play scene with no map keeps the effect afterwards. "Tout le groupe", "Moi seul" and "Choisir..."
 use the PCs of the page, or all the campaign's PCs when none is on it.
 
-**Tests**: `node tests/bufftracker.test.js` (Node, no dependency) runs 343 checks: the pure logic (durations, targets, countdown) and then the full flow with a fake Roll20. They are no substitute for a try-out in a real game.
+**Tests**: `node tests/bufftracker.test.js` (Node, no dependency) runs 344 checks: the pure logic (durations, targets, countdown) and then the full flow with a fake Roll20. They are no substitute for a try-out in a real game.
 
 ## Flying combat (altitude)
 

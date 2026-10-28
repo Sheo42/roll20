@@ -489,6 +489,7 @@ describe('Sorts courants et bouton Ajouter', () => {
   check(fav.includes('?{Lanceur|Solathia}') && fav.includes('--targets ?{Cibles|Tout le groupe,group|Moi seul,me|Tokens sélectionnés,selected|Choisir...,pick}'), 'boutons des sorts : lanceur par défaut = le perso du joueur, choix des cibles');
   const menu = p.dire('pC', '!buff')[0];
   check(menu.includes('--caster ?{Lanceur|Solathia}') && menu.includes('--targets ?{Cibles|'), 'bouton Ajouter : lanceur par défaut et choix des cibles');
+  check(menu.includes('--name ?{Nom du buff}'), 'bouton Ajouter : la première question demande le nom du buff');
   check(p.dire('gm', '!buff')[0].includes('?{Lanceur|}'), 'MJ : pas de lanceur par défaut');
   // les libellés des listes déroulantes ne contiennent ni virgule ni barre
   const q = menu.match(/\?\{Cibles\|([^}]*)\}/)[1].split('|');

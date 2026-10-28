@@ -493,7 +493,7 @@
     '</div></div>';
 
   const boutonAjouter = (lanceur) => bouton('Ajouter',
-    `${CMD} add --name ?{Nom} --dur ?{${Q_DUREE}|1min} --caster ?{${Q_LANCEUR}|${escapeHtml(pourRequete(lanceur))}} --targets ${Q_CIBLES} --effect ?{Effet|}`);
+    `${CMD} add --name ?{Nom du buff} --dur ?{${Q_DUREE}|1min} --caster ?{${Q_LANCEUR}|${escapeHtml(pourRequete(lanceur))}} --targets ${Q_CIBLES} --effect ?{Effet|}`);
   const boutonFavori = (f, lanceur) => bouton(f.name,
     `${CMD} add --spell ${f.key} --cl ?{Niveau de lanceur|1} --caster ?{${Q_LANCEUR}|${escapeHtml(pourRequete(lanceur))}} --targets ${Q_CIBLES}`);
 
