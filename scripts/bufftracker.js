@@ -127,11 +127,32 @@
     if (!t) return null;
     if (PERMANENT.includes(t)) return { rounds: null, sign: 0 };
     const m = t.match(/^([+-])?\s*(\d+(?:[.,]\d+)?)\s*([a-z]*)$/);
-    if (!m) return null;
+    if (!m) return parseCompound(t);
     const u = m[3] ? ALIAS_UNITE[m[3]] : 'r';
     if (!u) return null;
     const rounds = Math.round(parseFloat(m[2].replace(',', '.')) * UNITE[u]);
     return { rounds, sign: m[1] === '-' ? -1 : (m[1] === '+' ? 1 : 0) };
+  };
+  // durée en plusieurs morceaux : « 13h50 » (13 h 50 min), « 1j2h », « 2h 30min »,
+  // « 1min 5r ». Un nombre sans unité à la fin prend l'unité suivante (après h : min,
+  // après j : h, après min : rounds).
+  const UNITE_SUIVANTE = { d: 'h', h: 'm', m: 'r' };
+  const parseCompound = (t) => {
+    const g = t.match(/^([+-])?\s*(.+)$/);
+    const parts = [...g[2].matchAll(/(\d+)\s*([a-z]*)\s*/g)];
+    if (!parts.length || parts.map((p) => p[0]).join('') !== g[2]) return null;
+    let rounds = 0, prec = null;
+    for (let i = 0; i < parts.length; i++) {
+      let u = parts[i][2] ? ALIAS_UNITE[parts[i][2]] : null;
+      if (!u) {
+        if (parts[i][2] || i !== parts.length - 1 || !prec || !UNITE_SUIVANTE[prec]) return null;
+        u = UNITE_SUIVANTE[prec];
+      }
+      if (prec && UNITE[u] >= UNITE[prec]) return null; // unités dans l'ordre : j, h, min, r
+      rounds += parseInt(parts[i][1], 10) * UNITE[u];
+      prec = u;
+    }
+    return { rounds, sign: g[1] === '-' ? -1 : (g[1] === '+' ? 1 : 0) };
   };
 
   // 4 -> "4 rd" ; 95 -> "9 min 5 rd" ; 630 -> "1 h 3 min" ; null -> "permanent"
@@ -1103,7 +1124,7 @@
       '<b>!buff edit 3 --dur -1</b> (ou +2, 4r, 10min, perm), --name, --effect, --caster, --targets, --hidden yes|no<br>' +
       '<b>!buff remove 3</b> · <b>!buff clear</b> (sélection) · <b>!buff clear all</b> (MJ)<br>' +
       '<b>!buff time 10min</b> (MJ) · <b>!buff show</b> : lien vers la fenêtre<br>' +
-      'Durées : 3r ou 3 (rounds), 10min, 2h, 1j, perm. Nom libre forcé : =Nom.'));
+      'Durées : 3r ou 3 (rounds), 10min, 2h, 13h50, 1j, perm. Nom libre forcé : =Nom.'));
   };
 
   // ------------------------------------------------------- tracker d'initiative

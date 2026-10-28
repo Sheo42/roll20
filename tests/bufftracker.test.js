@@ -474,6 +474,16 @@ describe('Nom partiel : choisir plutôt que deviner', () => {
   check(p.buffs().find((b) => b.name === 'Test8').targets[0].id === p.c.gob.id, 'nom exact d\'une fiche (Gobelin) : la fiche, sans question');
 });
 
+describe('Durées en plusieurs morceaux', () => {
+  const r = (x) => { const d = B.parseDuration(x); return d && d.rounds; };
+  check(r('13h50') === 13 * 600 + 500, '13h50 = 13 h 50 min');
+  check(r('13h50min') === 8300 && r('2h 30min') === 1500 && r('1j2h') === 14400 + 1200 && r('1j 2') === 15600, '13h50min, 2h 30min, 1j2h, 1j 2 (2 = heures)');
+  check(r('1min5r') === 15 && r('1min 5') === 15, '1min5r et 1min 5 (5 = rounds)');
+  check(B.parseDuration('+1h30').sign === 1 && r('+1h30') === 900, '+1h30 : ajout');
+  check(r('30min2h') === null && r('2h3h') === null && r('5 2') === null && r('2h30x') === null && r('h30') === null, 'désordre ou unité inconnue : refusé');
+  check(r('10min') === 100 && r('3') === 3 && r('1,5h') === 900, 'formes simples inchangées');
+});
+
 describe('Durées en jours', () => {
   check(B.formatDuration(14400) === '1 j' && B.formatDuration(14400 + 1200) === '1 j 2 h' && B.formatDuration(28800) === '2 j', 'affichage en jours');
   check(B.compactDuration(14400) === '1j' && B.parseDuration('1j').rounds === 14400 && B.parseDuration('2d').rounds === 28800 && B.parseDuration('1 jour').rounds === 14400, '1j, 2d, 1 jour');
