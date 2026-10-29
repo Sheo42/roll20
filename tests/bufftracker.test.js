@@ -479,6 +479,7 @@ describe('Durées en plusieurs morceaux', () => {
   check(r('13h50') === 13 * 600 + 500, '13h50 = 13 h 50 min');
   check(r('13h50min') === 8300 && r('2h 30min') === 1500 && r('1j2h') === 14400 + 1200 && r('1j 2') === 15600, '13h50min, 2h 30min, 1j2h, 1j 2 (2 = heures)');
   check(r('1min5r') === 15 && r('1min 5') === 15, '1min5r et 1min 5 (5 = rounds)');
+  check(r('13h40m45rd') === 8245 && r('13h40min45rd') === 8245 && r('13h 40min 45r') === 8245 && r('13h40m45') === 8245, '13h40m45rd : heures, minutes et rounds');
   check(B.parseDuration('+1h30').sign === 1 && r('+1h30') === 900, '+1h30 : ajout');
   check(r('30min2h') === null && r('2h3h') === null && r('5 2') === null && r('2h30x') === null && r('h30') === null, 'désordre ou unité inconnue : refusé');
   check(r('10min') === 100 && r('3') === 3 && r('1,5h') === 900, 'formes simples inchangées');
