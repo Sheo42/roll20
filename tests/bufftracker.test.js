@@ -220,7 +220,7 @@ describe('Vues, handout, menu et boutons à cocher', () => {
   check(m.includes('→ Selea, Paz &lt;b&gt;, Lune'), 'menu : cibles affichées et échappées');
   check(m.includes('href="!buff edit 1 --dur -1"') && m.includes('href="!buff edit 1 --targets pick"') && m.includes('href="!buff remove 1"'), 'menu : boutons -1, Cibles, X');
   check(!m.includes('!buff edit 2 '), 'menu : pas de bouton sur un lancement non modifiable');
-  check(m.includes('?{Durée : 3r 10min 2h 1j ou perm|4r}'), 'menu : durée actuelle proposée par défaut');
+  check(m.includes('?{Nouvelle durée (10min 2h perm) ou en plus/moins : -25r +1h|4r}'), 'menu : durée actuelle proposée par défaut, avec l\'aide pour -25r +1h');
   check(B.compactDuration(50) === '5min' && B.parseDuration('5min').rounds === 50 && B.parseDuration('5m').rounds === 50, 'minutes écrites « min » (« m » toujours compris)');
   const moi = B.renderMenu(B.buildCastView(buffs, nom, () => '', () => false, false, (b) => b.id === '1'));
   check(moi.includes('href="!buff remove 1">Me retirer</a>') && !moi.includes('!buff edit 1 ') && !moi.includes('!buff remove 5'), 'cible seulement : bouton « Me retirer », rien d\'autre');
@@ -483,6 +483,33 @@ describe('Durées en plusieurs morceaux', () => {
   check(B.parseDuration('+1h30').sign === 1 && r('+1h30') === 900, '+1h30 : ajout');
   check(r('30min2h') === null && r('2h3h') === null && r('5 2') === null && r('2h30x') === null && r('h30') === null, 'désordre ou unité inconnue : refusé');
   check(r('10min') === 100 && r('3') === 3 && r('1,5h') === 900, 'formes simples inchangées');
+});
+
+describe('Bouton Passer le temps (MJ)', () => {
+  const p = partie();
+  p.dire('pC', '!buff add --name Bénédiction --dur 5min --caster Solathia --targets Selea');
+  p.dire('pA', '!buff add --name Flou --dur 3r --targets me');
+  const mj = p.dire('gm', '!buff')[0];
+  check(mj.includes('href="!buff time ?{Temps qui passe pour tous les effets : 10min 1h 13h50 1j|10min}">Passer le temps</a>'), 'menu du MJ : bouton Passer le temps');
+  check(!p.dire('pA', '!buff')[0].includes('Passer le temps'), 'menu d\'un joueur : pas de bouton Passer le temps');
+  const essai = p.dire('gm', '!buff time 4r')[0];
+  check(essai.includes('Confirmer') && p.buffs()[0].remaining === 50, 'essai à blanc d\'abord, rien ne bouge');
+  const out = cliquer(p, 'gm', essai, 'Confirmer');
+  check(p.buffs().length === 1 && p.buffs()[0].remaining === 46 && out.some((m) => m.includes('Fin') && m.includes('Flou')), 'confirmé : tous les effets -4 rounds, le Flou se termine');
+});
+
+describe('Bouton Durée : calcul sur la durée restante', () => {
+  const p = partie();
+  p.dire('pC', '!buff add --name Bénédiction --dur 5min --caster Solathia --targets Selea');
+  const b = p.buffs()[0];
+  p.dire('pC', `!buff edit ${b.id} --dur -25 rd`);
+  check(b.remaining === 25, '« -25 rd » : 5 min - 25 rounds = 25 rounds');
+  p.dire('pC', `!buff edit ${b.id} --dur +1h`);
+  check(b.remaining === 625, '« +1h » : ajouté au reste');
+  p.dire('pC', `!buff edit ${b.id} --dur 10min`);
+  check(b.remaining === 100, '« 10min » sans signe : nouvelle durée');
+  const out = p.dire('pC', `!buff edit ${b.id} --dur -1h30`);
+  check(!p.buffs().length && out.some((m) => m.includes('Fin')), 'retirer plus que le reste : l\'effet se termine et la fin est annoncée');
 });
 
 describe('Durées en jours', () => {

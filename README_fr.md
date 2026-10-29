@@ -105,7 +105,7 @@ temps avec `!buff time 10min`.
 | `!buff remove <n> [<n> ...]` | Retire des lancements : essai à blanc, puis `... confirm N`. |
 | `!buff clear` | Retire les tokens sélectionnés de tous leurs effets (essai à blanc, puis `confirm N`). |
 | `!buff clear all` | MJ : retire tous les effets (essai à blanc, puis `confirm N`). |
-| `!buff time <durée>` | MJ : fait passer le temps (essai à blanc, puis `confirm N`). |
+| `!buff time <durée>` | MJ : fait passer le temps pour tous les effets (essai à blanc, puis `confirm N`) ; aussi le bouton « Passer le temps » du menu du MJ. |
 | `!buff show` | Réécrit le handout et donne le lien pour l'ouvrir. |
 | `!buff help` | Aide. |
 
@@ -121,7 +121,7 @@ chuchote des boutons pour choisir, ou « Nom libre » pour le garder tel quel ; 
 Un nom qui ne correspond à rien est un nom libre : un PNJ joué pendant une scène de RP sans carte garde son effet ensuite. « Tout le groupe », « Moi seul » et « Choisir... » prennent les PJ de la carte,
 ou tous les PJ de la partie s'il n'y en a aucun dessus.
 
-**Tests** : `node tests/bufftracker.test.js` (Node, sans dépendance) lance 355 vérifications : la logique pure (durées, cibles, décompte) puis le flux complet avec un faux Roll20. Ils n'ont pas remplacé un essai en partie réelle.
+**Tests** : `node tests/bufftracker.test.js` (Node, sans dépendance) lance 363 vérifications : la logique pure (durées, cibles, décompte) puis le flux complet avec un faux Roll20. Ils n'ont pas remplacé un essai en partie réelle.
 
 ## Combat en vol (altitude)
 

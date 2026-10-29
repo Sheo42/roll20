@@ -101,7 +101,7 @@ does not count a turn twice. Out of combat, the GM moves time on with `!buff tim
 | `!buff remove <n> [<n> ...]` | Removes casts: dry run, then `... confirm N`. |
 | `!buff clear` | Removes the selected tokens from all their effects (dry run, then `confirm N`). |
 | `!buff clear all` | GM: removes every effect (dry run, then `confirm N`). |
-| `!buff time <duration>` | GM: moves time on (dry run, then `confirm N`). |
+| `!buff time <duration>` | GM: moves time on for every effect (dry run, then `confirm N`); also the "Passer le temps" button of the GM menu. |
 | `!buff show` | Rewrites the handout and gives a link to open it. |
 | `!buff help` | Help. |
 
@@ -117,7 +117,7 @@ buttons to pick one, or "Nom libre" to keep the name as typed; `=Moi` forces a f
 matches nothing is a free name: an NPC played during a role-play scene with no map keeps the effect afterwards. "Tout le groupe", "Moi seul" and "Choisir..."
 use the PCs of the page, or all the campaign's PCs when none is on it.
 
-**Tests**: `node tests/bufftracker.test.js` (Node, no dependency) runs 355 checks: the pure logic (durations, targets, countdown) and then the full flow with a fake Roll20. They are no substitute for a try-out in a real game.
+**Tests**: `node tests/bufftracker.test.js` (Node, no dependency) runs 363 checks: the pure logic (durations, targets, countdown) and then the full flow with a fake Roll20. They are no substitute for a try-out in a real game.
 
 ## Flying combat (altitude)
 

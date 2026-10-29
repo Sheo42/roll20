@@ -73,7 +73,8 @@
  *   !buff clear                   retire les tokens sélectionnés de tous leurs effets
  *                                 (essai à blanc, puis confirm N)
  *   !buff clear all               MJ : tous les effets (essai à blanc, puis confirm N)
- *   !buff time 10min                MJ : fait passer le temps (essai à blanc, puis confirm N)
+ *   !buff time 10min                MJ : fait passer le temps (essai à blanc, puis confirm N) ;
+ *                                 bouton « Passer le temps » du menu du MJ
  *   !buff show                    met à jour le handout et donne le lien pour l'ouvrir
  *   !buff help
  *   Les modifications d'un seul lancement (edit) s'appliquent tout de suite : elles se
@@ -462,12 +463,14 @@
   const lienFenetre = (id, label) => bouton(label || 'Ouvrir la fenêtre', handoutUrl(id));
 
   const Q_DUREE = 'Durée : 3r 10min 2h 1j ou perm';
+  // bouton Durée d'un effet en cours : nouvelle durée, ou calcul sur la durée restante
+  const Q_DUREE_EDIT = 'Nouvelle durée (10min 2h perm) ou en plus/moins : -25r +1h';
   const Q_LANCEUR = 'Lanceur';
   const Q_CIBLES = '?{Cibles|Tout le groupe,group|Moi seul,me|Tokens sélectionnés,selected|Choisir...,pick}';
   const boutonsLancement = (r) => [
     bouton('-1', `${CMD} edit ${r.id} --dur -1`),
     bouton('+1', `${CMD} edit ${r.id} --dur +1`),
-    bouton('Durée', `${CMD} edit ${r.id} --dur ?{${Q_DUREE}|${compactDuration(r.remaining)}}`),
+    bouton('Durée', `${CMD} edit ${r.id} --dur ?{${Q_DUREE_EDIT}|${compactDuration(r.remaining)}}`),
     bouton('Effet', `${CMD} edit ${r.id} --effect ?{Effet|${escapeHtml(pourRequete(r.effect))}}`),
     bouton('Cibles', `${CMD} edit ${r.id} --targets pick`),
     bouton('X', `${CMD} remove ${r.id}`)
@@ -852,7 +855,8 @@
       titre = gm ? 'Tous les effets' : 'Tes effets';
     }
     const rows = buildCastView(buffs, nomEntite, nomLanceur, (b) => peutGerer(pid, b), gm, (b) => mesCibles(pid, b).length > 0);
-    const footer = [boutonAjouter(lanceurParDefaut(pid, pageid, msg)), bouton('Sorts courants', `${CMD} fav`), lienFenetre(handout().id)].join('');
+    const footer = [boutonAjouter(lanceurParDefaut(pid, pageid, msg)), bouton('Sorts courants', `${CMD} fav`), lienFenetre(handout().id)]
+      .concat(gm ? [bouton('Passer le temps', `${CMD} time ?{Temps qui passe pour tous les effets : 10min 1h 13h50 1j|10min}`)] : []).join('');
     dire(pid, renderMenu(rows, {
       title: titre,
       empty: sel.length ? 'Aucun effet sur la sélection.' : 'Aucun effet en cours.',
