@@ -121,7 +121,7 @@ chuchote des boutons pour choisir, ou « Nom libre » pour le garder tel quel ; 
 Un nom qui ne correspond à rien est un nom libre : un PNJ joué pendant une scène de RP sans carte garde son effet ensuite. « Tout le groupe », « Moi seul » et « Choisir... » prennent les PJ de la carte,
 ou tous les PJ de la partie s'il n'y en a aucun dessus.
 
-**Tests** : `node tests/bufftracker.test.js` (Node, sans dépendance) lance 351 vérifications : la logique pure (durées, cibles, décompte) puis le flux complet avec un faux Roll20. Ils n'ont pas remplacé un essai en partie réelle.
+**Tests** : `node tests/bufftracker.test.js` (Node, sans dépendance) lance 355 vérifications : la logique pure (durées, cibles, décompte) puis le flux complet avec un faux Roll20. Ils n'ont pas remplacé un essai en partie réelle.
 
 ## Combat en vol (altitude)
 

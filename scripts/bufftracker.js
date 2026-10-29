@@ -29,7 +29,7 @@
  * CE QUE FONT LES JOUEURS
  *   Cliquer sur « Buffs » : menu chuchoté, une ligne par lancement avec ses cibles et
  *   des boutons (-1, +1, Durée, Effet, Cibles, X). « Ajouter » et « Sorts courants »
- *   demandent le lanceur (ton personnage par défaut) puis les cibles :
+ *   demandent le lanceur (le token sélectionné, sinon ton personnage) puis les cibles :
  *     Tout le groupe   les PJ présents sur ta carte (sans carte ou sans PJ dessus :
  *                      tous les PJ de la partie)
  *     Moi seul         le lanceur
@@ -759,7 +759,11 @@
     const r = trouverEntite(q, pageid);
     return r.choices ? r : { caster: copieEntite(r.entity) };
   };
-  const lanceurParDefaut = (pid, pageid) => {
+  // lanceur proposé par Ajouter et Sorts courants : le token sélectionné (le premier),
+  // sinon le personnage du joueur s'il n'en a qu'un
+  const lanceurParDefaut = (pid, pageid, msg) => {
+    const sel = msg ? entitesUniques(selection(msg)) : [];
+    if (sel.length) return sel[0].name || '';
     const l = persosDuJoueur(pid, pageid);
     return l.length === 1 ? l[0].name : '';
   };
@@ -848,7 +852,7 @@
       titre = gm ? 'Tous les effets' : 'Tes effets';
     }
     const rows = buildCastView(buffs, nomEntite, nomLanceur, (b) => peutGerer(pid, b), gm, (b) => mesCibles(pid, b).length > 0);
-    const footer = [boutonAjouter(lanceurParDefaut(pid, pageid)), bouton('Sorts courants', `${CMD} fav`), lienFenetre(handout().id)].join('');
+    const footer = [boutonAjouter(lanceurParDefaut(pid, pageid, msg)), bouton('Sorts courants', `${CMD} fav`), lienFenetre(handout().id)].join('');
     dire(pid, renderMenu(rows, {
       title: titre,
       empty: sel.length ? 'Aucun effet sur la sélection.' : 'Aucun effet en cours.',
@@ -1108,7 +1112,7 @@
   };
 
   const cmdFav = (msg) => {
-    const lanceur = lanceurParDefaut(msg.playerid, pageDu(msg));
+    const lanceur = lanceurParDefaut(msg.playerid, pageDu(msg), msg);
     dire(msg.playerid, boite('<b>Sorts courants</b><br>' + FAVORITES.map((f) => boutonFavori(f, lanceur)).join('')));
   };
 

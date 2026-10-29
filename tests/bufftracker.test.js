@@ -501,6 +501,13 @@ describe('Sorts courants et bouton Ajouter', () => {
   const menu = p.dire('pC', '!buff')[0];
   check(menu.includes('--caster ?{Lanceur|Solathia}') && menu.includes('--targets ?{Cibles|'), 'bouton Ajouter : lanceur par défaut et choix des cibles');
   check(menu.includes('--name ?{Nom du buff}'), 'bouton Ajouter : la première question demande le nom du buff');
+  const menuSel = p.dire('pC', '!buff', [p.t.paz])[0];
+  check(menuSel.includes('--caster ?{Lanceur|Paz Tarpou}'), 'token sélectionné : proposé comme lanceur (nom de sa fiche)');
+  const menuGob = p.dire('gm', '!buff', [p.t.gob1, p.t.paz])[0];
+  check(menuGob.includes('--caster ?{Lanceur|Gobelin 1}'), 'plusieurs tokens sélectionnés : le premier ; token non lié : son nom');
+  const favSel = p.dire('gm', '!buff fav', [p.t.gob2])[0];
+  check(favSel.includes('--caster ?{Lanceur|Gobelin 2}'), 'Sorts courants : lanceur = token sélectionné');
+  check(p.dire('gm', '!buff fav')[0].includes('--caster ?{Lanceur|}'), 'MJ sans sélection : pas de lanceur proposé');
   check(p.dire('gm', '!buff')[0].includes('?{Lanceur|}'), 'MJ : pas de lanceur par défaut');
   // les libellés des listes déroulantes ne contiennent ni virgule ni barre
   const q = menu.match(/\?\{Cibles\|([^}]*)\}/)[1].split('|');
