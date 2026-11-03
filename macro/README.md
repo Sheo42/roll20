@@ -5,7 +5,7 @@ scripts API dont elles dépendent sont à installer dans la partie (Game Setting
 
 | Macro | Ce qu'elle fait | Dépend de |
 | --- | --- | --- |
-| `Blindroll` | Chuchote au token sélectionné un menu de 13 boutons de compétences (Évaluation, Bluff, Diplomatie, Sabotage, Déguisement, Intimidation, Perception, Psychologie, Art de la magie, Discrétion, Survie, Représentation, Linguistique), chacun avec le bonus du token. Un clic lance `!broll <compétence> 1d20+bonus`, un jet à l'aveugle. | `!broll` (script absent de ce dépôt) |
+| `Blindroll` | Jet secret de compétence pour le token sélectionné : une liste déroulante propose 13 compétences (Évaluation, Bluff, Diplomatie, Sabotage, Déguisement, Intimidation, Perception, Psychologie, Art de la magie, Discrétion, Survie, Représentation, Linguistique) puis lance un jet secret natif de Roll20 (`/sr 1d20+bonus[Compétence]`) : seul le MJ voit le résultat, le joueur reçoit juste une confirmation. Pas de menu de boutons : l'éditeur de macros transforme `&#13;` en vrai saut de ligne, ce qui casse un `/sr` lancé depuis un bouton. | Rien (jets secrets natifs, remplace le script BlindRoll.js et `!broll`) |
 | `BuffTracker` | Lance `!buff`, le menu du suivi des buffs et durées de sort. Macro visible par tous les joueurs. | `scripts/bufftracker.js` |
 | `Vol` | Lance `!alt`, le menu du combat en vol : coût d'un vol, altitude, rejoindre une cible, chute, liste des altitudes. Macro visible par tous les joueurs. | `scripts/altitude.js` |
 | `Climat` | Lance `!climat`, le point d'entrée du générateur de météo. | `scripts/Climat.js` |
