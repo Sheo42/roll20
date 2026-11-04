@@ -3,8 +3,7 @@
 // de Roll20 (/sr) : seul le MJ voit le résultat, le joueur reçoit juste une confirmation.
 //
 // Même principe que les boutons de PFCompanion (All Skills, All Attacks...) : une capacité (ability)
-// du personnage en action de token. Le script ne sert qu'à la créer : ensuite le jet marche sans lui
-// (et même si le bac à sable API plante).
+// du personnage en action de token. Les boutons du menu passent par le script (il doit tourner).
 //
 // Usage dans le chat :
 //   !secretrolls                 -> ESSAI À BLANC sur les personnages des tokens sélectionnés
@@ -18,10 +17,9 @@
 //
 // Une seule capacité par personnage : « Secret ». Les anciennes capacités cachées « sr-<compétence> »
 // de la première version sont retirées à la mise à jour.
-// Les boutons envoient « !&#13;/sr ... ». Roll20 décode les entités d'une macro ou d'une capacité quand
-// elle est lancée : un « &#13; » écrit tel quel devient un vrai saut de ligne, coupe le menu en deux et
-// lance un /sr cassé (« error with your formula »). On écrit donc « &amp;#13; », qui devient « &#13; »
-// dans le menu posté, comme un bouton tapé directement dans le chat (testé : ça marche).
+// Les boutons appellent « !secretroll <id du personnage> <compétence> » : le script lit le bonus et envoie
+// le /sr au nom du joueur qui a cliqué. Un bouton ne peut pas lancer /sr lui-même : l'astuce
+// « !&#13;/sr ... » casse dans une macro ou une capacité (« error with your formula », testé 3 fois).
 
 var SecretRolls = (function () {
   'use strict';
@@ -38,7 +36,21 @@ var SecretRolls = (function () {
 
   // menu chuchoté au personnage (donc à ses joueurs) ; chaque bouton envoie « ! » puis, à la ligne, le jet /sr.
   function rollButton(label, attr) {
-    return '[' + label + ' (@{' + attr + '})](!&amp;#13;/sr 1d20+@{' + attr + '}[' + label + '])';
+    return '[' + label + ' (@{' + attr + '})](!secretroll @{character_id} ' + attr + ')';
+  }
+  function skillOf(attr) {
+    return SKILLS.filter(function (s) { return s[1] === String(attr || '').toLowerCase(); })[0] || null;
+  }
+  // bonus de la feuille -> jet secret ; valeur vide ou illisible = 0
+  function rollText(label, value) {
+    var n = parseInt(String(value === undefined || value === null ? '' : value).replace(/\s+/g, ''), 10);
+    if (isNaN(n)) n = 0;
+    return '/sr 1d20' + (n < 0 ? '-' + (-n) : '+' + n) + '[' + label + ']';
+  }
+  function canRoll(controlledby, playerid, isGM) {
+    if (isGM) return true;
+    var list = String(controlledby || '').split(',').map(function (s) { return s.trim(); });
+    return list.indexOf('all') >= 0 || list.indexOf(playerid) >= 0;
   }
   function secretAction() {
     return '/w "@{character_name}" &{template:pf_generic} {{name=Jets secrets}} {{' +
@@ -86,7 +98,7 @@ var SecretRolls = (function () {
     return r;
   }
 
-  var api = { SKILLS: SKILLS, rollButton: rollButton, TOKEN_ACTION: TOKEN_ACTION, secretAction: secretAction, isOurs: isOurs,
+  var api = { SKILLS: SKILLS, rollButton: rollButton, skillOf: skillOf, rollText: rollText, canRoll: canRoll, TOKEN_ACTION: TOKEN_ACTION, secretAction: secretAction, isOurs: isOurs,
     isLegacy: isLegacy, plan: plan, hasWork: hasWork, describe: describe, parseArgs: parseArgs };
   if (typeof module !== 'undefined') module.exports = api;
   if (typeof on !== 'function') return api;
@@ -137,6 +149,17 @@ var SecretRolls = (function () {
     if (cid) autoSync(getObj('character', cid));
   }
 
+  // clic sur un bouton du menu : !secretroll <id du personnage> <compétence>
+  function roll(msg) {
+    var w = msg.content.trim().split(/\s+/);
+    var c = getObj('character', w[1]), s = skillOf(w[2]);
+    if (!c || !s) return;
+    if (!canRoll(c.get('controlledby'), msg.playerid, playerIsGM(msg.playerid))) return;
+    // nom d'attribut sans tenir compte de la casse (comme @{...} dans le chat), sinon valeur par défaut de la feuille
+    var at = findObjs({ type: 'attribute', characterid: c.id }).filter(function (x) { return String(x.get('name')).toLowerCase() === s[1]; })[0];
+    sendChat('player|' + msg.playerid, rollText(s[0], at ? at.get('current') : getAttrByName(c.id, s[1])));
+  }
+
   function run(msg) {
     var a = parseArgs(msg.content);
     if (a.bad.length) return tell('Option inconnue : ' + a.bad.join(' ') + '. Options : all, remove, confirm N, auto on|off.');
@@ -179,7 +202,9 @@ var SecretRolls = (function () {
     on('add:graphic', function (g) { autoSyncToken(g); });
     on('change:graphic:represents', function (g) { autoSyncToken(g); });
     on('chat:message', function (msg) {
-      if (msg.type !== 'api' || !/^!secretrolls(\s|$)/i.test(msg.content)) return;
+      if (msg.type !== 'api') return;
+      if (/^!secretroll\s/i.test(msg.content)) return roll(msg);
+      if (!/^!secretrolls(\s|$)/i.test(msg.content)) return;
       if (!playerIsGM(msg.playerid)) return;
       run(msg);
     });

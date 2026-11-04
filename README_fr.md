@@ -171,7 +171,7 @@ remplacent pas un essai dans une vraie partie.
 - `!secretrolls all` puis `!secretrolls all confirm N` : ajoute la capacité à tous les PJ (personnages avec un joueur dans « Contrôlé par »). Sans `all` : les personnages des tokens sélectionnés. Essai à blanc par défaut.
 - Automatique : dès qu'un PJ change, ou qu'un de ses tokens est posé sur la carte ou relié à lui, la capacité est créée ou mise à jour (le MJ reçoit un chuchotement). `!secretrolls auto off` / `auto on` pour couper ou remettre.
 - `!secretrolls remove [all]` puis `confirm N` : la retire.
-- Une seule capacité par personnage (`Secret`) ; les capacités cachées `sr-<compétence>` de la première version sont retirées à la mise à jour. Une fois créée, les jets marchent sans le script. Les boutons envoient `!&#13;/sr ...`. Roll20 décode les entités HTML quand une macro ou une capacité est lancée : un `&#13;` simple devient un vrai saut de ligne, coupe le menu et lance un `/sr` cassé (« error with your formula ») ; la capacité contient donc `&amp;#13;`, qui devient `&#13;` dans le menu posté.
+- Une seule capacité par personnage (`Secret`) ; les capacités cachées `sr-<compétence>` de la première version sont retirées à la mise à jour. Chaque bouton appelle `!secretroll <id du personnage> <compétence>` : le script lit le bonus et envoie le jet `/sr` au nom du joueur qui a cliqué (seulement les joueurs qui contrôlent le personnage, ou le MJ). Un bouton ne peut pas envoyer `/sr` lui-même : l'astuce `!&#13;/sr ...` échoue dans une macro ou une capacité (« error with your formula »).
 
 ## Synchroniser les scripts API avec GitHub (userscript)
 
