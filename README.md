@@ -159,12 +159,12 @@ the token, player rights, sheet fly speed in meters, menu buttons). They are no 
 
 ## Secret skill rolls (secretrolls)
 
-`scripts/secretrolls.js` gives each PC a **Secret** token action, like PFCompanion's "All Skills" button. It whispers a menu of 13 skills (Appraise, Bluff, Diplomacy, Disable Device, Disguise, Intimidate, Perception, Sense Motive, Spellcraft, Stealth, Survival, Perform, Linguistics) with the character's bonus; each button makes a Roll20 native secret roll (`/sr`): only the GM sees the result, the player just gets a confirmation. Replaces the old BlindRoll.js script (`!broll`).
+`scripts/secretrolls.js` gives each PC a **Secret** token action, like PFCompanion's "All Skills" button. It posts a menu of 13 skills (Appraise, Bluff, Diplomacy, Disable Device, Disguise, Intimidate, Perception, Sense Motive, Spellcraft, Stealth, Survival, Perform, Linguistics) with the character's bonus; each button makes a Roll20 native secret roll (`/sr`): only the GM sees the result, the player just gets a confirmation. Replaces the old BlindRoll.js script (`!broll`).
 
 - `!secretrolls all` then `!secretrolls all confirm N`: adds the ability to every PC (character with a player in "Controlled by"). Without `all`: the characters of the selected tokens. Dry run by default.
 - Automatic: whenever a PC changes, or one of its tokens is dropped on the map or linked to it, the ability is created or updated (the GM gets a whisper). `!secretrolls auto off` / `auto on` toggles it.
 - `!secretrolls remove [all]` then `confirm N`: removes it.
-- One ability per character (`Secret`); the hidden `sr-<skill>` abilities of the first version are removed on update. Once created, the rolls work without the script, even if the API sandbox crashes: each button link starts with a backtick (`` [Text](`/sr ...) ``), which runs it as a plain chat line (tested in game). The `!&#13;/sr ...` trick fails inside a macro or ability ("error with your formula").
+- One ability per character (`Secret`); the hidden `sr-<skill>` abilities of the first version are removed on update. Once created, the rolls work without the script, even if the API sandbox crashes: each button link starts with a backtick (`` [Text](`/sr ...) ``), which runs it as a plain chat line (tested in game). The menu is posted in public chat (only the results are secret): inside a whisper, backtick links give "error with your formula". The `!&#13;/sr ...` trick fails inside a macro or ability ("error with your formula").
 
 ## Sync the API scripts with GitHub (userscript)
 

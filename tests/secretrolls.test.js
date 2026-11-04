@@ -9,7 +9,7 @@ function eq(a, b, label) { ok(JSON.stringify(a) === JSON.stringify(b), label + '
 
 // --- logique pure
 var act = S.secretAction();
-ok(act.indexOf('/w "@{character_name}" &{template:pf_generic} {{name=Jets secrets}} {{') === 0 && /\}\}$/.test(act), 'menu chuchoté au personnage, modèle pf_generic');
+ok(act.indexOf('&{template:pf_generic} {{name=Jets secrets}} {{') === 0 && act.indexOf('/w') < 0 && /\}\}$/.test(act), 'menu public (un /w casse les liens à accent grave), modèle pf_generic');
 ok(act.indexOf('[Perception (@{perception})](`/sr 1d20+@{perception}[Perception])') > 0, 'bouton Perception : bonus affiché, jet secret par accent grave (forme testée dans le jeu)');
 eq((act.match(/\]\(`\/sr 1d20\+@\{/g) || []).length, 13, '13 boutons');
 ok(act.indexOf('#13;') < 0 && act.indexOf('!secretroll') < 0, 'ni astuce &#13; ni appel au script');

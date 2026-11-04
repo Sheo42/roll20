@@ -1,5 +1,5 @@
 // secretrolls.js - script API Roll20, réservé au MJ. Ajoute aux PJ un bouton de token « Secret » qui
-// chuchote un menu de compétences (avec le bonus du personnage) ; chaque bouton lance un jet secret natif
+// affiche (en public) un menu de compétences (avec le bonus du personnage) ; chaque bouton lance un jet secret natif
 // de Roll20 (/sr) : seul le MJ voit le résultat, le joueur reçoit juste une confirmation.
 //
 // Même principe que les boutons de PFCompanion (All Skills, All Attacks...) : une capacité (ability)
@@ -34,12 +34,14 @@ var SecretRolls = (function () {
     ['Survie', 'survival'], ['Représentation', 'perform'], ['Linguistique', 'linguistics']
   ];
 
-  // menu chuchoté au personnage (donc à ses joueurs) ; chaque bouton envoie « ! » puis, à la ligne, le jet /sr.
+  // chaque bouton commence par un accent grave : le lien est lancé comme une ligne de chat (/sr)
   function rollButton(label, attr) {
     return '[' + label + ' (@{' + attr + '})](`/sr 1d20+@{' + attr + '}[' + label + '])';
   }
   function secretAction() {
-    return '/w "@{character_name}" &{template:pf_generic} {{name=Jets secrets}} {{' +
+    // pas de /w : un chuchotement qui contient un lien à accent grave donne « error with your formula »
+    // (testé, même avec l'accent écrit &amp;#96;). Le menu est donc public ; les résultats restent secrets.
+    return '&{template:pf_generic} {{name=Jets secrets}} {{' +
       SKILLS.map(function (s) { return rollButton(s[0], s[1]); }).join(' ') + '}}';
   }
 
