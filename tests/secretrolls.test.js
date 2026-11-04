@@ -10,16 +10,9 @@ function eq(a, b, label) { ok(JSON.stringify(a) === JSON.stringify(b), label + '
 // --- logique pure
 var act = S.secretAction();
 ok(act.indexOf('/w "@{character_name}" &{template:pf_generic} {{name=Jets secrets}} {{') === 0 && /\}\}$/.test(act), 'menu chuchoté au personnage, modèle pf_generic');
-ok(act.indexOf('[Perception (@{perception})](!secretroll @{character_id} perception)') > 0, 'bouton Perception : bonus affiché, appelle le script');
-eq((act.match(/\]\(!secretroll @\{character_id\} /g) || []).length, 13, '13 boutons');
-ok(act.indexOf('#13;') < 0 && act.indexOf('/sr') < 0, 'plus d\'astuce &#13; ni de /sr dans le menu');
-eq(S.rollText('Perception', '12'), '/sr 1d20+12[Perception]', 'jet : bonus positif');
-eq(S.rollText('Bluff', '-1'), '/sr 1d20-1[Bluff]', 'jet : bonus négatif');
-eq(S.rollText('Survie', ''), '/sr 1d20+0[Survie]', 'jet : bonus vide = 0');
-eq(S.rollText('Survie', 'abc'), '/sr 1d20+0[Survie]', 'jet : illisible = 0');
-eq(S.rollText('Survie', ' +5 '), '/sr 1d20+5[Survie]', 'jet : +5 avec espaces');
-ok(S.skillOf('Perception')[1] === 'perception' && S.skillOf('x') === null, 'compétences connues seulement');
-ok(S.canRoll('p1,p2', 'p2', false) && S.canRoll('all', 'p9', false) && S.canRoll('', 'gm', true) && !S.canRoll('p1', 'p2', false), 'qui peut lancer');
+ok(act.indexOf('[Perception (@{perception})](`/sr 1d20+@{perception}[Perception])') > 0, 'bouton Perception : bonus affiché, jet secret par accent grave (forme testée dans le jeu)');
+eq((act.match(/\]\(`\/sr 1d20\+@\{/g) || []).length, 13, '13 boutons');
+ok(act.indexOf('#13;') < 0 && act.indexOf('!secretroll') < 0, 'ni astuce &#13; ni appel au script');
 ok(S.SKILLS.every(function (s) { return !/[()\[\]|]/.test(s[0]); }), 'pas de caractère qui casse un bouton dans les libellés');
 ok(act.indexOf('~') < 0, 'aucun appel de capacité');
 ok(S.isOurs('Secret') && S.isOurs('sr-stealth') && !S.isOurs('sr-autre') && !S.isOurs('All Skills'), 'reconnaît ses capacités seulement');
@@ -178,23 +171,6 @@ eq(w2.abilities('cOff').length, 0, 'auto off : rien ajouté');
 w2.say('!secretrolls auto on');
 w2.fire(off, { name: 'Off PJ' });
 eq(w2.abilities('cOff').length, 1, 'auto on : ajouté');
-
-// --- clic sur un bouton
-var w3 = world();
-w3.emit('ready');
-w3.mk('character', { _id: 'cSel', name: 'Selea', controlledby: 'p1' });
-w3.mk('attribute', { _characterid: 'cSel', name: 'Perception', current: '17' });
-w3.say('!secretroll cSel perception', null, 'p1');
-eq(w3.sent[w3.sent.length - 1], { who: 'player|p1', text: '/sr 1d20+17[Perception]' }, 'joueur : /sr envoyé à son nom (casse du nom d\'attribut ignorée)');
-w3.say('!secretroll cSel stealth', null, 'p1');
-eq(w3.sent[w3.sent.length - 1].text, '/sr 1d20+0[Discrétion]', 'compétence absente de la fiche : +0');
-var k = w3.sent.length;
-w3.say('!secretroll cSel perception', null, 'p2');
-w3.say('!secretroll cSel hack', null, 'p1');
-w3.say('!secretroll nope perception', null, 'p1');
-eq(w3.sent.length, k, 'autre joueur, compétence inconnue, personnage inconnu : rien');
-w3.say('!secretroll cSel perception', null, 'gm');
-eq(w3.sent[w3.sent.length - 1].who, 'player|gm', 'le MJ peut aussi');
 
 console.log(pass + ' OK, ' + fail + ' échec(s)');
 process.exit(fail ? 1 : 0);
