@@ -18,15 +18,17 @@
 //
 // Une seule capacité par personnage : « Secret ». Les anciennes capacités cachées « sr-<compétence> »
 // de la première version sont retirées à la mise à jour.
-// Les boutons envoient « !&#13;/sr ... » : l'éditeur de macros transforme &#13; en vrai saut de ligne à
-// l'enregistrement (ce qui cassait la macro), mais une capacité écrite par l'API le garde tel quel.
+// Les boutons envoient « !&#13;/sr ... ». Roll20 décode les entités d'une macro ou d'une capacité quand
+// elle est lancée : un « &#13; » écrit tel quel devient un vrai saut de ligne, coupe le menu en deux et
+// lance un /sr cassé (« error with your formula »). On écrit donc « &amp;#13; », qui devient « &#13; »
+// dans le menu posté, comme un bouton tapé directement dans le chat (testé : ça marche).
 
 var SecretRolls = (function () {
   'use strict';
   var TOKEN_ACTION = 'Secret';
   var LEGACY_PREFIX = 'sr-';
   // [libellé affiché, attribut de la feuille Pathfinder Community]
-  // pas de virgule ni de barre verticale dans les libellés (liste déroulante)
+  // pas de ( ) [ ] | dans les libellés : ils casseraient le bouton
   var SKILLS = [
     ['Évaluation', 'appraise'], ['Bluff', 'bluff'], ['Diplomatie', 'diplomacy'], ['Sabotage', 'disable-device'],
     ['Déguisement', 'disguise'], ['Intimidation', 'intimidate'], ['Perception', 'perception'],
@@ -35,10 +37,8 @@ var SecretRolls = (function () {
   ];
 
   // menu chuchoté au personnage (donc à ses joueurs) ; chaque bouton envoie « ! » puis, à la ligne, le jet /sr.
-  // Dans une capacité créée par l'API, « &#13; » reste tel quel : c'est l'éditeur de macros qui le casse
-  // quand on enregistre (à ne pas ouvrir/enregistrer à la main ; l'ajout automatique le répare de toute façon).
   function rollButton(label, attr) {
-    return '[' + label + ' (@{' + attr + '})](!&#13;/sr 1d20+@{' + attr + '}[' + label + '])';
+    return '[' + label + ' (@{' + attr + '})](!&amp;#13;/sr 1d20+@{' + attr + '}[' + label + '])';
   }
   function secretAction() {
     return '/w "@{character_name}" &{template:pf_generic} {{name=Jets secrets}} {{' +

@@ -164,7 +164,7 @@ the token, player rights, sheet fly speed in meters, menu buttons). They are no 
 - `!secretrolls all` then `!secretrolls all confirm N`: adds the ability to every PC (character with a player in "Controlled by"). Without `all`: the characters of the selected tokens. Dry run by default.
 - Automatic: whenever a PC changes, or one of its tokens is dropped on the map or linked to it, the ability is created or updated (the GM gets a whisper). `!secretrolls auto off` / `auto on` toggles it.
 - `!secretrolls remove [all]` then `confirm N`: removes it.
-- One ability per character (`Secret`); the hidden `sr-<skill>` abilities of the first version are removed on update. Once created, the rolls work without the script. The buttons send `!&#13;/sr ...`: the macro editor turns `&#13;` into a real line break when saving (that broke the macro version), but an ability written by the API keeps it, so don't edit and save `Secret` by hand (auto-add repairs it anyway).
+- One ability per character (`Secret`); the hidden `sr-<skill>` abilities of the first version are removed on update. Once created, the rolls work without the script. The buttons send `!&#13;/sr ...`. Roll20 decodes HTML entities when a macro or ability runs, so a plain `&#13;` becomes a real line break, splits the menu and fires a broken `/sr` ("error with your formula"); the ability therefore holds `&amp;#13;`, which becomes `&#13;` in the posted menu.
 
 ## Sync the API scripts with GitHub (userscript)
 

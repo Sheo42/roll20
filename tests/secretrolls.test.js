@@ -10,8 +10,9 @@ function eq(a, b, label) { ok(JSON.stringify(a) === JSON.stringify(b), label + '
 // --- logique pure
 var act = S.secretAction();
 ok(act.indexOf('/w "@{character_name}" &{template:pf_generic} {{name=Jets secrets}} {{') === 0 && /\}\}$/.test(act), 'menu chuchoté au personnage, modèle pf_generic');
-ok(act.indexOf('[Perception (@{perception})](!&#13;/sr 1d20+@{perception}[Perception])') > 0, 'bouton Perception : bonus affiché, jet secret');
-eq((act.match(/\]\(!&#13;\/sr /g) || []).length, 13, '13 boutons');
+ok(act.indexOf('[Perception (@{perception})](!&amp;#13;/sr 1d20+@{perception}[Perception])') > 0, 'bouton Perception : bonus affiché, jet secret');
+ok(!/[^;]#13;|[^p];#13;/.test(act.replace(/&amp;#13;/g, '')), 'aucun &#13; non échappé');
+eq((act.match(/\]\(!&amp;#13;\/sr /g) || []).length, 13, '13 boutons');
 ok(S.SKILLS.every(function (s) { return !/[()\[\]|]/.test(s[0]); }), 'pas de caractère qui casse un bouton dans les libellés');
 ok(act.indexOf('~') < 0, 'aucun appel de capacité');
 ok(S.isOurs('Secret') && S.isOurs('sr-stealth') && !S.isOurs('sr-autre') && !S.isOurs('All Skills'), 'reconnaît ses capacités seulement');
