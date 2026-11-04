@@ -9,12 +9,11 @@ function eq(a, b, label) { ok(JSON.stringify(a) === JSON.stringify(b), label + '
 
 // --- logique pure
 var act = S.secretAction();
-ok(act.indexOf('&{template:pf_generic} {{name=Jets secrets}} {{') === 0 && act.indexOf('/w') < 0 && /\}\}$/.test(act), 'menu public (un /w casse les liens à accent grave), modèle pf_generic');
-ok(act.indexOf('[Perception (@{perception})](`/sr 1d20+@{perception}[Perception])') > 0, 'bouton Perception : bonus affiché, jet secret par accent grave (forme testée dans le jeu)');
-eq((act.match(/\]\(`\/sr 1d20\+@\{/g) || []).length, 13, '13 boutons');
-ok(act.indexOf('#13;') < 0 && act.indexOf('!secretroll') < 0, 'ni astuce &#13; ni appel au script');
-ok(S.SKILLS.every(function (s) { return !/[()\[\]|]/.test(s[0]); }), 'pas de caractère qui casse un bouton dans les libellés');
-ok(act.indexOf('~') < 0, 'aucun appel de capacité');
+ok(act.indexOf('/sr 1d20+?{Compétence|') === 0 && /\}$/.test(act), 'jet secret avec liste déroulante (forme testée dans le jeu)');
+ok(act.indexOf('|Perception (@{perception}),@{perception}[Perception]|') > 0, 'Perception : bonus dans le libellé, libellé du jet');
+eq((act.match(/\|/g) || []).length, 13, '13 compétences');
+ok(S.SKILLS.every(function (s) { return !/[,|]/.test(s[0]); }), 'pas de virgule ni de barre dans les libellés');
+ok(act.indexOf('&#13;') < 0 && act.indexOf('~') < 0, 'ni &#13; ni appel de capacité');
 ok(S.isOurs('Secret') && S.isOurs('sr-stealth') && !S.isOurs('sr-autre') && !S.isOurs('All Skills'), 'reconnaît ses capacités seulement');
 
 var p = S.plan([]);
@@ -38,7 +37,7 @@ eq(S.parseArgs('!secretrolls tous confirmer 2').bad, ['tous', 'confirmer', '2'],
 
 // --- faux Roll20
 function world() {
-  var objs = [], chat = [], sent = [], handlers = {}, n = 0;
+  var objs = [], chat = [], handlers = {}, n = 0;
   function mk(type, props) {
     var o = { id: props._id || ('id' + (n++)), _type: type, p: Object.assign({}, props) };
     o.get = function (k) { return k === '_id' || k === 'id' ? o.id : (k === '_type' ? type : o.p[k]); };
@@ -59,11 +58,7 @@ function world() {
       });
     },
     createObj: function (t, props) { return mk(t, props); },
-    sendChat: function (who, text) { chat.push(text); sent.push({ who: who, text: text }); },
-    getAttrByName: function (cid, name) {
-      var a = objs.filter(function (o) { return o._type === 'attribute' && o.p._characterid === cid && o.p.name === name; })[0];
-      return a ? a.p.current : '';
-    },
+    sendChat: function (who, text) { chat.push(text); },
     playerIsGM: function (pid) { return pid === 'gm'; },
     state: {},
     console: console
@@ -72,7 +67,7 @@ function world() {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../scripts/secretrolls.js'), 'utf8'), ctx);
   function emit(ev, a, b) { (handlers[ev] || []).forEach(function (f) { f(a, b); }); }
   return {
-    mk: mk, chat: chat, sent: sent, emit: emit,
+    mk: mk, chat: chat, emit: emit,
     // comme Roll20 : change:character puis change:character:<champ>
     fire: function (o, changes) {
       o.set(changes); emit('change:' + o._type, o, {});
@@ -114,7 +109,7 @@ ok(/Le nombre a changé/.test(out) && w.abilities('cPaz').length === 15, 'mauvai
 w.say('!secretrolls confirm 1', [{ _id: 'tPaz' }]);
 eq(names(w.abilities('cPaz')), ['All Skills', 'Secret'], 'mise à jour : plus que Secret (et All Skills)');
 var sec = w.abilities('cPaz').filter(function (a) { return a.p.name === 'Secret'; })[0];
-ok(sec.p.istokenaction === true && sec.p.action === act, 'Secret : action de token, menu de boutons');
+ok(sec.p.istokenaction === true && sec.p.action === act, 'Secret : action de token, liste déroulante');
 
 out = w.say('!secretrolls', [{ _id: 'tPaz' }]);
 ok(/Paz Tarpou<\/b> : à jour/.test(out), 'relance : à jour');

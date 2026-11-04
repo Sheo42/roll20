@@ -1,9 +1,10 @@
-// secretrolls.js - script API Roll20, réservé au MJ. Ajoute aux PJ un bouton de token « Secret » qui
-// affiche (en public) un menu de compétences (avec le bonus du personnage) ; chaque bouton lance un jet secret natif
-// de Roll20 (/sr) : seul le MJ voit le résultat, le joueur reçoit juste une confirmation.
+// secretrolls.js - script API Roll20, réservé au MJ. Ajoute aux PJ un bouton de token « Secret » :
+// une liste déroulante des compétences (avec le bonus du personnage) puis un jet secret natif de Roll20 (/sr) :
+// seul le MJ voit le résultat, le joueur reçoit juste une confirmation.
 //
 // Même principe que les boutons de PFCompanion (All Skills, All Attacks...) : une capacité (ability)
-// du personnage en action de token. Le script ne sert qu'à la créer : les clics ne passent pas par lui.
+// du personnage en action de token. Le script ne sert qu'à la créer : ensuite le jet marche sans lui
+// (et même si le bac à sable API plante).
 //
 // Usage dans le chat :
 //   !secretrolls                 -> ESSAI À BLANC sur les personnages des tokens sélectionnés
@@ -17,16 +18,17 @@
 //
 // Une seule capacité par personnage : « Secret ». Les anciennes capacités cachées « sr-<compétence> »
 // de la première version sont retirées à la mise à jour.
-// Chaque bouton commence par un accent grave : [Texte](`/sr ...) lance le texte comme une ligne de chat,
-// sans passer par l'API (testé dans le jeu). Les jets marchent donc même si le bac à sable API plante.
-// L'astuce « !&#13;/sr ... » échoue dans une macro ou une capacité (« error with your formula »).
+// Pas de menu de boutons (tout essayé, 2026-11-04) : « !&#13;/sr » casse dans une capacité (formula error),
+// un lien à accent grave [x](`/sr ...) marche mais pas dans un chuchotement (formula error), un menu public
+// n'est pas voulu, des capacités cachées par compétence encombrent la fiche, et passer par l'API ne marche
+// plus quand le bac à sable plante. La liste déroulante est privée et sans API.
 
 var SecretRolls = (function () {
   'use strict';
   var TOKEN_ACTION = 'Secret';
   var LEGACY_PREFIX = 'sr-';
   // [libellé affiché, attribut de la feuille Pathfinder Community]
-  // pas de ( ) [ ] | dans les libellés : ils casseraient le bouton
+  // pas de virgule ni de barre verticale dans les libellés (liste déroulante)
   var SKILLS = [
     ['Évaluation', 'appraise'], ['Bluff', 'bluff'], ['Diplomatie', 'diplomacy'], ['Sabotage', 'disable-device'],
     ['Déguisement', 'disguise'], ['Intimidation', 'intimidate'], ['Perception', 'perception'],
@@ -34,15 +36,11 @@ var SecretRolls = (function () {
     ['Survie', 'survival'], ['Représentation', 'perform'], ['Linguistique', 'linguistics']
   ];
 
-  // chaque bouton commence par un accent grave : le lien est lancé comme une ligne de chat (/sr)
-  function rollButton(label, attr) {
-    return '[' + label + ' (@{' + attr + '})](`/sr 1d20+@{' + attr + '}[' + label + '])';
-  }
+  // même forme que la macro Blindroll testée dans le jeu, avec le bonus dans chaque libellé
   function secretAction() {
-    // pas de /w : un chuchotement qui contient un lien à accent grave donne « error with your formula »
-    // (testé, même avec l'accent écrit &amp;#96;). Le menu est donc public ; les résultats restent secrets.
-    return '&{template:pf_generic} {{name=Jets secrets}} {{' +
-      SKILLS.map(function (s) { return rollButton(s[0], s[1]); }).join(' ') + '}}';
+    return '/sr 1d20+?{Compétence|' + SKILLS.map(function (s) {
+      return s[0] + ' (@{' + s[1] + '}),@{' + s[1] + '}[' + s[0] + ']';
+    }).join('|') + '}';
   }
 
   function isLegacy(abilityName) {
@@ -86,7 +84,7 @@ var SecretRolls = (function () {
     return r;
   }
 
-  var api = { SKILLS: SKILLS, rollButton: rollButton, TOKEN_ACTION: TOKEN_ACTION, secretAction: secretAction, isOurs: isOurs,
+  var api = { SKILLS: SKILLS, TOKEN_ACTION: TOKEN_ACTION, secretAction: secretAction, isOurs: isOurs,
     isLegacy: isLegacy, plan: plan, hasWork: hasWork, describe: describe, parseArgs: parseArgs };
   if (typeof module !== 'undefined') module.exports = api;
   if (typeof on !== 'function') return api;
