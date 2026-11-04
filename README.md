@@ -159,12 +159,12 @@ the token, player rights, sheet fly speed in meters, menu buttons). They are no 
 
 ## Secret skill rolls (secretrolls)
 
-`scripts/secretrolls.js` gives each PC a **Secret** token action, like PFCompanion's "All Skills" button. It opens a dropdown of 13 skills (Appraise, Bluff, Diplomacy, Disable Device, Disguise, Intimidate, Perception, Sense Motive, Spellcraft, Stealth, Survival, Perform, Linguistics) showing the character's bonus, then makes a Roll20 native secret roll (`/sr`): only the GM sees the result, the player just gets a confirmation. Replaces the old BlindRoll.js script (`!broll`).
+`scripts/secretrolls.js` gives each PC a **Secret** token action, like PFCompanion's "All Skills" button. It whispers a menu of 13 skills (Appraise, Bluff, Diplomacy, Disable Device, Disguise, Intimidate, Perception, Sense Motive, Spellcraft, Stealth, Survival, Perform, Linguistics) with the character's bonus; each button makes a Roll20 native secret roll (`/sr`): only the GM sees the result, the player just gets a confirmation. Replaces the old BlindRoll.js script (`!broll`).
 
 - `!secretrolls all` then `!secretrolls all confirm N`: adds the ability to every PC (character with a player in "Controlled by"). Without `all`: the characters of the selected tokens. Dry run by default.
 - Automatic: whenever a PC changes, or one of its tokens is dropped on the map or linked to it, the ability is created or updated (the GM gets a whisper). `!secretrolls auto off` / `auto on` toggles it.
 - `!secretrolls remove [all]` then `confirm N`: removes it.
-- One ability per character (`Secret`); the hidden `sr-<skill>` abilities of the first version are removed on update. Once created, the roll works without the script. No button menu: a button can only send `/sr` through `!&#13;/sr ...`, which the macro editor breaks, or by calling one extra ability per skill.
+- One ability per character (`Secret`); the hidden `sr-<skill>` abilities of the first version are removed on update. Once created, the rolls work without the script. The buttons send `!&#13;/sr ...`: the macro editor turns `&#13;` into a real line break when saving (that broke the macro version), but an ability written by the API keeps it, so don't edit and save `Secret` by hand (auto-add repairs it anyway).
 
 ## Sync the API scripts with GitHub (userscript)
 

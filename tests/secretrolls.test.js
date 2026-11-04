@@ -9,11 +9,11 @@ function eq(a, b, label) { ok(JSON.stringify(a) === JSON.stringify(b), label + '
 
 // --- logique pure
 var act = S.secretAction();
-ok(act.indexOf('/sr 1d20+?{Compétence|') === 0 && /\}$/.test(act), 'jet secret avec liste déroulante (forme testée dans le jeu)');
-ok(act.indexOf('|Perception (@{perception}),@{perception}[Perception]|') > 0, 'Perception : bonus dans le libellé, libellé du jet');
-eq((act.match(/\|/g) || []).length, 13, '13 compétences');
-ok(S.SKILLS.every(function (s) { return !/[,|]/.test(s[0]); }), 'pas de virgule ni de barre dans les libellés');
-ok(act.indexOf('&#13;') < 0 && act.indexOf('~') < 0, 'ni &#13; ni appel de capacité');
+ok(act.indexOf('/w "@{character_name}" &{template:pf_generic} {{name=Jets secrets}} {{') === 0 && /\}\}$/.test(act), 'menu chuchoté au personnage, modèle pf_generic');
+ok(act.indexOf('[Perception (@{perception})](!&#13;/sr 1d20+@{perception}[Perception])') > 0, 'bouton Perception : bonus affiché, jet secret');
+eq((act.match(/\]\(!&#13;\/sr /g) || []).length, 13, '13 boutons');
+ok(S.SKILLS.every(function (s) { return !/[()\[\]|]/.test(s[0]); }), 'pas de caractère qui casse un bouton dans les libellés');
+ok(act.indexOf('~') < 0, 'aucun appel de capacité');
 ok(S.isOurs('Secret') && S.isOurs('sr-stealth') && !S.isOurs('sr-autre') && !S.isOurs('All Skills'), 'reconnaît ses capacités seulement');
 
 var p = S.plan([]);
@@ -109,7 +109,7 @@ ok(/Le nombre a changé/.test(out) && w.abilities('cPaz').length === 15, 'mauvai
 w.say('!secretrolls confirm 1', [{ _id: 'tPaz' }]);
 eq(names(w.abilities('cPaz')), ['All Skills', 'Secret'], 'mise à jour : plus que Secret (et All Skills)');
 var sec = w.abilities('cPaz').filter(function (a) { return a.p.name === 'Secret'; })[0];
-ok(sec.p.istokenaction === true && sec.p.action === act, 'Secret : action de token, liste déroulante');
+ok(sec.p.istokenaction === true && sec.p.action === act, 'Secret : action de token, menu de boutons');
 
 out = w.say('!secretrolls', [{ _id: 'tPaz' }]);
 ok(/Paz Tarpou<\/b> : à jour/.test(out), 'relance : à jour');

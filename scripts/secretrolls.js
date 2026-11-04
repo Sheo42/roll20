@@ -1,6 +1,6 @@
-// secretrolls.js - script API Roll20, réservé au MJ. Ajoute aux PJ un bouton de token « Secret » :
-// une liste déroulante des compétences (avec le bonus du personnage) puis un jet secret natif de Roll20 (/sr) :
-// seul le MJ voit le résultat, le joueur reçoit juste une confirmation.
+// secretrolls.js - script API Roll20, réservé au MJ. Ajoute aux PJ un bouton de token « Secret » qui
+// chuchote un menu de compétences (avec le bonus du personnage) ; chaque bouton lance un jet secret natif
+// de Roll20 (/sr) : seul le MJ voit le résultat, le joueur reçoit juste une confirmation.
 //
 // Même principe que les boutons de PFCompanion (All Skills, All Attacks...) : une capacité (ability)
 // du personnage en action de token. Le script ne sert qu'à la créer : ensuite le jet marche sans lui
@@ -18,8 +18,8 @@
 //
 // Une seule capacité par personnage : « Secret ». Les anciennes capacités cachées « sr-<compétence> »
 // de la première version sont retirées à la mise à jour.
-// Pas de menu de boutons : un bouton ne peut lancer /sr que par « !&#13;/sr ... », que l'éditeur de macros
-// casse, ou en appelant une capacité par compétence (13 capacités de plus sur la fiche).
+// Les boutons envoient « !&#13;/sr ... » : l'éditeur de macros transforme &#13; en vrai saut de ligne à
+// l'enregistrement (ce qui cassait la macro), mais une capacité écrite par l'API le garde tel quel.
 
 var SecretRolls = (function () {
   'use strict';
@@ -34,11 +34,15 @@ var SecretRolls = (function () {
     ['Survie', 'survival'], ['Représentation', 'perform'], ['Linguistique', 'linguistics']
   ];
 
-  // même forme que la macro Blindroll testée dans le jeu, avec le bonus dans chaque libellé
+  // menu chuchoté au personnage (donc à ses joueurs) ; chaque bouton envoie « ! » puis, à la ligne, le jet /sr.
+  // Dans une capacité créée par l'API, « &#13; » reste tel quel : c'est l'éditeur de macros qui le casse
+  // quand on enregistre (à ne pas ouvrir/enregistrer à la main ; l'ajout automatique le répare de toute façon).
+  function rollButton(label, attr) {
+    return '[' + label + ' (@{' + attr + '})](!&#13;/sr 1d20+@{' + attr + '}[' + label + '])';
+  }
   function secretAction() {
-    return '/sr 1d20+?{Compétence|' + SKILLS.map(function (s) {
-      return s[0] + ' (@{' + s[1] + '}),@{' + s[1] + '}[' + s[0] + ']';
-    }).join('|') + '}';
+    return '/w "@{character_name}" &{template:pf_generic} {{name=Jets secrets}} {{' +
+      SKILLS.map(function (s) { return rollButton(s[0], s[1]); }).join(' ') + '}}';
   }
 
   function isLegacy(abilityName) {
@@ -82,7 +86,7 @@ var SecretRolls = (function () {
     return r;
   }
 
-  var api = { SKILLS: SKILLS, TOKEN_ACTION: TOKEN_ACTION, secretAction: secretAction, isOurs: isOurs,
+  var api = { SKILLS: SKILLS, rollButton: rollButton, TOKEN_ACTION: TOKEN_ACTION, secretAction: secretAction, isOurs: isOurs,
     isLegacy: isLegacy, plan: plan, hasWork: hasWork, describe: describe, parseArgs: parseArgs };
   if (typeof module !== 'undefined') module.exports = api;
   if (typeof on !== 'function') return api;
