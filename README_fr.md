@@ -164,6 +164,15 @@ distances, rejoindre une cible, coût d'un vol (dont l'exemple de la FAQ), DD de
 Roll20 (étiquette qui suit le token, droits des joueurs, vitesse de vol de la fiche en mètres, boutons du menu). Ils ne
 remplacent pas un essai dans une vraie partie.
 
+## Jets de compétence secrets (secretrolls)
+
+`scripts/secretrolls.js` donne à chaque PJ une action de token **Secret**, comme le bouton « All Skills » de PFCompanion. Elle chuchote un menu de 13 compétences (Évaluation, Bluff, Diplomatie, Sabotage, Déguisement, Intimidation, Perception, Psychologie, Art de la magie, Discrétion, Survie, Représentation, Linguistique) avec le bonus du personnage ; chaque bouton lance un jet secret natif de Roll20 (`/sr`) : seul le MJ voit le résultat, le joueur reçoit juste une confirmation. Remplace l'ancien script BlindRoll.js (`!broll`).
+
+- `!secretrolls all` puis `!secretrolls all confirm N` : ajoute les capacités à tous les PJ (personnages avec un joueur dans « Contrôlé par »). Sans `all` : les personnages des tokens sélectionnés. Essai à blanc par défaut.
+- Automatique : dès qu'un personnage reçoit un joueur, ou est renommé, ses capacités sont créées ou mises à jour (le MJ reçoit un chuchotement). `!secretrolls auto off` / `auto on` pour couper ou remettre.
+- `!secretrolls remove [all]` puis `confirm N` : les retire.
+- Par personnage : l'action de token `Secret` et 13 capacités cachées `sr-<compétence>` appelées par les boutons du menu. Une fois créées, les jets marchent sans le script. Les boutons appellent des capacités plutôt que `!&#13;/sr ...`, que l'éditeur de macros casse.
+
 ## Synchroniser les scripts API avec GitHub (userscript)
 
 `sync/roll20-github-sync.user.js` ajoute un bouton « ⟳ GitHub » sur la page des scripts API de Roll20

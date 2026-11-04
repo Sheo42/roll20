@@ -157,6 +157,15 @@ Players act only on tokens they control (token or character); the GM on all.
 flight cost (including the FAQ example), Fly DCs, falling dice, then the full flow with a fake Roll20 (label following
 the token, player rights, sheet fly speed in meters, menu buttons). They are no substitute for a try-out in a real game.
 
+## Secret skill rolls (secretrolls)
+
+`scripts/secretrolls.js` gives each PC a **Secret** token action, like PFCompanion's "All Skills" button. It whispers a menu of 13 skills (Appraise, Bluff, Diplomacy, Disable Device, Disguise, Intimidate, Perception, Sense Motive, Spellcraft, Stealth, Survival, Perform, Linguistics) with the character's bonus; each button makes a Roll20 native secret roll (`/sr`): only the GM sees the result, the player just gets a confirmation. Replaces the old BlindRoll.js script (`!broll`).
+
+- `!secretrolls all` then `!secretrolls all confirm N`: adds the abilities to every PC (character with a player in "Controlled by"). Without `all`: the characters of the selected tokens. Dry run by default.
+- Automatic: as soon as a character gets a player, or is renamed, its abilities are created or updated (the GM gets a whisper). `!secretrolls auto off` / `auto on` toggles it.
+- `!secretrolls remove [all]` then `confirm N`: removes them.
+- Per character: the `Secret` token action and 13 hidden abilities `sr-<skill>` called by the menu buttons. Once created, the rolls work without the script. Buttons call abilities rather than `!&#13;/sr ...`, which the macro editor breaks.
+
 ## Sync the API scripts with GitHub (userscript)
 
 `sync/roll20-github-sync.user.js` adds a "⟳ GitHub" button to the Roll20 API Scripts page
