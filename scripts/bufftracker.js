@@ -989,7 +989,9 @@
       if (!gm) return erreur(pid, 'Seul le MJ peut cacher un effet.');
       if (parseBool(o.hidden) === null) return erreur(pid, '--hidden attend yes ou no.');
     }
-    const pageid = (() => { const t = b.targets.map(tokensDe).find((l) => l.length); return t ? t[0].get('_pageid') : pageDu(msg); })();
+    // la carte de celui qui modifie (pas celle d'un token des cibles : un PJ a des tokens
+    // sur plusieurs cartes, et « Cibles » proposait alors les PJ d'une autre carte)
+    const pageid = pageDu(msg);
     let nouveauLanceur;
     if (texte(o.caster) !== undefined) {
       const rl = trouverLanceur(texte(o.caster), pageid);

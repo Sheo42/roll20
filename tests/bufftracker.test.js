@@ -703,6 +703,22 @@ describe('Modification', () => {
   check(p.dire('pA', '!buff edit 2 --marker none')[0].includes('Rien à modifier'), '--marker n\'existe plus : rien à modifier');
 });
 
+describe('Bouton Cibles : les PJ de la carte où l\'on est', () => {
+  const p = partie();
+  p.mk('page', { name: 'Autre carte' }, 'p2');
+  // Ewen a un token sur une autre carte (créé en premier) et un sur la carte des joueurs ;
+  // Dolbyrion n'est que sur l'autre carte
+  const ewen = p.mk('character', { name: 'Ewen', controlledby: 'pB' });
+  p.tok('Ewen', ewen, true, 'p2');
+  p.tok('Ewen', ewen, true, 'p1');
+  const dolby = p.mk('character', { name: 'Dolbyrion', controlledby: 'pD' });
+  p.tok('Dolbyrion', dolby, true, 'p2');
+  p.dire('pC', '!buff add --name Rapidité --dur 5r --caster Solathia --targets Ewen, Solathia');
+  const c = p.dire('pC', `!buff edit ${p.buffs()[0].id} --targets pick`)[0];
+  check(c.includes('✔ Ewen') && c.includes('✔ Solathia') && c.includes('>Selea</a>'), 'Cibles : cibles actuelles cochées, PJ de la carte proposés');
+  check(!c.includes('Dolbyrion'), 'Cibles : pas de PJ absent de la carte (Dolbyrion, sur une autre carte)');
+});
+
 describe('Bouton Cibles : modifier la liste', () => {
   const p = partie();
   p.dire('pC', '!buff add --name Bénédiction --dur 5m --caster Solathia --targets group');
