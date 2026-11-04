@@ -1,4 +1,4 @@
-// secretrolls.js - script API Roll20, réservé au MJ. Ajoute aux PJ un bouton de token « Secret » :
+// secretrolls.js - script API Roll20, réservé au MJ. Ajoute aux PJ un bouton de token « Blindroll » :
 // une liste déroulante des compétences (avec le bonus du personnage) puis un jet secret natif de Roll20 (/sr) :
 // seul le MJ voit le résultat, le joueur reçoit juste une confirmation.
 //
@@ -16,8 +16,8 @@
 //                                   par un joueur change ou qu'un de ses tokens est posé, la capacité est
 //                                   créée ou mise à jour
 //
-// Une seule capacité par personnage : « Secret ». Les anciennes capacités cachées « sr-<compétence> »
-// de la première version sont retirées à la mise à jour.
+// Une seule capacité par personnage : « Blindroll ». Les anciennes capacités du script (« Secret »,
+// « sr-<compétence> ») sont retirées à la mise à jour.
 // Pas de menu de boutons (tout essayé, 2026-11-04) : « !&#13;/sr » casse dans une capacité (formula error),
 // un lien à accent grave [x](`/sr ...) marche mais pas dans un chuchotement (formula error), un menu public
 // n'est pas voulu, des capacités cachées par compétence encombrent la fiche, et passer par l'API ne marche
@@ -25,7 +25,8 @@
 
 var SecretRolls = (function () {
   'use strict';
-  var TOKEN_ACTION = 'Secret';
+  var TOKEN_ACTION = 'Blindroll'; // même nom que l'ancienne macro, pour que les joueurs s'y retrouvent
+  var OLD_TOKEN_ACTION = 'Secret'; // nom des versions du 2026-11-04, retiré à la mise à jour
   var LEGACY_PREFIX = 'sr-';
   // [libellé affiché, attribut de la feuille Pathfinder Community]
   // pas de virgule ni de barre verticale dans les libellés (liste déroulante)
@@ -43,10 +44,12 @@ var SecretRolls = (function () {
     }).join('|') + '}';
   }
 
-  function isLegacy(abilityName) {
+  // anciennes capacités du script : sr-<compétence>, et « Secret » seulement si c'est bien la nôtre (un jet /sr)
+  function isLegacy(abilityName, action) {
+    if (abilityName === OLD_TOKEN_ACTION) return /\/sr |Jets secrets|!secretroll/.test(String(action || ''));
     return SKILLS.some(function (s) { return abilityName === LEGACY_PREFIX + s[1]; });
   }
-  function isOurs(abilityName) { return abilityName === TOKEN_ACTION || isLegacy(abilityName); }
+  function isOurs(abilityName, action) { return abilityName === TOKEN_ACTION || isLegacy(abilityName, action); }
 
   // existing : [{id, name, action, istokenaction}] -> {create, update, remove:[ids], same}
   function plan(existing) {
@@ -57,7 +60,7 @@ var SecretRolls = (function () {
     else if (mine[0].action !== action || !mine[0].istokenaction) out.update = mine[0].id;
     else out.same = true;
     mine.slice(1).forEach(function (a) { out.remove.push(a.id); });
-    existing.forEach(function (a) { if (isLegacy(a.name)) out.remove.push(a.id); });
+    existing.forEach(function (a) { if (isLegacy(a.name, a.action)) out.remove.push(a.id); });
     return out;
   }
   function hasWork(p) { return !!(p.create || p.update || p.remove.length); }
@@ -128,7 +131,7 @@ var SecretRolls = (function () {
     var p = planFor(c);
     if (!hasWork(p)) return;
     apply(c, p);
-    tell('<b>' + (c.get('name') || 'Personnage sans nom') + '</b> : bouton Secret ' + (p.create ? 'ajouté' : 'mis à jour') + '.');
+    tell('<b>' + (c.get('name') || 'Personnage sans nom') + '</b> : bouton Blindroll ' + (p.create ? 'ajouté' : 'mis à jour') + '.');
   }
   function autoSyncToken(g) {
     var cid = g && g.get('represents');
@@ -146,7 +149,7 @@ var SecretRolls = (function () {
     chars.forEach(function (c) {
       var name = c.get('name') || 'Personnage sans nom';
       if (a.remove) {
-        var mine = abilitiesOf(c).filter(function (ab) { return isOurs(ab.get('name')); });
+        var mine = abilitiesOf(c).filter(function (ab) { return isOurs(ab.get('name'), ab.get('action')); });
         lines.push('<b>' + name + '</b> : ' + mine.length + ' capacité(s) à retirer');
         todo.push({ c: c, mine: mine });
       } else {

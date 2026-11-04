@@ -166,12 +166,12 @@ remplacent pas un essai dans une vraie partie.
 
 ## Jets de compétence secrets (secretrolls)
 
-`scripts/secretrolls.js` donne à chaque PJ une action de token **Secret**, comme le bouton « All Skills » de PFCompanion. Elle ouvre une liste déroulante de 13 compétences (Évaluation, Bluff, Diplomatie, Sabotage, Déguisement, Intimidation, Perception, Psychologie, Art de la magie, Discrétion, Survie, Représentation, Linguistique) avec le bonus du personnage, puis lance un jet secret natif de Roll20 (`/sr`) : seul le MJ voit le résultat, le joueur reçoit juste une confirmation. Remplace l'ancien script BlindRoll.js (`!broll`).
+`scripts/secretrolls.js` donne à chaque PJ une action de token **Blindroll** (même nom que l'ancienne macro), comme le bouton « All Skills » de PFCompanion. Elle ouvre une liste déroulante de 13 compétences (Évaluation, Bluff, Diplomatie, Sabotage, Déguisement, Intimidation, Perception, Psychologie, Art de la magie, Discrétion, Survie, Représentation, Linguistique) avec le bonus du personnage, puis lance un jet secret natif de Roll20 (`/sr`) : seul le MJ voit le résultat, le joueur reçoit juste une confirmation. Remplace l'ancien script BlindRoll.js (`!broll`).
 
 - `!secretrolls all` puis `!secretrolls all confirm N` : ajoute la capacité à tous les PJ (personnages avec un joueur dans « Contrôlé par »). Sans `all` : les personnages des tokens sélectionnés. Essai à blanc par défaut.
 - Automatique : dès qu'un PJ change, ou qu'un de ses tokens est posé sur la carte ou relié à lui, la capacité est créée ou mise à jour (le MJ reçoit un chuchotement). `!secretrolls auto off` / `auto on` pour couper ou remettre.
 - `!secretrolls remove [all]` puis `confirm N` : la retire.
-- Une seule capacité par personnage (`Secret`) ; les capacités cachées `sr-<compétence>` de la première version sont retirées à la mise à jour. Une fois créée, le jet marche sans le script. Pas de menu de boutons : les boutons `!&#13;/sr` cassent dans une capacité, les liens à accent grave (`` [x](`/sr ...) ``) cassent dans un chuchotement, un menu public n'est pas voulu, une capacité cachée par compétence encombre la fiche, et passer par l'API échoue quand le bac à sable plante.
+- Une seule capacité par personnage (`Blindroll`) ; les anciennes capacités du script (`Secret`, `sr-<compétence>` cachées) sont retirées à la mise à jour. Une fois créée, le jet marche sans le script. Pas de menu de boutons : les boutons `!&#13;/sr` cassent dans une capacité, les liens à accent grave (`` [x](`/sr ...) ``) cassent dans un chuchotement, un menu public n'est pas voulu, une capacité cachée par compétence encombre la fiche, et passer par l'API échoue quand le bac à sable plante.
 
 ## Synchroniser les scripts API avec GitHub (userscript)
 
