@@ -11,6 +11,8 @@
  * Version 2.5 — relancer un sort ne remplace que celui du même lanceur ; le même sort de
  *               deux lanceurs : une seule ligne par personnage (la plus longue), et pas
  *               d'annonce de fin tant qu'un autre lancement le couvre.
+ * Version 2.6 — sort courant « Invisibilité suprême » ; interface BuffTrackerAPI pour
+ *               les autres scripts (invis.js cache les tokens invisibles).
  *
  * MISE EN PLACE (une seule fois)
  *   1. Coller ce fichier dans un nouveau script API, enregistrer.
@@ -97,6 +99,11 @@
  *   Sinon c'est un nom libre (un PNJ joué sans carte ni fiche), suivi par son nom.
  *   « =Moi » force le nom libre sans question.
  *   « PJ » = personnage contrôlé par au moins un joueur.
+ *
+ * AUTRES SCRIPTS
+ *   globalThis.BuffTrackerAPI : observe(fn) appelle fn(buffs) après chaque changement ;
+ *   buffs() ; tokensOf(cible) ; endTargets(fn(buff, cible) -> vrai) retire ces cibles
+ *   de leurs effets et annonce la fin. Utilisé par invis.js.
  *
  * Données : state.BuffTracker. Ne touche pas aux fiches de personnage.
  */
@@ -353,6 +360,7 @@
     { key: 'blur', name: 'Flou', per: 'm', mult: 1, effect: '20 % de camouflage' },
     { key: 'mirrorimage', name: 'Image miroir', per: 'm', mult: 1, effect: '1d4 images +1 par 3 niveaux (max 8)' },
     { key: 'invisibility', name: 'Invisibilité', per: 'm', mult: 1, effect: "invisible jusqu'à une attaque" },
+    { key: 'greaterinvisibility', name: 'Invisibilité suprême', per: 'r', mult: 1, effect: 'invisible, même en attaquant' },
     { key: 'fly', name: 'Vol', per: 'm', mult: 1, effect: 'vol 18 m (bonne manœuvrabilité)' },
     { key: 'heroism', name: 'Héroïsme', per: 'm', mult: 10, effect: '+2 moral attaque, JS et compétences' },
     { key: 'resistenergy', name: 'Résistance aux énergies', per: 'm', mult: 10, effect: 'résistance 10 (20 au niv 7, 30 au niv 11)' },
@@ -740,7 +748,34 @@
     });
     delete s.markers;
   };
-  const rafraichir = () => majHandout();
+  // ---- autres scripts (invis.js) : prévenus après chaque changement des effets
+  const ecouteurs = [];
+  const prevenir = () => ecouteurs.forEach((fn) => {
+    try { fn(etat().buffs); } catch (e) { log(`${NOM} : erreur d'un script à l'écoute ${e && e.stack ? e.stack : e}`); }
+  });
+  const rafraichir = () => { majHandout(); prevenir(); };
+  // retire des cibles de leurs effets (fn(buff, cible) -> vrai) et annonce la fin
+  const finirCibles = (fn) => {
+    const s = etat();
+    const items = [];
+    s.buffs.forEach((b) => {
+      const fin = b.targets.filter((t) => fn(b, t));
+      if (!fin.length) return;
+      items.push({ b, targets: fin });
+      b.targets = b.targets.filter((t) => !fin.includes(t));
+    });
+    if (!items.length) return 0;
+    s.buffs = s.buffs.filter((b) => b.targets.length);
+    annoncer(items, 'Fin');
+    rafraichir();
+    return items.reduce((n, x) => n + x.targets.length, 0);
+  };
+  globalThis.BuffTrackerAPI = {
+    observe: (fn) => { if (typeof fn === 'function' && !ecouteurs.includes(fn)) ecouteurs.push(fn); },
+    buffs: () => etat().buffs,
+    tokensOf: (e) => tokensDe(e),
+    endTargets: finirCibles
+  };
 
   // retire les effets expirés, les annonce, et met tout à jour
   const traiter = (res, { avertir = true } = {}) => {
@@ -1215,6 +1250,6 @@
       if (b.caster && b.caster.kind === 'token' && b.caster.id === tok.id) b.caster = { kind: null, id: null, name: nomToken(tok) || b.caster.name };
     });
     s.buffs = s.buffs.filter((b) => b.targets.length);
-    if (change) majHandout();
+    if (change) rafraichir();
   });
 })();

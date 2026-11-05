@@ -166,6 +166,24 @@ the token, player rights, sheet fly speed in meters, menu buttons). They are no 
 - `!secretrolls remove [all]` then `confirm N`: removes it.
 - One ability per character (`Blindroll`); the script's older abilities (`Secret`, hidden `sr-<skill>`) are removed on update. Once created, the roll works without the script. No button menu: `!&#13;/sr` buttons break inside an ability, backtick links (`` [x](`/sr ...) ``) break inside a whisper, a public menu was not wanted, one hidden ability per skill clutters the sheet, and going through the API fails when the sandbox crashes.
 
+## Invisible tokens (invis)
+
+`scripts/invis.js` replaces the TokenMod "Invisible" / "Visible" macros. The token switches to its 2nd side (a transparent image) and its name, bars and auras are only shown to the GM and to whoever controls it: the other players see nothing. Light and status markers are not touched (the PC keeps seeing their own light). Before hiding, the script saves the token's real state (side, image, size, name, bars, auras) and puts it back exactly: no more hard-coded size.
+
+| Command | What it does |
+| --- | --- |
+| `!invis` | Toggles the selected tokens (invisible / visible). The `Invisible` macro. |
+| `!invis on` / `off` | Makes them invisible / visible. |
+| `!invis break` | Ends Invisibility (not Greater Invisibility): the character attacks. |
+| `!invis list` | GM: the invisible tokens, with a button for each. |
+| `--ids id1,id2` | Acts on these tokens instead of the selection (used by the buttons). |
+
+With **bufftracker.js** (2.6 or later): an effect named Invisibilité, Invisibilité suprême or Invisibilité de groupe (or Invisibility, Greater Invisibility, Mass Invisibility) hides all its targets' tokens, on every page, and shows them again when it ends. A token dropped later for that character is hidden too. The player gets a "Rompre" button for plain Invisibility. `!invis off` on a token hidden by an effect ends that effect for it.
+
+Players act on tokens they control; the GM on all. The token needs at least 2 sides, with images from the GM's library (not the Marketplace).
+
+**Tests**: `node tests/invis.test.js` (Node, no dependency) runs 54 checks, alone and together with bufftracker.js in a fake Roll20. They are no substitute for a try-out in a real game.
+
 ## Sync the API scripts with GitHub (userscript)
 
 `sync/roll20-github-sync.user.js` adds a "⟳ GitHub" button to the Roll20 API Scripts page

@@ -173,6 +173,24 @@ remplacent pas un essai dans une vraie partie.
 - `!secretrolls remove [all]` puis `confirm N` : la retire.
 - Une seule capacité par personnage (`Blindroll`) ; les anciennes capacités du script (`Secret`, `sr-<compétence>` cachées) sont retirées à la mise à jour. Une fois créée, le jet marche sans le script. Pas de menu de boutons : les boutons `!&#13;/sr` cassent dans une capacité, les liens à accent grave (`` [x](`/sr ...) ``) cassent dans un chuchotement, un menu public n'est pas voulu, une capacité cachée par compétence encombre la fiche, et passer par l'API échoue quand le bac à sable plante.
 
+## Tokens invisibles (invis)
+
+`scripts/invis.js` remplace les macros TokenMod « Invisible » / « Visible ». Le token passe sur sa 2e face (une image transparente) et son nom, ses barres et ses auras ne sont plus montrés qu'au MJ et à ceux qui le contrôlent : les autres joueurs ne voient rien. La lumière et les marqueurs d'état ne sont pas touchés (le PJ voit toujours sa lumière). Avant de cacher, le script note l'état réel du token (face, image, taille, nom, barres, auras) et le remet tel quel : plus de taille écrite en dur.
+
+| Commande | Ce qu'elle fait |
+| --- | --- |
+| `!invis` | Bascule les tokens sélectionnés (invisible / visible). La macro `Invisible`. |
+| `!invis on` / `off` | Rend invisible / visible. |
+| `!invis break` | Termine l'Invisibilité (pas la suprême) : le personnage attaque. |
+| `!invis list` | MJ : les tokens invisibles, avec un bouton pour chacun. |
+| `--ids id1,id2` | Agit sur ces tokens au lieu de la sélection (utilisé par les boutons). |
+
+Avec **bufftracker.js** (2.6 ou plus) : un effet nommé Invisibilité, Invisibilité suprême ou Invisibilité de groupe (ou Invisibility, Greater Invisibility, Mass Invisibility) cache tous les tokens de ses cibles, sur toutes les cartes, et les remontre à la fin de l'effet. Un token posé ensuite pour ce personnage est caché aussi. Le joueur reçoit un bouton « Rompre » pour l'Invisibilité simple. `!invis off` sur un token caché par un effet termine cet effet pour lui.
+
+Un joueur agit sur les tokens qu'il contrôle, le MJ sur tous. Le token doit avoir au moins 2 faces, avec des images de la bibliothèque du MJ (pas du Marketplace).
+
+**Tests** : `node tests/invis.test.js` (Node, sans dépendance) lance 54 vérifications, seul et avec bufftracker.js dans un faux Roll20. Ils ne remplacent pas un essai en partie réelle.
+
 ## Synchroniser les scripts API avec GitHub (userscript)
 
 `sync/roll20-github-sync.user.js` ajoute un bouton « ⟳ GitHub » sur la page des scripts API de Roll20

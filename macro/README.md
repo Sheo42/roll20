@@ -10,7 +10,7 @@ scripts API dont elles dépendent sont à installer dans la partie (Game Setting
 | `Vol` | Lance `!alt`, le menu du combat en vol : coût d'un vol, altitude, rejoindre une cible, chute, liste des altitudes. Macro visible par tous les joueurs. | `scripts/altitude.js` |
 | `Climat` | Lance `!climat`, le point d'entrée du générateur de météo. | `scripts/Climat.js` |
 | `Config_init` | Réinitialise le suivi d'initiative de groupe : supprime l'ancien groupe, crée un groupe avec `init` et le bonus d'initiative comme départage. La partie « (Optional) » règle 1 dé, 2 décimales max, jet individuel, tri décroissant et remplacement du jet. | GroupInitiative |
-| `Invisible` | Passe le token sélectionné sur sa 2ᵉ face (`currentside|2`) et cache son nom et ses 3 barres aux joueurs. | TokenMod |
+| `Invisible` | `!invis` : bascule le token sélectionné entre invisible (2ᵉ face transparente, nom, barres et auras cachés aux autres joueurs) et visible (tout est remis tel quel, taille comprise). Remplace aussi l'ancienne macro « Visible ». | `scripts/invis.js` |
 | `Perception-passive` | `!group-check --Perception` : jet de Perception pour tous les tokens sélectionnés. | GroupCheck |
 | `Vision` | Menu de vision pour le token sélectionné : Activée, Désactivée, Vision en aveugle (10), Vision dans le noir 18, 27 ou 36 m, Vision dans le noir désactivée. Chuchote « changed vision » au MJ. | TokenMod |
 | `lumiere` | Menu de source de lumière : Off, Proximité, Bougie, Lampe, Torche, Lanterne à capote, Lanterne sourde (cône de 90°), Lumière, Lumières dansantes, Lumière du jour. Fixe aussi l'opacité de la lumière faible à 30. | TokenMod |
