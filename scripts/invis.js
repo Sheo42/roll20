@@ -3,6 +3,7 @@
  * Version 1.0
  * Version 1.1 — un token déjà sur sa 2e face (ancienne macro Invisible) compte comme
  *               invisible : !invis le remet sur sa 1re face au lieu de noter la 2e.
+ *               Un seul message « est invisible » par personnage, au joueur seulement.
  *
  * Remplace les macros TokenMod « Invisible » / « Visible ». Le token passe sur sa
  * 2e face (une image transparente) et son nom, ses barres et ses auras ne sont plus
@@ -137,10 +138,12 @@
   };
   const controle = (pid, tok) => playerIsGM(pid) || controleurs(tok).some((x) => x === pid || x === 'all');
   // prévient ceux qui contrôlent le token (le MJ toujours)
+  // prévient les joueurs qui contrôlent le token ; le MJ seulement si aucun joueur
+  // (il voit déjà l'annonce de bufftracker)
   const prevenir = (tok, html) => {
     const pids = [...new Set(controleurs(tok).filter((x) => x !== 'all'))].filter((p) => !playerIsGM(p));
+    if (!pids.length) return dire(null, html);
     pids.forEach((p) => dire(p, html));
-    dire(null, html);
   };
 
   // cache le token ; renvoie un texte d'erreur, ou '' si c'est fait
@@ -197,6 +200,7 @@
       do {
         encore = false;
         const s = etat(), v = voulus();
+        const nouveaux = new Map(), avertis = new Set();
         v.forEach((nomEffet, id) => {
           const tok = getObj('graphic', id);
           if (!tok) return;
@@ -204,13 +208,18 @@
           if (deja) { deja.reason = 'buff'; return; }
           const err = cacher(tok, 'buff');
           if (err) {
-            if (!signales.has(id)) dire(null, boite(`${esc(nomEffet)} : ${esc(err)}`));
+            const cleErr = tok.get('represents') || id;
+            if (!signales.has(id) && !avertis.has(cleErr)) dire(null, boite(`${esc(nomEffet)} : ${esc(err)}`));
             signales.add(id);
+            avertis.add(cleErr);
             return;
           }
-            prevenir(tok, boite(`<b>${esc(nomToken(tok))}</b> est invisible (${esc(nomEffet)}).` +
-            (breaksOnAttack(nomEffet) ? ` ${bouton('Rompre', `${CMD} break --ids ${id}`)}` : '')));
+          // un seul message par personnage, même s'il a des tokens sur plusieurs cartes
+          const cle = tok.get('represents') || id;
+          if (!nouveaux.has(cle)) nouveaux.set(cle, { tok, nomEffet });
         });
+        nouveaux.forEach(({ tok, nomEffet }) => prevenir(tok, boite(`<b>${esc(nomToken(tok))}</b> est invisible (${esc(nomEffet)}).` +
+          (breaksOnAttack(nomEffet) ? ` ${bouton('Rompre', `${CMD} break --ids ${tok.id}`)}` : ''))));
         [...signales].forEach((id) => { if (!v.has(id)) signales.delete(id); });
         Object.keys(s.tokens).forEach((id) => {
           if (s.tokens[id].reason !== 'buff' || v.has(id)) return;

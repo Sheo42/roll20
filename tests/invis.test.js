@@ -182,6 +182,8 @@ describe('Avec bufftracker : Invisibilité', () => {
   check(p.cache(p.t.lune) && p.cache(p.t.lune2), 'tous les tokens de Lune sont cachés (toutes les cartes)');
   const msgs = p.chat.slice(avant).join('\n');
   check(msgs.includes(`!invis break --ids ${p.t.lune.id}`) && msgs.includes('/w "Denis"'), 'Denis reçoit le bouton Rompre');
+  check((msgs.match(/est invisible/g) || []).length === 1, 'un seul message pour ses 2 tokens');
+  check(!/\/w gm[^\n]*est invisible/.test(msgs), "pas de doublon pour le MJ (il a l'annonce de bufftracker)");
   // un nouveau token de Lune posé sur la carte
   const t3 = p.tok('Lune', p.lune);
   p.fire('add:graphic', t3);
@@ -225,8 +227,11 @@ describe('Avec bufftracker : à la main puis effet, et autres effets', () => {
   check(p.intact(p.t.lune), "Voir l'invisibilité et Bénédiction ne cachent rien");
   p.dire('gm', `!buff add --name Invisibilité --dur 3r --targets ${p.t.selea.id}`);
   check(p.chat.some((m) => m.includes('Selea') && m.includes('2e face')), 'token sans 2e face : le MJ est prévenu');
+  const g = p.tok('Gobelin', null, 'p1');
+  p.dire('gm', `!buff add --name Invisibilité --dur 3r --targets ${g.id}`);
+  check(p.chat.some((m) => m.startsWith('/w gm') && m.includes('Gobelin</b> est invisible')), 'token sans joueur : le MJ reçoit le message');
   const n = p.chat.length;
-  p.dire('gm', '!buff time 1r confirm 3');
+  p.dire('gm', '!buff time 1r confirm 4');
   check(!p.chat.slice(n).some((m) => m.includes('2e face')), 'prévenu une seule fois');
   // token supprimé pendant qu'il est invisible
   p.dire('pD', '!invis on', [p.t.lune2]);
