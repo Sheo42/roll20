@@ -719,6 +719,20 @@ describe('Bouton Cibles : les PJ de la carte où l\'on est', () => {
   check(!c.includes('Dolbyrion'), 'Cibles : pas de PJ absent de la carte (Dolbyrion, sur une autre carte)');
 });
 
+describe('Token de PJ sans barre liée : toujours le personnage', () => {
+  const p = partie();
+  const lune2 = p.tok('Lune', p.c.lune, false); // un second token de Lune, barres non liées
+  p.dire('pD', '!buff add --name Bouclier --dur 1min --targets selected', [lune2]);
+  p.dire('pD', '!buff add --name Héroïsme --dur 10min --targets group');
+  const b = p.buffs()[0];
+  check(b.targets[0].kind === 'char' && b.targets[0].id === p.c.lune.id, 'token non lié d\'un PJ : la cible est le personnage');
+  const notes = p.handout().props.notes;
+  check((notes.match(/>Lune<\/h4>/g) || []).length === 1, 'fenêtre : une seule section Lune');
+  check(p.buffs()[1].targets.filter((x) => x.name === 'Lune').length === 1, 'Tout le groupe : Lune une seule fois, malgré ses deux tokens');
+  p.dire('gm', '!buff add --name Ralenti --dur 2r --targets selected', [p.t.gob1]);
+  check(p.buffs().find((x) => x.name === 'Ralenti').targets[0].kind === 'token', 'monstre non lié (fiche sans joueur) : toujours le token');
+});
+
 describe('Bouton Cibles : modifier la liste', () => {
   const p = partie();
   p.dire('pC', '!buff add --name Bénédiction --dur 5m --caster Solathia --targets group');

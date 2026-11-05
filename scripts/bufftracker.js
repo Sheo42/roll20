@@ -550,9 +550,12 @@
   };
 
   // ---- entités : un personnage (token lié à sa fiche) ou un token seul
+  // token lié à sa fiche, ou token d'un PJ même sans barre liée : c'est le personnage
+  // (sinon un PJ posé avec un token non lié apparaissait deux fois dans la fenêtre)
   const entiteDuToken = (tok) => {
     const cid = tok.get('represents');
-    const lie = cid && (tok.get('bar1_link') || tok.get('bar2_link') || tok.get('bar3_link'));
+    const c = cid && getObj('character', cid);
+    const lie = c && (tok.get('bar1_link') || tok.get('bar2_link') || tok.get('bar3_link') || liste(c.get('controlledby')).length > 0);
     return lie ? { kind: 'char', id: cid } : { kind: 'token', id: tok.id };
   };
   const nomToken = (tok) => {
