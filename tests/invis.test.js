@@ -156,6 +156,24 @@ describe('Bascule à la main', () => {
   check(p.intact(p.t.lune), 'off remet le token');
 });
 
+describe('Token caché par l\'ancienne macro', () => {
+  const p = partie({ avecBuff: false });
+  // ancienne macro Invisible : 2e face, nom et barres cachés, rien de noté
+  Object.assign(p.t.lune.props, { currentside: 1, imgsrc: IMG2, showplayers_name: false, showplayers_bar1: false, showplayers_bar3: false });
+  let r = p.dire('pD', '!invis', [p.t.lune]);
+  check(p.t.lune.props.currentside === 0 && p.t.lune.props.imgsrc.startsWith(IMG1.split('?')[0]) && p.t.lune.props.showplayers_name &&
+    p.t.lune.props.showplayers_bar1 && p.t.lune.props.width === 105 && r.includes('Lune est visible'), '!invis le rend visible (1re face, nom, barre 1)');
+  check(!p.sb.state.Invis.tokens[p.t.lune.id], 'plus rien de noté');
+  p.dire('pD', '!invis', [p.t.lune]);
+  p.dire('pD', '!invis', [p.t.lune]);
+  check(p.t.lune.props.currentside === 0 && p.t.lune.props.showplayers_name, 'puis le cycle normal marche');
+  Object.assign(p.t.lune.props, { currentside: 1, imgsrc: IMG2 });
+  r = p.dire('pD', '!invis on', [p.t.lune]);
+  check(r.includes('déjà invisible'), "on sur un token déjà sur sa 2e face : déjà invisible");
+  p.dire('pD', '!invis off', [p.t.lune]);
+  check(p.t.lune.props.currentside === 0, 'off le remet sur sa 1re face');
+});
+
 describe('Avec bufftracker : Invisibilité', () => {
   const p = partie();
   const avant = p.chat.length;

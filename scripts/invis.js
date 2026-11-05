@@ -1,6 +1,8 @@
 /*
  * invis.js — Tokens invisibles pour l'API Roll20
  * Version 1.0
+ * Version 1.1 — un token déjà sur sa 2e face (ancienne macro Invisible) compte comme
+ *               invisible : !invis le remet sur sa 1re face au lieu de noter la 2e.
  *
  * Remplace les macros TokenMod « Invisible » / « Visible ». Le token passe sur sa
  * 2e face (une image transparente) et son nom, ses barres et ses auras ne sont plus
@@ -85,6 +87,11 @@
     return o;
   };
 
+  // token trouvé déjà caché (ancienne macro : 2e face, sans état noté) : ce qu'il faut
+  // remettre = sa 1re face, nom et barre 1 visibles (comme l'ancienne macro Visible)
+  const visibleFromHidden = (snap, side1) => Object.assign({}, snap,
+    { currentside: 0, imgsrc: side1, showplayers_name: true, showplayers_bar1: true });
+
   // "!invis off --ids a,b" -> {sub:'off', ids:['a','b']} ; autre commande -> null
   const parseCommand = (content) => {
     const t = String(content || '').trim();
@@ -99,7 +106,7 @@
     return { sub, ids };
   };
 
-  const exportsPurs = { normalize, isInvisBuff, breaksOnAttack, cleanImgsrc, sideImage, snapshot, hiddenProps, restoreProps, parseCommand };
+  const exportsPurs = { normalize, isInvisBuff, breaksOnAttack, cleanImgsrc, sideImage, snapshot, hiddenProps, restoreProps, visibleFromHidden, parseCommand };
   if (typeof module !== 'undefined' && module.exports) module.exports = exportsPurs;
   if (typeof on !== 'function') return; // hors Roll20 : on s'arrête ici
 
@@ -137,8 +144,17 @@
   };
 
   // cache le token ; renvoie un texte d'erreur, ou '' si c'est fait
+  // token déjà sur sa 2e face sans état noté (ancienne macro) : on le prend en charge
+  const adopter = (tok) => {
+    const s = etat();
+    if (s.tokens[tok.id] || Number(tok.get('currentside')) !== 1) return;
+    const side1 = sideImage(tok.get('sides'), 1);
+    if (!side1) return;
+    s.tokens[tok.id] = { saved: visibleFromHidden(snapshot((k) => tok.get(k)), side1), reason: 'manual' };
+  };
   const cacher = (tok, reason) => {
     const s = etat();
+    adopter(tok);
     const deja = s.tokens[tok.id];
     if (deja) { if (reason === 'buff') deja.reason = 'buff'; return ''; }
     const img = sideImage(tok.get('sides'), 2);
@@ -224,6 +240,7 @@
     const faits = [], erreurs = [];
     toks.forEach((tok) => {
       if (!controle(pid, tok)) return erreurs.push(`Tu ne contrôles pas ${nomToken(tok)}.`);
+      adopter(tok);
       const cache = !!etat().tokens[tok.id];
       const veut = c.sub === 'on' ? true : c.sub === 'off' ? false : !cache;
       if (c.sub === 'break') {

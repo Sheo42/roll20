@@ -182,7 +182,7 @@ With **bufftracker.js** (2.6 or later): an effect named Invisibilité, Invisibil
 
 Players act on tokens they control; the GM on all. The token needs at least 2 sides, with images from the GM's library (not the Marketplace).
 
-**Tests**: `node tests/invis.test.js` (Node, no dependency) runs 54 checks, alone and together with bufftracker.js in a fake Roll20. They are no substitute for a try-out in a real game.
+**Tests**: `node tests/invis.test.js` (Node, no dependency) runs 59 checks, alone and together with bufftracker.js in a fake Roll20. They are no substitute for a try-out in a real game.
 
 ## Sync the API scripts with GitHub (userscript)
 

@@ -189,7 +189,7 @@ Avec **bufftracker.js** (2.6 ou plus) : un effet nommé Invisibilité, Invisibil
 
 Un joueur agit sur les tokens qu'il contrôle, le MJ sur tous. Le token doit avoir au moins 2 faces, avec des images de la bibliothèque du MJ (pas du Marketplace).
 
-**Tests** : `node tests/invis.test.js` (Node, sans dépendance) lance 54 vérifications, seul et avec bufftracker.js dans un faux Roll20. Ils ne remplacent pas un essai en partie réelle.
+**Tests** : `node tests/invis.test.js` (Node, sans dépendance) lance 59 vérifications, seul et avec bufftracker.js dans un faux Roll20. Ils ne remplacent pas un essai en partie réelle.
 
 ## Synchroniser les scripts API avec GitHub (userscript)
 
