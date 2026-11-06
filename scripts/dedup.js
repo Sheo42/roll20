@@ -1,27 +1,27 @@
-// dedup.js - script API Roll20, réservé au MJ. SUPPRIME des attributs en double, avec garde-fous.
+// dedup.js - Roll20 API script, GM only. DELETES duplicate attributes, with safeguards.
 //
-// Usage dans le chat :
-//   !dedup Nom du Personnage                 -> ESSAI À BLANC: ne supprime rien, annonce ce qui serait supprimé
-//   !dedup Nom du Personnage confirm 703   -> supprime, SEULEMENT si le nombre (703) est encore exact
+// Usage in chat:
+//   !dedup Character Name                 -> DRY RUN: deletes nothing, reports what would be deleted
+//   !dedup Character Name confirm 703   -> deletes, ONLY if the number (703) is still exact
 //
-// Pour chaque nom d'attribut présent plusieurs fois sur le personnage:
-//   - l'exemplaire le plus ANCIEN est toujours conservé (ordre des ids = ordre de création);
-//   - il n'est supprimé que les exemplaires récents qui remplissent TOUTES ces conditions:
-//       * créés dans la fenêtre WINDOW_FROM -> WINDOW_TO (voir plus bas, heure UTC);
-//       * même valeur courante ET même max que l'exemplaire conservé;
-//       * l'exemplaire conservé a été créé AVANT la fenêtre;
-//       * le nom ne commence pas par "repeating_" (sections répétées jamais touchées).
-//   - tout le reste est laissé tel quel et listé comme "ignoré".
-// La suppression se fait par lots, avec une pause, pour ne pas déclencher la détection de boucle.
+// For each attribute name present several times on the character:
+//   - the OLDEST copy is always kept (id order = creation order);
+//   - only recent copies that meet ALL these conditions are deleted:
+//       * created in the WINDOW_FROM -> WINDOW_TO window (see below, UTC time);
+//       * same current value AND same max as the kept copy;
+//       * the kept copy was created BEFORE the window;
+//       * the name does not start with "repeating_" (repeating sections are never touched).
+//   - everything else is left as is and listed as "ignored".
+// Deletion is done in batches, with a pause, so as not to trigger the loop detection.
 //
-// À ADAPTER si besoin: la fenêtre ci-dessous correspond aux copies créées le 2026-10-03
-// entre 09:05 et 14:21 UTC (rapport de !dupes), avec une marge.
+// ADJUST if needed: the window below matches the copies created on 2026-10-03
+// between 09:05 and 14:21 UTC (!dupes report), with a margin.
 
 (function () {
-  var WINDOW_FROM = Date.UTC(2026, 9, 3, 9, 0);    // 2026-10-03 09:00 UTC (les mois commencent à 0)
+  var WINDOW_FROM = Date.UTC(2026, 9, 3, 9, 0);    // 2026-10-03 09:00 UTC (months start at 0)
   var WINDOW_TO   = Date.UTC(2026, 9, 3, 14, 30);  // 2026-10-03 14:30 UTC
-  var BATCH = 40;      // suppressions par lot
-  var PAUSE = 400;     // ms entre deux lots
+  var BATCH = 40;      // deletions per batch
+  var PAUSE = 400;     // ms between two batches
 
   var PUSH_CHARS = '-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
   var idTime = function (id) {
@@ -39,7 +39,7 @@
     return String(v === undefined || v === null ? '' : v).replace(/[\[\]{}<>@&"]/g, '').replace(/\s+/g, ' ').slice(0, max || 40);
   };
 
-  // calcule le plan de nettoyage d'un personnage, sans rien modifier
+  // computes a character's cleanup plan, without changing anything
   var buildPlan = function (charId) {
     var attrs = findObjs({ _type: 'attribute', _characterid: charId });
     var groups = {};

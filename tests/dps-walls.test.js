@@ -1,4 +1,4 @@
-// node tests/dps-walls.test.js : tests sans dépendance de scripts/dps-walls.js (géométrie pure + flux complet avec un faux Roll20)
+// node tests/dps-walls.test.js: dependency-free tests for scripts/dps-walls.js (pure geometry + full flow with a fake Roll20)
 'use strict';
 const assert = require('assert');
 const fs = require('fs');

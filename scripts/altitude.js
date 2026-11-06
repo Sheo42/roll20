@@ -1,79 +1,79 @@
 /*
- * altitude.js — Combat en vol (Pathfinder 1e) pour l'API Roll20
- * Version 1.5 — chute avec bottes du chat (cat : 1 dégât par dé) ;
- * v1.5 — meessage de chute en whisper;
- * v1.4 — menu en mètres, plus de message « vitesse de vol inconnue » ;
- * v1.3 — « Rejoindre » : seulement le mouvement pour venir au contact
- *               (plus de calcul d'allonge ni de distance 3D) ;
- * v1.2 — altitudes négatives (niveau 0 au choix, ex. haut d'une falaise),
- *               chute vers un sol à une autre altitude (to=) ;
- * v1.1 — étiquette à droite du token (plus sous la plaque du nom),
- *               plus grosse, !alt style ; v1.0 — avec gabarit.js v1.5, les gabarits tiennent compte de l'altitude
+ * altitude.js — Flying combat (Pathfinder 1e) for the Roll20 API
+ * Version 1.5 — falling with boots of the cat (cat: 1 damage per die);
+ * v1.5 — fall message whispered;
+ * v1.4 — menu in meters, no more "unknown fly speed" message;
+ * v1.3 — "Rejoindre": only the movement needed to reach the target
+ *               (no more reach or 3D distance calculation);
+ * v1.2 — negative altitudes (level 0 of your choice, e.g. top of a cliff),
+ *               falling to ground at another altitude (to=);
+ * v1.1 — label to the right of the token (no longer under the nameplate),
+ *               bigger, !alt style; v1.0 — with gabarit.js v1.5, templates take altitude into account
  *
- * La carte est en 2D : ce script garde l'ALTITUDE de chaque token, l'affiche
- * sous le token, et fait les calculs de vol à la place des joueurs.
+ * The map is 2D: this script keeps each token's ALTITUDE, shows it
+ * next to the token, and does the flight calculations for the players.
  *
- * RÈGLES APPLIQUÉES
- *   - Compétence Vol (Core p. 96) : on monte à mi-vitesse à 45° maximum, on
- *     descend à vitesse normale sous n'importe quel angle. Monter plus raide
- *     que 45° : test de Vol DD 20. Se déplacer de moins de la moitié de sa
- *     vitesse : DD 10 (rester sur place : DD 15), sinon chute.
- *   - FAQ Paizo « Fly » (juillet 2011) : pas de décompte en diagonale sur la
- *     verticale ; la montée est gérée uniquement par la mi-vitesse.
- *     Donc, avec H cases à l'horizontale et V cases de hauteur :
- *       monter     : chaque case de montée coûte 2 cases, le reste 1
- *                    -> coût = V + max(H, V)   (3 cases à 45° = 6 cases)
- *       descendre  : coût = max(H, V)
- *   - Chute : 1d6 par tranche de 10 ft (3 m), 20d6 au maximum. Une créature
- *     qui sait voler annule les dégâts par un test de Vol DD 10, sauf si elle
- *     tombe à cause d'un test de Vol raté ou d'une collision.
- *   - Rejoindre une cible : l'écart se compte en cases sur chaque axe (au
- *     sol avec la règle des diagonales) ; un token occupe autant de cases en
- *     hauteur qu'en largeur. Au contact = au plus une case d'écart sur chaque
- *     axe. L'allonge n'est pas calculée.
+ * RULES APPLIED
+ *   - Fly skill (Core p. 96): you ascend at half speed at 45° at most, you
+ *     descend at normal speed at any angle. Ascending steeper
+ *     than 45°: Fly check DC 20. Moving less than half your
+ *     speed: DC 10 (hovering: DC 15), otherwise you fall.
+ *   - Paizo FAQ "Fly" (July 2011): no diagonal counting on the
+ *     vertical; ascending is handled only by the half speed.
+ *     So, with H squares horizontally and V squares of height:
+ *       ascend     : each square of ascent costs 2 squares, the rest 1
+ *                    -> cost = V + max(H, V)   (3 squares at 45° = 6 squares)
+ *       descend    : cost = max(H, V)
+ *   - Falling: 1d6 per 10 ft (3 m), 20d6 at most. A creature
+ *     that can fly negates the damage with a DC 10 Fly check, unless it
+ *     falls because of a failed Fly check or a collision.
+ *   - Reaching a target: the gap is counted in squares on each axis (on the
+ *     ground with the diagonal rule); a token covers as many squares in
+ *     height as in width. In contact = at most one square of gap on each
+ *     axis. Reach is not calculated.
  *
- * UNITÉS
- *   Une distance se donne en pieds (30, 30ft), en mètres (9m) ou en cases
- *   (6sq). Un nombre seul est dans l'unité de la page (celle de l'outil
- *   Mesurer). Tout est converti en CASES (5 ft = 1,5 m = 1 case).
+ * UNITS
+ *   A distance is given in feet (30, 30ft), meters (9m) or squares
+ *   (6sq). A bare number is in the page unit (the one of the Measure
+ *   tool). Everything is converted to SQUARES (5 ft = 1.5 m = 1 square).
  *
- * MISE EN PLACE : crée la macro « Vol » (visible par tous, dans la barre de
- * macros) avec le contenu de macro/Vol.macro.txt :   !alt
- * Elle affiche un menu de boutons ; chaque bouton agit sur le token
- * sélectionné au moment du clic.
+ * SETUP: create the "Vol" macro (visible to all, in the macro
+ * bar) with the content of macro/Vol.macro.txt:   !alt
+ * It shows a button menu; each button acts on the token
+ * selected at the time of the click.
  *
- * COMMANDES (options en anglais ; agissent sur les tokens sélectionnés, ou
- * sur les ids donnés)
- *   !alt                          menu de boutons
- *   !alt set [id...] <altitude>   30 / 9m / 6sq (altitude absolue),
- *                                 +10 / -3m (changement), =-9m (absolue
- *                                 négative : sous le niveau 0, par exemple
- *                                 en bas d'une falaise prise comme 0)
+ * COMMANDS (options in English; act on the selected tokens, or
+ * on the given ids)
+ *   !alt                          button menu
+ *   !alt set [id...] <altitude>   30 / 9m / 6sq (absolute altitude),
+ *                                 +10 / -3m (change), =-9m (negative
+ *                                 absolute: below level 0, for example
+ *                                 at the foot of a cliff taken as 0)
  *   !alt fly [id] <horizontal> <vertical> [speed=60]
- *                                 coût d'un déplacement en vol AVANT de bouger
- *                                 (vertical : + monte, - descend)
- *   !alt dist <id> <id cible>     écart entre deux tokens et mouvement en vol
- *                                 pour venir au contact de la cible
+ *                                 cost of a flying move BEFORE moving
+ *                                 (vertical: + ascends, - descends)
+ *   !alt dist <id> <target id>    gap between two tokens and flying movement
+ *                                 to reach the target
  *   !alt fall [id...] [to=-9m] [cat]
- *                                 chute jusqu'au sol (altitude 0, ou to=) :
- *                                 jet de dégâts ; cat = bottes du chat
- *                                 (1 dégât par dé)
- *   !alt show                     liste des altitudes de la page (chuchoté)
- *   !alt clear all                MJ : remet toutes les altitudes à 0
+ *                                 fall to the ground (altitude 0, or to=):
+ *                                 damage roll; cat = boots of the cat
+ *                                 (1 damage per die)
+ *   !alt show                     list of the page's altitudes (whispered)
+ *   !alt clear all                GM: resets all altitudes to 0
  *   !alt style color=#ff3300 size=26
- *                                 MJ : couleur et taille des étiquettes
+ *                                 GM: color and size of the labels
  *
- * Un joueur n'agit que sur les tokens qu'il contrôle ; le MJ sur tous.
- * Vitesse de vol lue sur la fiche Pathfinder Community (speed-fly, en mètres
- * si la fiche est en mètres) ; speed=60 la remplace (sort Vol, par exemple).
+ * A player only acts on the tokens they control; the GM on all.
+ * Fly speed read from the Pathfinder Community sheet (speed-fly, in meters
+ * if the sheet is in meters); speed=60 overrides it (Fly spell, for example).
  */
 (() => {
   'use strict';
 
-  // ===================== LOGIQUE PURE =====================
+  // ===================== PURE LOGIC =====================
 
-  // texte -> { cases, relatif, signe, valeur } ; unite = unité par défaut ('ft' ou 'm')
-  // « +10 » / « -10 » : changement ; « 10 » : valeur ; « =-10 » : valeur négative
+  // text -> { cases, relatif, signe, valeur }; unite = default unit ('ft' or 'm')
+  // "+10" / "-10": change; "10": value; "=-10": negative value
   function lireDistance(txt, unite = 'ft') {
     const m = String(txt || '').trim().toLowerCase()
       .match(/^(=?)\s*([+-]?)\s*(\d+(?:[.,]\d+)?)\s*(sq|squares?|cases?|ft|feet|m)?$/);
@@ -89,31 +89,31 @@
     return { cases, relatif: m[2] !== '' && m[1] !== '=', signe, valeur: signe * cases || 0 };
   }
 
-  // distance PF1 sur 2 axes, en cases : une diagonale sur deux compte double
+  // PF1 distance on 2 axes, in squares: every second diagonal counts double
   const dist2 = (a, b) => {
     a = Math.abs(a); b = Math.abs(b);
     return Math.max(a, b) + Math.floor(Math.min(a, b) / 2);
   };
 
-  // écart en cases entre deux intervalles de cases [a0, a1] et [b0, b1] (inclus)
+  // gap in squares between two square intervals [a0, a1] and [b0, b1] (inclusive)
   const ecart = (a0, a1, b0, b1) => (a1 < b0 ? b0 - a1 : b1 < a0 ? a0 - b1 : 0);
 
-  // coût en cases d'un vol de h cases à l'horizontale et v cases de hauteur
-  // (v > 0 monte, v < 0 descend)
+  // cost in squares of a flight of h squares horizontally and v squares of height
+  // (v > 0 ascends, v < 0 descends)
   function coutVol(h, v) {
     h = Math.abs(h);
     if (v > 0) return v + Math.max(h, v);
     return Math.max(h, -v);
   }
 
-  // distance horizontale maximale pour un changement d'altitude v avec s cases
-  // de mouvement ; -1 si le changement d'altitude seul coûte trop
+  // maximum horizontal distance for an altitude change v with s squares
+  // of movement; -1 if the altitude change alone costs too much
   function horizontalMax(v, s) {
     if (v > 0) return 2 * v > s ? -1 : s - v;
     return -v > s ? -1 : s;
   }
 
-  // analyse d'un vol : coût, tests de Vol, mouvement restant
+  // flight analysis: cost, Fly checks, remaining movement
   function analyseVol(h, v, vitesse) {
     h = Math.abs(h);
     const cout = coutVol(h, v);
@@ -131,10 +131,10 @@
     return r;
   }
 
-  // dés de dégâts d'une chute de n cases : 1d6 par 10 ft, 20d6 au maximum
+  // damage dice of a fall of n squares: 1d6 per 10 ft, 20d6 at most
   const desChute = (cases) => Math.min(20, Math.floor((cases * 5) / 10));
 
-  // affichage d'un nombre de cases dans l'unité de la page
+  // shows a number of squares in the page unit
   function enUnite(cases, unite) {
     if (unite === 'm') { const m = cases * 1.5; return (m % 1 ? m.toFixed(1).replace('.', ',') : String(m)) + ' m'; }
     return cases * 5 + ' ft';
@@ -143,13 +143,13 @@
   if (typeof module !== 'undefined') {
     module.exports = { lireDistance, dist2, ecart, coutVol, horizontalMax, analyseVol, desChute, enUnite };
   }
-  if (typeof on !== 'function') return; // hors Roll20 : on s'arrête ici
+  if (typeof on !== 'function') return; // outside Roll20: stop here
 
-  // ===================== PARTIE ROLL20 =====================
+  // ===================== ROLL20 PART =====================
 
   state.Altitude = state.Altitude || {};
-  state.Altitude.alt = state.Altitude.alt || {};       // token -> altitude en cases
-  state.Altitude.labels = state.Altitude.labels || {}; // token -> texte affiché
+  state.Altitude.alt = state.Altitude.alt || {};       // token -> altitude in squares
+  state.Altitude.labels = state.Altitude.labels || {}; // token -> displayed text
 
   const PX = 70;
   const COULEUR = '#ff3300';
@@ -164,20 +164,20 @@
   const chuchoter = (qui, texte) => sendChat(NOM, `/w "${qui}" ${texte}`);
 
   function controle(t, playerid) {
-    if (playerid === 'API' || playerIsGM(playerid)) return true; // API : gabarit.js (Viseur)
+    if (playerid === 'API' || playerIsGM(playerid)) return true; // API: gabarit.js (Viseur)
     const ok = (s) => String(s || '').split(',').some((x) => x === 'all' || x === playerid);
     if (ok(t.get('controlledby'))) return true;
     const c = t.get('represents') && getObj('character', t.get('represents'));
     return !!(c && ok(c.get('controlledby')));
   }
 
-  // ---------- étiquette sous le token ----------
-  // tailles de police acceptées par Roll20 pour un texte
+  // ---------- label next to the token ----------
+  // font sizes Roll20 accepts for a text
   const TAILLES = [12, 14, 16, 18, 20, 22, 26, 32, 40, 56];
   const style = () => Object.assign({ couleur: COULEUR, taille: 26 }, state.Altitude.style || {});
 
-  // étiquette à DROITE du token, à hauteur de sa barre : sous le token, elle
-  // serait cachée par la plaque du nom
+  // label to the RIGHT of the token, at the height of its bar: under the token, it
+  // would be hidden by the nameplate
   function placeEtiquette(t) {
     const id = state.Altitude.labels[t.id];
     let txt = id && getObj('text', id);
@@ -189,7 +189,7 @@
     }
     const st = style();
     const texte = (a > 0 ? '↑ ' : '↓ ') + enUnite(Math.abs(a), unitePage(pageDe(t)));
-    const largeur = texte.length * st.taille * 0.6; // estimation : le texte est centré sur left
+    const largeur = texte.length * st.taille * 0.6; // estimate: the text is centered on left
     const props = {
       text: texte,
       left: t.get('left') + t.get('width') / 2 + 4 + largeur / 2,
@@ -203,19 +203,19 @@
   }
 
   function fixerAltitude(t, cases) {
-    const a = Math.round(cases) || 0; // négative : sous le niveau de référence (0)
+    const a = Math.round(cases) || 0; // negative: below the reference level (0)
     if (a) state.Altitude.alt[t.id] = a; else delete state.Altitude.alt[t.id];
     placeEtiquette(t);
     return a;
   }
 
-  // gabarit.js recalcule les zones touchées en 3D quand une altitude change
+  // gabarit.js recomputes the affected areas in 3D when an altitude changes
   function signalerGabarit(toks) {
     if (!state.gabarit) return;
     [...new Set(toks.map((t) => t.get('_pageid')))].forEach((p) => sendChat(NOM, `!gabarit refresh ${p}`));
   }
 
-  // vitesse de vol (en cases) lue sur la fiche, 0 si inconnue
+  // fly speed (in squares) read from the sheet, 0 if unknown
   function vitesseVol(t) {
     const cid = t.get('represents');
     if (!cid) return 0;
@@ -229,7 +229,7 @@
     return (cid && String(getAttrByName(cid, 'speed-fly-maneuverability') || '').trim()) || '';
   };
 
-  // cases occupées par un token : [i0, i1], [j0, j1] et [k0, k1] en hauteur
+  // squares covered by a token: [i0, i1], [j0, j1] and [k0, k1] in height
   function volume(t) {
     const cp = casePx(pageDe(t));
     const nx = Math.max(1, Math.round(t.get('width') / cp));
@@ -240,7 +240,7 @@
     return { i: [i0, i0 + nx - 1], j: [j0, j0 + ny - 1], k: [k0, k0 + Math.max(nx, ny) - 1] };
   }
 
-  // ---------- commandes ----------
+  // ---------- commands ----------
   const IDS = /^-[\w-]{10,}$/;
 
   function tokensDuMessage(msg, args) {
@@ -322,7 +322,7 @@
       s += `Écart : ${enUnite(hz, unite)} à l'horizontale, ${enUnite(dz, unite)} en hauteur`;
       if (hz <= 1 && dz <= 1) s += '<br><b>Déjà au contact</b>';
       else {
-        // au contact : il reste une case d'écart sur chaque axe
+        // in contact: one square of gap remains on each axis
         const sens = altDe(b) >= altDe(a) ? 1 : -1;
         const r = analyseVol(Math.max(0, hz - 1), sens * Math.max(0, dz - 1), 0);
         s += `<br>Pour venir au contact en volant : <b>${enUnite(r.cout, unite)}</b> de mouvement`;
@@ -334,7 +334,7 @@
 
     if (cmd === 'fall') {
       if (!permis.length) { chuchoter(qui, 'Sélectionne un token que tu contrôles.'); return; }
-      // altitude du sol où l'on tombe (to=-9m sous une falaise) ; 0 par défaut
+      // altitude of the ground you fall to (to=-9m below a cliff); 0 by default
       const opt = reste.find((a) => /^to=/i.test(a));
       const chat = reste.some((a) => /^cat$/i.test(a));
       const sol = opt ? lireDistance(opt.slice(3).replace(/^([+-])/, '=$1'), unite) : { valeur: 0 };
@@ -344,7 +344,7 @@
         if (hauteur <= 0) { chuchoter(qui, `${nomDe(t)} n'est pas au-dessus du sol (${altTexte(sol.valeur, unite)}).`); return; }
         const n = desChute(hauteur);
         fixerAltitude(t, sol.valeur);
-        // Bottes du chat (Boots of the Cat) : dégâts minimum (1 par dé), retombe sur ses pieds
+        // Boots of the Cat: minimum damage (1 per die), lands on its feet
         const jet = !n ? 'aucun dégât (moins de 3 m / 10 ft)'
           : chat ? `<b>${n}</b> dégât${n > 1 ? 's' : ''} (bottes du chat : 1 par dé, retombe sur ses pieds)`
             : `[[${n}d6]] dégâts`;
@@ -396,9 +396,9 @@
     chuchoter(qui, menu());
   });
 
-  // menu de boutons, distances en mètres quelle que soit l'unité de la page ;
-  // les requêtes ?{...} et @{...} sont encodées pour n'être
-  // évaluées qu'au clic, avec le token sélectionné à ce moment-là
+  // button menu, distances in meters whatever the page unit;
+  // the ?{...} and @{...} queries are encoded so they are only
+  // evaluated on click, with the token selected at that moment
   function menu() {
     const q = (s) => s.replace(/\?/g, '&#63;').replace(/\|/g, '&#124;').replace(/@/g, '&#64;')
       .replace(/\(/g, '&#40;').replace(/\)/g, '&#41;');
@@ -411,7 +411,7 @@
       + b('Liste', '!alt show');
   }
 
-  // l'étiquette suit son token
+  // the label follows its token
   on('change:graphic', (obj, prev) => {
     if (!state.Altitude.alt[obj.id]) return;
     if (['left', 'top', 'height', 'layer'].every((k) => obj.get(k) === prev[k])) return;
@@ -426,7 +426,7 @@
   });
 
   on('ready', () => {
-    // ménage : altitudes de tokens disparus pendant que le script était arrêté
+    // cleanup: altitudes of tokens that disappeared while the script was stopped
     Object.keys(state.Altitude.alt).forEach((id) => {
       const t = getObj('graphic', id);
       if (t) placeEtiquette(t);
@@ -437,6 +437,6 @@
         delete state.Altitude.labels[id];
       }
     });
-    log('altitude.js v1.5 chargé');
+    log('altitude.js v1.5 loaded');
   });
 })();

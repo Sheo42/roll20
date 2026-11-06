@@ -1,33 +1,33 @@
-// attackclean.js - script API Roll20, réservé au MJ. SUPPRIME des lignes d'attaque en double, avec garde-fous.
+// attackclean.js - Roll20 API script, GM only. DELETES duplicate attack rows, with safeguards.
 //
-// Usage dans le chat :
-//   !attackclean Nom du Personnage             -> ESSAI À BLANC : ne supprime rien, liste ce qui serait supprimé
-//   !attackclean Nom du Personnage confirm 3   -> supprime, SEULEMENT si le nombre (3) est encore exact
-//   !attackclean all                           -> ESSAI À BLANC sur TOUS les personnages (résumé par personnage)
-//   !attackclean all confirm 12                -> supprime les copies identiques de tous les personnages,
-//                                                 SEULEMENT si le total (12) est encore exact
-//   !attackclean Nom du Personnage delete <id>          -> montre UNE copie « à vérifier » et ses différences
-//   !attackclean Nom du Personnage delete <id> confirm  -> supprime cette copie (après vérification par le MJ)
+// Usage in chat:
+//   !attackclean Character Name             -> DRY RUN: deletes nothing, lists what would be deleted
+//   !attackclean Character Name confirm 3   -> deletes, ONLY if the number (3) is still exact
+//   !attackclean all                        -> DRY RUN on ALL characters (summary per character)
+//   !attackclean all confirm 12             -> deletes the identical copies of all characters,
+//                                              ONLY if the total (12) is still exact
+//   !attackclean Character Name delete <id>          -> shows ONE "to check" copy and its differences
+//   !attackclean Character Name delete <id> confirm  -> deletes that copy (after the GM has checked it)
 //
-// Une ligne d'attaque n'est supprimée que si TOUT ceci est vrai :
-//   - elle est liée à un objet, un sort ou une capacité (source-item / source-spell / source-ability) ;
-//   - une ligne PLUS ANCIENNE porte le même nom (casse et espaces ignorés) et est liée à la même source :
-//     la plus ancienne est toujours gardée ;
-//   - ses réglages modifiables à la main (bonus, dégâts, critique, notes, type d'attaque...) sont identiques
-//     à ceux de la ligne gardée, et elle n'a pas plus de champs qu'elle.
-// Sinon la ligne est listée « à vérifier », avec les valeurs qui diffèrent et un bouton pour la supprimer
-// à la main (delete). Seule une copie (même nom, même source, plus récente) peut être supprimée ainsi :
-// jamais la ligne gardée ni une variante. Les attaques renommées (variantes
-// faites à la main) et les attaques sans lien ne sont jamais touchées.
-// La suppression retire tous les attributs de la ligne, par lots, avec une pause.
-// Conseil : dupliquer le personnage avant (la duplication ne crée pas de copie d'attaque, testé).
+// An attack row is deleted only if ALL of this is true:
+//   - it is linked to an item, a spell or an ability (source-item / source-spell / source-ability);
+//   - an OLDER row has the same name (case and spaces ignored) and is linked to the same source:
+//     the oldest one is always kept;
+//   - its hand-editable settings (bonus, damage, critical, notes, attack type...) are identical
+//     to those of the kept row, and it does not have more fields than it.
+// Otherwise the row is listed "to check", with the values that differ and a button to delete it
+// by hand (delete). Only a copy (same name, same source, newer) can be deleted that way:
+// never the kept row or a variant. Renamed attacks (hand-made
+// variants) and unlinked attacks are never touched.
+// Deletion removes all the row's attributes, in batches, with a pause.
+// Tip: duplicate the character first (duplicating does not create an attack copy, tested).
 
 var AttackClean = (function () {
   'use strict';
   var PUSH_CHARS = '-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
   var ROW_RE = /^repeating_([^_]+)_(-[^_]+)_(.+)$/;
   var SOURCES = [['source-item', 'item', 'objet'], ['source-spell', 'spells', 'sort'], ['source-ability', 'ability', 'capacité']];
-  // réglages qu'un joueur modifie à la main sur une ligne d'attaque
+  // settings a player edits by hand on an attack row
   var EDITABLE = ['attack-mod', 'damage-mod', 'attack-type', 'damage-ability', 'crit-target', 'crit-multiplier',
     'crit_conf_mod', 'enhance', 'masterwork', 'proficiency', 'damage-dice-num', 'damage-die', 'type', 'notes',
     'group', 'range', 'isranged', 'vs', 'precision_dmg_macro', 'critical_dmg_macro'];
@@ -51,13 +51,13 @@ var AttackClean = (function () {
     return String(v === undefined || v === null ? '' : v)
       .replace(/[\[\]{}<>@&"]/g, '').replace(/\s+/g, ' ').trim().slice(0, max || 40);
   }
-  // valeur comparable : absent, vide et 0 se valent (la feuille ne crée pas toujours les champs à 0)
+  // comparable value: missing, empty and 0 are equal (the sheet does not always create fields at 0)
   function norm(v) {
     var s = String(v === undefined || v === null ? '' : v).trim();
     return s === '0' ? '' : s;
   }
 
-  // attrs : [{id, name, current}] -> lignes d'attaque {key, fields, ids, born} et noms des sources
+  // attrs: [{id, name, current}] -> attack rows {key, fields, ids, born} and source names
   function indexRows(attrs) {
     var rows = {}, names = { item: {}, spells: {}, ability: {} };
     attrs.forEach(function (a) {
@@ -81,7 +81,7 @@ var AttackClean = (function () {
     }
     return null;
   }
-  // différences de réglages entre la copie et la ligne gardée (liste de noms de champs)
+  // settings differences between the copy and the kept row (list of field names)
   function diffs(copy, keep) {
     return EDITABLE.filter(function (f) { return norm(copy.fields[f]) !== norm(keep.fields[f]); });
   }
@@ -91,7 +91,7 @@ var AttackClean = (function () {
     return x - y || (a.key < b.key ? -1 : 1);
   }
 
-  // plan de nettoyage : {groups: [{label, keep, remove: [], check: [{row, why}]}], remove: [rows]}
+  // cleanup plan: {groups: [{label, keep, remove: [], check: [{row, why}]}], remove: [rows]}
   function buildPlan(attrs) {
     var idx = indexRows(attrs), groups = {};
     Object.keys(idx.rows).forEach(function (k) {
@@ -135,7 +135,7 @@ var AttackClean = (function () {
     });
     return out;
   }
-  // résumé sur plusieurs personnages : chars = [{name, plan}] -> lignes, avec le total à confirmer
+  // summary over several characters: chars = [{name, plan}] -> lines, with the total to confirm
   function summaryAll(chars) {
     var hit = chars.filter(function (c) { return c.plan.groups.length; });
     var total = 0, check = 0;
@@ -152,7 +152,7 @@ var AttackClean = (function () {
     });
     return { lines: out, total: total };
   }
-  // copie supprimable à la main : ligne plus récente d'un groupe (supprimable ou à vérifier), ou null
+  // copy deletable by hand: newer row of a group (deletable or to check), or null
   function findCopy(plan, key) {
     key = String(key || '').toLowerCase();
     for (var i = 0; i < plan.groups.length; i++) {
@@ -179,8 +179,8 @@ if (typeof module !== 'undefined') module.exports = AttackClean;
   'use strict';
   if (typeof on !== 'function') return;
   var C = AttackClean;
-  var BATCH = 40;   // attributs supprimés par lot
-  var PAUSE = 400;  // ms entre deux lots
+  var BATCH = 40;   // attributes deleted per batch
+  var PAUSE = 400;  // ms between two batches
 
   on('chat:message', function (msg) {
     if (msg.type !== 'api' || !/^!attackclean(\s|$)/.test(msg.content)) return;

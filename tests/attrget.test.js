@@ -1,13 +1,13 @@
-// node tests/attrget.test.js : tests sans dépendance de scripts/attrget.js (logique pure + flux complet avec un faux Roll20)
+// node tests/attrget.test.js: dependency-free tests for scripts/attrget.js (pure logic + full flow with a fake Roll20)
 'use strict';
 var fs = require('fs'), path = require('path'), vm = require('vm');
 var G = require('../scripts/attrget.js');
 
 var pass = 0, fail = 0;
-function ok(cond, label) { if (cond) pass++; else { fail++; console.log('ÉCHEC: ' + label); } }
+function ok(cond, label) { if (cond) pass++; else { fail++; console.log('FAIL: ' + label); } }
 function eq(a, b, label) { ok(JSON.stringify(a) === JSON.stringify(b), label + ' -> ' + JSON.stringify(a) + ' attendu ' + JSON.stringify(b)); }
 
-// --- parseArgs : le plus long début qui est un personnage
+// --- parseArgs: the longest start that is a character
 var NAMES = ['Paz Tarpou', 'Paz', 'Lune'];
 eq(G.parseArgs(['Paz', 'Tarpou', 'armor3'], NAMES), { name: 'Paz Tarpou', patterns: ['armor3'] }, 'nom avec espace');
 eq(G.parseArgs(['paz', 'armor3', 'shield3'], NAMES), { name: 'Paz', patterns: ['armor3', 'shield3'] }, 'nom court, casse ignorée');
@@ -34,7 +34,7 @@ var rm = G.report('C', many, ['x*']);
 eq(rm.length, 1 + G.MAX_SHOWN + 1, 'liste limitée');
 ok(/et 5 autres/.test(rm[rm.length - 1]), 'reste annoncé');
 
-// --- flux complet avec un faux Roll20 (lecture seule)
+// --- full flow with a fake Roll20 (read only)
 function fakeRoll20(isGM) {
   var handlers = {}, sent = [], timers = [];
   var objs = [{ type: 'character', id: 'C1', name: 'Paz Tarpou' }, { type: 'character', id: 'C2', name: 'Lune' }];
@@ -75,5 +75,5 @@ ok(/Aucun personnage/.test(f.say('!attrget Inconnu x')), 'personnage inconnu');
 eq(f.say('!attrgetX Lune x'), '', 'autre commande ignorée');
 eq(fakeRoll20(false).say('!attrget Lune migrated_worn_equipment'), '', 'joueur non MJ ignoré');
 
-console.log(pass + ' réussis, ' + fail + ' échecs');
+console.log(pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

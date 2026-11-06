@@ -1,11 +1,11 @@
-// node tests/chartools.test.js : tests sans dépendance de scripts/dupes.js, dedup.js et abilityfix.js (flux complet avec un faux Roll20)
+// node tests/chartools.test.js: dependency-free tests for scripts/dupes.js, dedup.js and abilityfix.js (full flow with a fake Roll20)
 'use strict';
 var fs = require('fs'), path = require('path'), vm = require('vm');
 
 var pass = 0, fail = 0;
-function ok(cond, label) { if (cond) pass++; else { fail++; console.log('ÉCHEC: ' + label); } }
+function ok(cond, label) { if (cond) pass++; else { fail++; console.log('FAIL: ' + label); } }
 
-// id Firebase dont les 8 premiers caractères encodent la date donnée
+// Firebase id whose first 8 characters encode the given date
 var PUSH = '-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
 var seq = 0;
 function pid(iso) {
@@ -16,7 +16,7 @@ function pid(iso) {
 }
 var OLD = '2026-09-01T18:00:00Z', IN = '2026-10-03T10:00:00Z', OUT = '2026-10-05T10:00:00Z';
 
-// faux Roll20 : charge un script, envoie des messages, garde la trace des écritures
+// fake Roll20: loads a script, sends messages, records writes
 function fakeRoll20(file, attrs, isGM) {
   var handlers = {}, sent = [], timers = [], removed = [], sets = [];
   var objs = [{ type: 'character', id: 'C1', name: 'Selea' }].concat(attrs.map(function (a) {
@@ -56,7 +56,7 @@ function fakeRoll20(file, attrs, isGM) {
 }
 function A(name, current, when, max) { return { id: pid(when || OLD), name: name, current: current, max: max }; }
 
-// --- dupes.js : option "all"
+// --- dupes.js: option "all"
 var DUP = [A('STR', '18'), A('STR', '18', IN), A('HP', '40'), A('HP', '35', IN)];
 var dupes = fakeRoll20('dupes.js', DUP);
 var out = dupes.say('!dupes Selea');
@@ -68,12 +68,12 @@ ok(/Aucun personnage nommé selea tout/.test(dupes.say('!dupes Selea tout')), 'd
 ok(/\[all\]/.test(dupes.say('!dupes')), 'dupes: usage en anglais');
 ok(fakeRoll20('dupes.js', DUP, false).say('!dupes Selea') === '', 'dupes: joueur non MJ ignoré');
 
-// --- dedup.js : option "confirm N"
+// --- dedup.js: option "confirm N"
 function dedupAttrs() {
   return [A('STR', '18'), A('STR', '18', IN), A('DEX', '12'), A('DEX', '12', IN),
-    A('WIS', '10'), A('WIS', '14', IN),                 // valeur différente : gardé
-    A('INT', '8'), A('INT', '8', OUT),                  // hors fenêtre : gardé
-    A('repeating_x_-abc_name', 'a'), A('repeating_x_-abc_name', 'a', IN)]; // section répétée : gardée
+    A('WIS', '10'), A('WIS', '14', IN),                 // different value: kept
+    A('INT', '8'), A('INT', '8', OUT),                  // outside the window: kept
+    A('repeating_x_-abc_name', 'a'), A('repeating_x_-abc_name', 'a', IN)]; // repeating section: kept
 }
 var dd = fakeRoll20('dedup.js', dedupAttrs());
 out = dd.say('!dedup Selea');
@@ -86,7 +86,7 @@ ok(/Terminé : 2 exemplaires supprimés/.test(out), 'dedup: confirm 2 supprime')
 ok(JSON.stringify(dd.removed.sort()) === '["DEX","STR"]', 'dedup: seules les copies identiques dans la fenêtre partent');
 ok(/\[confirm N\]/.test(dd.say('!dedup')), 'dedup: usage en anglais');
 
-// --- abilityfix.js : option "confirm N"
+// --- abilityfix.js: option "confirm N"
 var R1 = pid(OLD), R2 = pid(OLD), R3 = pid(OLD);
 function abil(row, field, v) { return A('repeating_ability_' + row + '_' + field, v); }
 var AB = [abil(R1, 'name', 'Interception de coups'), abil(R1, 'showinmenu', '1'),
@@ -102,5 +102,5 @@ ok(/Terminé : 1 attributs modifiés/.test(af.say('!abilityfix Selea confirm 1')
 ok(af.sets.length === 1 && af.sets[0][0] === 'repeating_ability_' + R1 + '_showinmenu' && af.sets[0][2] === '0', 'abilityfix: seul showinmenu de la ligne sans type passe à 0');
 ok(/\[confirm N\]/.test(af.say('!abilityfix')), 'abilityfix: usage en anglais');
 
-console.log(pass + ' réussis, ' + fail + ' échecs');
+console.log(pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

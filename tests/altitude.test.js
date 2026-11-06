@@ -1,17 +1,17 @@
 /*
- * altitude.test.js — tests de altitude.js (script API Roll20)
+ * altitude.test.js — tests for altitude.js (Roll20 API script)
  *
- * Lancer :  node tests/altitude.test.js            (teste scripts/altitude.js)
- *           node tests/altitude.test.js autre.js   (teste un autre fichier)
+ * Run:     node tests/altitude.test.js            (tests scripts/altitude.js)
+ *           node tests/altitude.test.js other.js   (tests another file)
  *
- * Aucune dépendance : Node.js suffit, Roll20 n'est pas nécessaire.
- * Deux niveaux de tests :
- *   - logique pure : conversions d'unités, distances PF1 en 2D et 3D, coût d'un
- *     vol (FAQ Paizo : pas de diagonale sur la verticale), dés de chute ;
- *   - flux complet : le script est chargé dans un FAUX Roll20 (page, tokens,
- *     fiches, textes, chat) et on lui envoie de vraies commandes « !alt ... ».
+ * No dependency: Node.js is enough, Roll20 is not needed.
+ * Two levels of tests:
+ *   - pure logic: unit conversions, PF1 distances in 2D and 3D, cost of a
+ *     flight (Paizo FAQ: no diagonal on the vertical), falling dice;
+ *   - full flow: the script is loaded into a FAKE Roll20 (page, tokens,
+ *     sheets, texts, chat) and gets real "!alt ..." commands.
  *
- * Limite : ces tests n'ont jamais tourné dans une vraie campagne Roll20.
+ * Limit: these tests have never run in a real Roll20 campaign.
  */
 const fs = require('fs');
 const path = require('path');
@@ -21,7 +21,7 @@ const SCRIPT = path.resolve(process.argv[2] || path.join(__dirname, '..', 'scrip
 const CODE = fs.readFileSync(SCRIPT, 'utf8');
 const A = require(SCRIPT);
 
-// ---------------------------------------------------------------- mini lanceur
+// ---------------------------------------------------------------- mini runner
 let total = 0;
 const echecs = [];
 let groupe = '';
@@ -40,7 +40,7 @@ function describe(nom, fn) {
   }
 }
 
-// =============================================================== LOGIQUE PURE
+// =============================================================== PURE LOGIC
 describe('Lecture des distances (5 ft = 1,5 m = 1 case)', () => {
   const L = (t, u) => { const d = A.lireDistance(t, u); return d && d.valeur; };
   const table = [['30', 'ft', 6], ['30ft', 'm', 6], ['9m', 'ft', 6], ['9', 'm', 6], ['10,5', 'm', 7], ['6sq', 'm', 6],
@@ -124,14 +124,14 @@ describe('Affichage dans l\'unité de la page', () => {
   check(A.enUnite(6, 'ft') === '30 ft', '6 cases -> 30 ft');
 });
 
-// ------------------------------------------------------------ faux Roll20
+// ------------------------------------------------------------ fake Roll20
 function creerRoll20({ unite = 'm', gm = ['GM'] } = {}) {
   const h = {};
   const objs = [];
   let n = 0;
   const chat = [];
   const fire = (ev, ...a) => (h[ev] || []).forEach((f) => f(...a));
-  const attrs = {}; // perso -> { nom: valeur }
+  const attrs = {}; // character -> { name: value }
   const mk = (t, p) => {
     const o = { id: '-ID' + String(++n).padStart(12, '0'), type: t, props: { _type: t, ...p } };
     if (t === 'text' && p.pageid) o.props._pageid = p.pageid;
@@ -176,7 +176,7 @@ function creerRoll20({ unite = 'm', gm = ['GM'] } = {}) {
   return { fire, mk, objs, sb, chat, page, perso, token, cmd, dernier, textes };
 }
 
-// =============================================================== FLUX COMPLET
+// =============================================================== FULL FLOW
 describe('Altitude : !alt set, étiquette à droite du token', () => {
   const R = creerRoll20();
   const t = R.token('Lune', 5, 5);
@@ -316,7 +316,7 @@ describe('Rejoindre une cible : !alt dist', () => {
   R.cmd(`!alt set ${a.id} 10`, 'GM');
   R.cmd(`!alt dist ${a.id} ${grand.id}`, 'GM');
   check(/5 ft en hauteur/.test(R.dernier()) && /Déjà au contact/.test(R.dernier()), 'à 10 ft d\'altitude, au-dessus d\'une créature Grande (haute de 10 ft) : 1 case d\'écart en hauteur, au contact en diagonale');
-  // sort Vol suivi seulement au BuffTracker : vitesse de vol à 0 sur la fiche
+  // Fly spell tracked only in the BuffTracker: fly speed 0 on the sheet
   const c = R.perso('Lune', { 'speed-fly': '0' }, 'p1');
   const sansVol = R.token('Lune', 0, 3, { represents: c.id });
   R.cmd(`!alt set ${sansVol.id} 15`, 'p1');
@@ -374,7 +374,7 @@ describe('Liste et menu', () => {
   const m = R.dernier();
   check(/\[Coût d'un vol\]\(!alt fly &#63;\{/.test(m), 'menu : bouton Coût d\'un vol avec requête encodée');
   check(/Distance horizontale en m/.test(m) && /Hauteur en m/.test(m) && /Altitude en m/.test(m) && /arrivée en m/.test(m) && /Bottes du chat/.test(m), 'menu : les questions précisent « en m », la chute demande les bottes du chat');
-  // valeurs saisies dans le menu, sur une page en pieds : lues en mètres
+  // values typed in the menu, on a page in feet: read as meters
   const P = creerRoll20({ unite: 'ft' });
   const t = P.token('Lune', 1, 1);
   P.cmd('!alt set +3m', 'GM', [t]);
@@ -402,6 +402,6 @@ describe('Redémarrage du script : ménage des tokens disparus', () => {
   check(R.textes().length === 1, 'pas d\'étiquette en double au redémarrage');
 });
 
-// ------------------------------------------------------------------- bilan
+// ------------------------------------------------------------------- summary
 console.log(`\n${total - echecs.length}/${total} OK`);
-if (echecs.length) { console.log('\nÉCHECS :\n' + echecs.join('\n')); process.exit(1); }
+if (echecs.length) { console.log('\nFAILURES:\n' + echecs.join('\n')); process.exit(1); }

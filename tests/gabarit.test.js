@@ -1,23 +1,23 @@
 /*
- * gabarit.test.js — tests de gabarit.js (script API Roll20)
+ * gabarit.test.js — tests for gabarit.js (Roll20 API script)
  *
- * Lancer :  node gabarit.test.js            (teste ../scripts/gabarit.js)
- *           node gabarit.test.js autre.js   (teste un autre fichier)
+ * Run:     node gabarit.test.js            (tests ../scripts/gabarit.js)
+ *           node gabarit.test.js other.js   (tests another file)
  *
- * Aucune dépendance : Node.js suffit, Roll20 n'est pas nécessaire.
- * Deux niveaux de tests :
- *   - logique pure : les fonctions de calcul exportées par le script (cases d'un
- *     cercle / cône / ligne / émanation, contours, conversion des tailles) ;
- *   - flux complet : le script est chargé dans un FAUX Roll20 (pages, tokens,
- *     tracés, chat) et on lui envoie de vraies commandes « !gabarit ... », y
- *     compris la macro macro/gabarit.macro.txt avec chacun de ses choix.
+ * No dependency: Node.js is enough, Roll20 is not needed.
+ * Two levels of tests:
+ *   - pure logic: the calculation functions exported by the script (squares of a
+ *     circle / cone / line / emanation, outlines, size conversion);
+ *   - full flow: the script is loaded into a FAKE Roll20 (pages, tokens,
+ *     paths, chat) and gets real "!gabarit ..." commands, including
+ *     the macro/gabarit.macro.txt macro with each of its choices.
  *
- * Le faux Roll20 peut se comporter de deux façons quand le script modifie un token
- * depuis un gestionnaire d'évènement (option `nested`) : relancer l'évènement, ou
- * non. Roll20 ne relance pas toujours l'évènement : les tests de rotation du
- * Viseur sont donc exécutés dans les deux modes.
+ * The fake Roll20 can behave in two ways when the script changes a token
+ * from an event handler (`nested` option): fire the event again, or
+ * not. Roll20 does not always fire the event again: the Viseur rotation
+ * tests are therefore run in both modes.
  *
- * Limite : ces tests n'ont jamais tourné dans une vraie campagne Roll20.
+ * Limit: these tests have never run in a real Roll20 campaign.
  */
 const fs = require('fs');
 const path = require('path');
@@ -27,7 +27,7 @@ const SCRIPT = path.resolve(process.argv[2] || path.join(__dirname, '..', 'scrip
 const CODE = fs.readFileSync(SCRIPT, 'utf8');
 const g = require(SCRIPT);
 
-// ---------------------------------------------------------------- mini lanceur
+// ---------------------------------------------------------------- mini runner
 let total = 0;
 const echecs = [];
 let groupe = '';
@@ -48,7 +48,7 @@ function describe(nom, fn) {
 const eq = (a, b) => a.size === b.size && [...a].every((x) => b.has(x));
 const A = g.angleDeRotation;
 
-// forme d'un ensemble de cases, ligne par ligne ("..#/###"), dans son rectangle englobant
+// shape of a set of squares, row by row ("..#/###"), in its bounding rectangle
 const motif = (set) => {
   const pts = [...set].map((s) => s.split(',').map(Number));
   const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
@@ -62,16 +62,16 @@ const motif = (set) => {
   return rows.join('/');
 };
 
-// ------------------------------------------------------------ faux Roll20
-// avec : autres scripts chargés dans le même bac à sable (altitude.js) ; les
-// messages « !... » envoyés par un script sont alors relayés comme dans Roll20
+// ------------------------------------------------------------ fake Roll20
+// avec: other scripts loaded in the same sandbox (altitude.js); the
+// "!..." messages sent by a script are then relayed as in Roll20
 function creerRoll20({ nested = true, playerIsGM = () => true, avec = [] } = {}) {
   const h = {};
   const objs = [];
   let n = 0;
   let depth = 0;
-  const stats = { evts: 0 };            // nombre de set() sur des tokens
-  const crees = { path: 0, graphic: 0 }; // objets créés
+  const stats = { evts: 0 };            // number of set() calls on tokens
+  const crees = { path: 0, graphic: 0 }; // objects created
   const chat = [];
   const fire = (ev, ...a) => (h[ev] || []).forEach((f) => f(...a));
   const mk = (t, p) => {
@@ -83,8 +83,8 @@ function creerRoll20({ nested = true, playerIsGM = () => true, avec = [] } = {})
       Object.assign(o.props, kv);
       if (t !== 'graphic') return;
       stats.evts++;
-      // nested = false : Roll20 ne relance pas l'évènement pour un set fait par le
-      // script dans un gestionnaire
+      // nested = false: Roll20 does not fire the event again for a set made by the
+      // script in a handler
       if (depth > 0 && !nested) return;
       depth++;
       try { fire('change:graphic', o, prev); } finally { depth--; }
@@ -121,7 +121,7 @@ function creerRoll20({ nested = true, playerIsGM = () => true, avec = [] } = {})
 
 const IMG_BIBLIO = 'https://s3.amazonaws.com/files.d20.io/images/5/Mag/med.png?1';
 
-// =============================================================== LOGIQUE PURE
+// =============================================================== PURE LOGIC
 describe('Taille -> nombre de cases (5 ft = 1,5 m = 1 case)', () => {
   const table = {
     '20': 4, '20ft': 4, '20 ft': 4, '120': 24, '5': 1, '10': 2, '30': 6,
@@ -178,14 +178,14 @@ describe('Géométrie : lignes', () => {
 });
 
 describe('Géométrie : lignes du manuel (formes de référence, 30 ft = 6 cases)', () => {
-  // forme normalisée : colonnes de gauche à droite, rangées de BAS en haut, première case en (0,0)
+  // normalized shape: columns from left to right, rows from BOTTOM to top, first square at (0,0)
   const forme = (set) => {
     const a = [...set].map((k) => { const [i, j] = k.split(',').map(Number); return [i, -j]; });
     const mi = Math.min(...a.map((c) => c[0])), mj = Math.min(...a.map((c) => c[1]));
     return a.map((c) => [c[0] - mi, c[1] - mj]).sort((p, q) => p[1] - q[1] || p[0] - q[0]).map((c) => c.join(',')).join(' ');
   };
   const deg = Math.PI / 180;
-  // angle mesuré depuis la verticale (vers le haut), vers la droite ; origine = intersection de grille
+  // angle measured from the vertical (up), toward the right; origin = grid intersection
   const ligne = (a, n = 6) => g.casesLigne([500, 500], (-90 + a) * deg, n, 100);
   const L1 = '0,0 0,1 0,2 0,3 0,4 0,5';
   const L2 = '0,0 0,1 0,2 1,3 1,4 1,5';
@@ -196,14 +196,14 @@ describe('Géométrie : lignes du manuel (formes de référence, 30 ft = 6 cases
   check(forme(ligne(30)) === L3, 'ligne à 30° : 2-3-1 cases en escalier (3e ligne du manuel)');
   check([27, 29, 31, 33].every((a) => forme(ligne(a)) === L3), 'la 3e forme est la même de 26,6° à 33,6°');
   check(forme(ligne(45)) === L4, 'ligne diagonale : 4 cases en escalier (4e ligne du manuel)');
-  // une ligne qui n'est pas diagonale compte toujours exactement N cases, quel que soit l'angle
+  // a line that is not diagonal always counts exactly N squares, whatever the angle
   let mauvais = [];
-  for (let a = 0.25; a < 90; a += 0.25) { // 0° et 90° : exactement sur une frontière de cases, voir les tests d'axe
+  for (let a = 0.25; a < 90; a += 0.25) { // 0° and 90°: exactly on a square boundary, see the axis tests
     if (Math.abs(a - 45) < 1e-9) continue;
     [1, 3, 6, 12].forEach((n) => { if (ligne(a, n).size !== n) mauvais.push(`${a}°/${n}`); });
   }
   check(mauvais.length === 0, 'ligne oblique ou droite : exactement N cases à tous les angles (de 0,25° à 89,75°, pas de 0,25°)' + (mauvais.length ? ' — écarts : ' + mauvais.slice(0, 5).join(' ') : ''));
-  // symétrie : le même angle vers la gauche donne la forme miroir
+  // symmetry: the same angle to the left gives the mirror shape
   const miroir = (set) => forme(new Set([...set].map((k) => { const [i, j] = k.split(',').map(Number); return (-i - 1) + ',' + j; })));
   check([10, 18, 30, 40].every((a) => forme(ligne(-a)) === miroir(ligne(a))), 'angle vers la gauche = forme miroir');
 });
@@ -234,7 +234,7 @@ describe('Contours des zones', () => {
 });
 
 describe('Directions des cônes (angle et rotation du token)', () => {
-  // ---- angle -> direction (cône droit / diagonal / auto)
+  // ---- angle -> direction (straight / diagonal / auto cone)
   const deg=d=>d*Math.PI/180;
   const D=(d,m)=>g.dirCone(deg(d),m);
   check([0,10,40,-40,89].map(a=>D(a,'droit')).join()==='0,0,0,0,2','droit: 0°,10°,40°,-40° -> Est ; 89° -> Sud : '+[0,10,40,-40,89].map(a=>D(a,'droit')));
@@ -244,7 +244,7 @@ describe('Directions des cônes (angle et rotation du token)', () => {
   check([0,40,50,90,-130].map(a=>D(a,'auto')).join()==='0,1,1,2,5','auto: les 8 directions comme avant');
   check([0,1,2,3,4,5,6,7].every(k=>D(k*45,'droit')%2===0&&D(k*45+1,'diag')%2===1),'droit -> indice pair ; diag -> indice impair');
 
-  // ---- rotation du token -> angle -> direction
+  // ---- token rotation -> angle -> direction
   const A=g.angleDeRotation;
   check(Math.abs(A(0)+Math.PI/2)<1e-9&&Math.abs(A(90))<1e-9&&Math.abs(A(180)-Math.PI/2)<1e-9&&Math.abs(A(270)-Math.PI)<1e-9,'rotation 0/90/180/270 -> haut/droite/bas/gauche');
   const R=(r,m)=>g.dirCone(A(r),m);
@@ -254,7 +254,7 @@ describe('Directions des cônes (angle et rotation du token)', () => {
   check([100,200,300,10].map(r=>R(r,'diag')).join()==='1,3,5,7','diag: 100°->SE 200°->SO 300°->NO 10°->NE');
 });
 
-// ================================================================ FLUX COMPLET
+// ================================================================ FULL FLOW
 describe('Plusieurs gabarits, couleurs, effacer, unités (carte en mètres)', () => {
   const R = creerRoll20({ playerIsGM: (id) => id === 'GM' });
   const { fire, mk, objs, sb, chat } = R;
@@ -263,14 +263,14 @@ describe('Plusieurs gabarits, couleurs, effacer, unités (carte en mètres)', ()
   const tok=(nm,cx,cy,size=1)=>mk('graphic',{_subtype:'token',_pageid:pg.id,layer:'objects',name:nm,imgsrc:IMG,left:cx*70+35*size,top:cy*70+35*size,width:70*size,height:70*size,aura1_radius:'',aura1_color:'',aura1_square:false});
   const mage=tok('Mage',0,0), mage2=tok('Clerc',0,6);
   const g1=tok('Gob1',4,1), g2=tok('Gob2',14,1), gShared=tok('GobMilieu',9,2);
-  g1.set({aura1_radius:'5',aura1_color:'#00ff00'}); // aura d'origine à restaurer
+  g1.set({aura1_radius:'5',aura1_color:'#00ff00'}); // original aura to restore
   const send=(c,pid='P1')=>fire('chat:message',{type:'api',content:c,who:'Alice',playerid:pid});
   const viseurs=()=>objs.filter(o=>o.type==='graphic'&&/^viseur/i.test(o.get('name')));
   const paths=()=>objs.filter(o=>o.type==='path');
   const auraC=t=>t.get('aura1_radius')==='0'?t.get('aura1_color'):'(origine:'+t.get('aura1_radius')+')';
   const whisper=()=>chat.splice(0);
 
-  // 1) premier gabarit : cercle 6 m / 4 cases
+  // 1) first template: 6 m / 4-square circle
   send(`!gabarit cast ${mage.id} burst 4sq`);
   let w=whisper();
   console.log('chat:',w);
@@ -280,7 +280,7 @@ describe('Plusieurs gabarits, couleurs, effacer, unités (carte en mètres)', ()
   check(w.length===1&&/Effacer\]\(!gabarit clear g1\)/.test(w[0]),'bouton Effacer g1');
   const c1=sb.state.gabarit.liste.g1.couleur;
 
-  // 2) deuxième gabarit : cône 9 m / 6 cases, même lanceur -> nouveau Viseur ailleurs
+  // 2) second template: 9 m / 6-square cone, same caster -> new Viseur elsewhere
   send(`!gabarit cast ${mage.id} cone 6sq`);
   whisper();
   check(viseurs().length===2&&paths().length===2,'2 Viseurs + 2 tracés');
@@ -291,49 +291,49 @@ describe('Plusieurs gabarits, couleurs, effacer, unités (carte en mètres)', ()
   check(c1!==c2,`couleurs différentes ${c1} / ${c2}`);
   check(va.get('aura1_color')===c1&&vb.get('aura1_color')===c2,'aura du Viseur = couleur de son gabarit');
 
-  // 3) troisième gabarit d'un autre joueur
+  // 3) third template from another player
   send(`!gabarit cast ${mage2.id} line 12sq`,'P2');
   whisper();
   check(viseurs().length===3&&paths().length===3,'3 gabarits simultanés');
 
-  // 4) le Viseur 1 suit son gabarit sans toucher aux autres
+  // 4) Viseur 1 follows its template without touching the others
   const ancienPath1=sb.state.gabarit.liste.g1.pathId;
   const autresPaths=['g2','g3'].map(g=>sb.state.gabarit.liste[g].pathId);
-  v1.set({left:v1.get('left')+7*70}); // centre du cercle plus à droite
+  v1.set({left:v1.get('left')+7*70}); // circle center further right
   check(sb.state.gabarit.liste.g1.pathId!==ancienPath1,'tracé g1 redessiné');
   check(['g2','g3'].every((g,i)=>sb.state.gabarit.liste[g].pathId===autresPaths[i]),'tracés g2/g3 inchangés');
   check(paths().length===3,'toujours 3 tracés');
 
-  // 5) auras : GobMilieu touché par plusieurs zones ? on regarde le dernier gabarit qui le touche
+  // 5) auras: GobMilieu hit by several areas? we look at the last template hitting it
   const touchePar=gid=>{const r=sb.state.gabarit.liste[gid];return new Set(r.cases)};
   const rc=(t)=>{const i=Math.round((t.get('left')-35)/70),j=Math.round((t.get('top')-35)/70);return i+','+j};
   const qui=Object.keys(sb.state.gabarit.liste).filter(g=>touchePar(g).has(rc(gShared)));
-  console.log('GobMilieu touché par',qui,'| aura',auraC(gShared));
+  console.log('GobMilieu hit by',qui,'| aura',auraC(gShared));
   check(qui.length===0||auraC(gShared)===sb.state.gabarit.liste[qui[qui.length-1]].couleur,'aura = couleur du dernier gabarit touchant');
 
-  // 6) effacer UN gabarit (pas le dernier posé) : les autres restent, aura recalculée
+  // 6) erase ONE template (not the last one placed): the others stay, aura recomputed
   const avant=Object.keys(sb.state.gabarit.liste);
   send('!gabarit clear g1');
   check(!sb.state.gabarit.liste.g1&&sb.state.gabarit.liste.g2&&sb.state.gabarit.liste.g3,'g1 effacé, g2 et g3 intacts');
   check(viseurs().length===2&&paths().length===2,'1 Viseur et 1 tracé en moins');
   check(!viseurs().some(v=>v.id===v1.id),'Viseur de g1 supprimé');
 
-  // 7) joueur 2 ne peut pas effacer le gabarit de joueur 1 ; MJ peut
+  // 7) player 2 cannot erase player 1's template; the GM can
   send('!gabarit clear g2','P2');
   check(!!sb.state.gabarit.liste.g2,'P2 ne peut pas effacer g2 (à P1)');
   send('!gabarit clear g2','GM');
   check(!sb.state.gabarit.liste.g2,'le MJ peut effacer g2');
 
-  // 8) supprimer le Viseur à la main efface le gabarit
+  // 8) deleting the Viseur by hand erases the template
   const v3=viseurs()[0];
   v3.remove();
   check(Object.keys(sb.state.gabarit.liste).length===0&&paths().length===0,'supprimer le Viseur efface le gabarit');
 
-  // 9) auras d'origine restaurées quand plus aucun gabarit
+  // 9) original auras restored when no template is left
   check(auraC(g1)==='(origine:5)'&&g1.get('aura1_color')==='#00ff00','aura d\'origine de Gob1 restaurée');
   check(Object.keys(sb.state.gabarit.auraOrig).length===0,'plus aucune aura mémorisée');
 
-  // 10) clear sans argument = tous les gabarits du joueur ; tout = MJ
+  // 10) clear without argument = all the player's templates; all = GM
   send(`!gabarit cast ${mage.id} burst 2sq`);send(`!gabarit cast ${mage.id} cone 2sq`);send(`!gabarit cast ${mage2.id} burst 2sq`,'P2');whisper();
   check(paths().length===3,'3 gabarits recréés');
   send('!gabarit clear');
@@ -341,23 +341,23 @@ describe('Plusieurs gabarits, couleurs, effacer, unités (carte en mètres)', ()
   send('!gabarit clear all','GM');
   check(paths().length===0&&viseurs().length===0,'clear all (MJ) vide tout');
 
-  // 11) émanation : sans Viseur ; couleur explicite
+  // 11) emanation: no Viseur; explicit color
   send(`!gabarit cast ${mage.id} emanation 2sq color=cold`);
   check(viseurs().length===0&&paths().length===1,'émanation sans Viseur');
   check(sb.state.gabarit.liste[Object.keys(sb.state.gabarit.liste)[0]].couleur==='#33aaff','color=cold respectée');
   send('!gabarit clear');
 
-  // 12) unités et ancienne syntaxe
+  // 12) units and old syntax
   send(`!gabarit cast ${mage.id} burst 6m`);send(`!gabarit cast ${mage.id} burst 20`);send(`!gabarit burst 4sq ${mage.id}`);whisper();
   const Ns=Object.values(sb.state.gabarit.liste).map(r=>r.N);
   check(Ns.length===3&&Ns.every(x=>x===4),'6m = 20 ft = 4c = 4 cases (carte en mètres), '+Ns);
   send('!gabarit clear all','GM');
 
-  // 13) erreurs
+  // 13) errors
   send(`!gabarit cast ${mage.id} burst`);check(/Effet incomplet/.test(whisper()[0]),'taille manquante -> message');
   send(`!gabarit cast burst 4sq`);check(/Sélectionne ton token/.test(whisper()[0]),'sans lanceur -> message');
 
-  // 14) options en anglais seulement : les anciens mots français sont refusés
+  // 14) options in English only: the old French words are refused
   send(`!gabarit lancer ${mage.id} burst 4sq`);check(/Usage : !gabarit cast/.test(whisper()[0])&&viseurs().length===0,'lancer refusé -> usage');
   send(`!gabarit cast ${mage.id} burst 4c`);check(/Effet incomplet/.test(whisper()[0]),'taille 4c refusée (4sq attendu)');
   send(`!gabarit cast ${mage.id} conedroit 4sq`);check(/Effet incomplet/.test(whisper()[0]),'forme conedroit refusée (straightcone attendu)');
@@ -386,7 +386,7 @@ describe('Auras : zones superposées sur une même créature', () => {
   check(aura() === '#ff4400', 'une zone de feu touche la Cible : aura rouge');
   send(`!gabarit cast ${mage.id} burst 4sq color=cold`);
   const [v1, v2] = viseurs();
-  v2.set({ left: v1.get('left'), top: v1.get('top') }); // on superpose les deux zones
+  v2.set({ left: v1.get('left'), top: v1.get('top') }); // the two areas are stacked
   check(aura() === '#33aaff', 'deux zones superposées : la couleur du dernier gabarit posé l\'emporte');
   send('!gabarit clear g2');
   check(aura() === '#ff4400', 'on efface la zone du dessus : la Cible reprend la couleur de l\'autre zone');
@@ -420,7 +420,7 @@ describe('Cônes, lignes, cercles et émanations : départ au Viseur', () => {
   const col=(i,j0,j1)=>{const o=[];for(let j=j0;j<=j1;j++)o.push([i,j]);return o};
   const V=(v,x,y)=>v.set({left:x*70,top:y*70});
 
-  // ===== cône droit : le cône part du Viseur =====
+  // ===== straight cone: the cone starts from the Viseur =====
   let v=lancer('straightcone','3sq');
   check(v.get('left')===840&&v.get('top')===840&&v.get('rotation')===90,'Viseur créé en intersection (12,12), flèche vers l\'Est');
   check(eq(cases(),g.casesCone(12,12,3,0))&&cases().size===8,'cône droit Est : part de l\'intersection du Viseur (12,12), 8 cases');
@@ -431,17 +431,17 @@ describe('Cônes, lignes, cercles et émanations : départ au Viseur', () => {
   rot(v,30);  check(v.get('rotation')===0&&eq(cases(),g.casesCone(12,12,3,6)),'rotation 30° -> aimantée sur 0° (Nord)');
   rot(v,50);  check(v.get('rotation')===90&&eq(cases(),g.casesCone(12,12,3,0)),'rotation 50° -> aimantée sur 90° (Est)');
 
-  // le cône suit le Viseur
+  // the cone follows the Viseur
   V(v,13,8);  check(eq(cases(),g.casesCone(13,8,3,0)),'Viseur déplacé en (13,8) : le cône part de (13,8)');
   V(v,0,0);   check(eq(cases(),g.casesCone(0,0,3,0)),'Viseur loin (0,0) : le cône part de (0,0), n\'importe où sur la carte');
   v.set({left:13.3*70,top:8.6*70}); check(eq(cases(),g.casesCone(13,9,3,0)),'Viseur hors grille (13.3 ; 8.6) : calé sur l\'intersection la plus proche (13,9)');
   V(v,11,11); check(eq(cases(),g.casesCone(11,11,3,0))&&![...cases()].includes('10,10'),'Viseur sur le coin SE du lanceur (11,11) : règle du livre (cône qui part d\'un coin du lanceur)');
   V(v,11,10); check(eq(cases(),g.casesCone(11,10,3,0)),'Viseur sur le coin NE du lanceur (11,10) : cône Est qui part du coin NE');
 
-  // simulation : le lanceur n'est pas touché par son propre cône, même s'il est dans la zone
+  // simulation: the caster is not hit by their own cone, even if inside the area
   send('!gabarit clear');
   const cible=tok('Cible',9,10);
-  v=lancer('straightcone','3sq'); V(v,12,11); rot(v,270); // cône Ouest depuis (12,11) : couvre x=9..11
+  v=lancer('straightcone','3sq'); V(v,12,11); rot(v,270); // West cone from (12,11): covers x=9..11
   check(cases().has('10,10')&&cases().has('9,10'),'(cône Ouest simulé) la case du lanceur (10,10) est dans la zone');
   check(cible.get('aura1_radius')==='0','la Cible (9,10) est touchée : aura');
   check(mage.get('aura1_radius')==='','le lanceur n\'est pas touché par son propre cône');
@@ -449,7 +449,7 @@ describe('Cônes, lignes, cercles et émanations : départ au Viseur', () => {
   check(cible.get('aura1_radius')==='','aura de la Cible restaurée à l\'effacement');
   cible.remove();
 
-  // ===== cône diagonal =====
+  // ===== diagonal cone =====
   v=lancer('diagcone','3sq');
   check(v.get('rotation')===135&&eq(cases(),g.casesCone(12,12,3,1))&&cases().size===6,'cône diagonal : rotation 135° (SE), 6 cases depuis le Viseur (12,12)');
   rot(v,45);  check(v.get('rotation')===45&&eq(cases(),g.casesCone(12,12,3,7)),'rotation 45° -> NE depuis le Viseur');
@@ -458,8 +458,8 @@ describe('Cônes, lignes, cercles et émanations : départ au Viseur', () => {
   rot(v,100); check(v.get('rotation')===135&&eq(cases(),g.casesCone(12,12,3,1)),'rotation 100° -> aimantée sur 135° (SE)');
   V(v,5,5);   check(eq(cases(),g.casesCone(5,5,3,1)),'cône diagonal déplacé : part du Viseur (5,5)');
 
-  // ===== ligne : part du Viseur, côté du lanceur pour les axes exacts =====
-  v=lancer('line','6sq');   // Viseur (12,12), flèche Est
+  // ===== line: starts from the Viseur, caster's side for exact axes =====
+  v=lancer('line','6sq');   // Viseur (12,12), arrow East
   check(eq(cases(),S(rang(12,17,11))),'ligne Est (axe exact) depuis (12,12) : 6 cases, rangée 11 (côté du lanceur)');
   rot(v,100); check(v.get('rotation')===100&&cases().size>0&&!eq(cases(),S(rang(12,17,11))),'ligne : 100° conservé (angle libre), légèrement inclinée');
   rot(v,135); check(eq(cases(),S([[12,12],[13,13],[14,14],[15,15]])),'ligne diagonale SE : 4 cases (30 ft en diagonale)');
@@ -470,7 +470,7 @@ describe('Cônes, lignes, cercles et émanations : départ au Viseur', () => {
   V(v,13,13); check(eq(cases(),S(rang(13,18,12))),'ligne Est depuis (13,13) (lanceur au-dessus) : rangée 12, côté du lanceur');
   V(v,11,11); check(eq(cases(),S(rang(11,16,10))),'ligne Est depuis le coin SE du lanceur : sa rangée (règle du livre)');
 
-  // ===== cercle, émanation =====
+  // ===== circle, emanation =====
   v=lancer('burst','4sq');
   const av=[...cases()].sort().join();
   rot(v,77); check([...cases()].sort().join()===av&&v.get('rotation')===77,'cercle : tourner le Viseur ne change rien');
@@ -478,7 +478,7 @@ describe('Cônes, lignes, cercles et émanations : départ au Viseur', () => {
   send('!gabarit clear'); send(`!gabarit cast ${mage.id} emanation 2sq`);
   check(viseur()===undefined&&!rec().viseurId&&rec().cases.length>0,'émanation : sans Viseur');
 
-  // ===== plusieurs gabarits =====
+  // ===== several templates =====
   send('!gabarit clear');
   send(`!gabarit cast ${mage.id} straightcone 3sq`);const vA=viseur();
   send(`!gabarit cast ${mage.id} diagcone 3sq`);const vB=viseur();
@@ -486,7 +486,7 @@ describe('Cônes, lignes, cercles et émanations : départ au Viseur', () => {
   const [gA,gB]=Object.values(sb.state.gabarit.liste);
   check(eq(new Set(gA.cases),g.casesCone(5,5,3,6))&&eq(new Set(gB.cases),g.casesCone(20,20,3,5)),'deux cônes simultanés : chacun part de son propre Viseur, avec sa propre rotation');
 
-  // ===== ancienne syntaxe : cible = token =====
+  // ===== old syntax: target = token =====
   send('!gabarit clear all');
   const t2=tok('Cible2',20,10);
   send(`!gabarit straightcone 3sq ${mage.id} ${t2.id}`);
@@ -510,7 +510,7 @@ describe('Cônes, lignes, cercles et émanations : départ au Viseur', () => {
     const cases=()=>new Set(rec().cases);
     const paths=()=>objs.filter(o=>o.type==='path').length;
     const lancer=(forme,t)=>{send('!gabarit clear all');send(`!gabarit cast ${mage.id} ${forme} ${t}`);return viseur()};
-    // la rotation faite à la main par le joueur : hors gestionnaire
+    // the rotation done by hand by the player: outside a handler
     const rot=(v,r)=>{v.set({rotation:r})};
 
     let v=lancer('diagcone','3sq');
@@ -526,17 +526,17 @@ describe('Cônes, lignes, cercles et émanations : départ au Viseur', () => {
     rot(v,225); check(v.get('rotation')===270&&eq(cases(),g.casesCone(12,12,3,4)),'cône droit : 180° -> 225° : aimanté sur 270° ET gabarit vers l\'Ouest');
     check(paths()===1,'un seul tracé sur la carte');
 
-    // auras suivent l'aimantation
+    // auras follow the snapping
     send('!gabarit clear all');
-    const gob=tok('Gobelin',9,13);   // dans un cône diagonal vers le Sud-Ouest depuis (12,12)
-    v=lancer('diagcone','4sq');       // SE au départ
+    const gob=tok('Gobelin',9,13);   // in a diagonal cone toward the South-West from (12,12)
+    v=lancer('diagcone','4sq');       // SE at first
     const avant=gob.get('aura1_radius');
-    rot(v,180);                      // -> SO
+    rot(v,180);                      // -> SW
     check(avant===''&&gob.get('aura1_radius')==='0','aura : le Gobelin n\'est touché qu\'une fois le cône passé au Sud-Ouest');
     rot(v,90);
     check(gob.get('aura1_radius')==='','aura : retirée quand le cône repart vers le Sud-Est');
 
-    // déplacement simple toujours OK
+    // simple move still OK
     v.set({left:5*70,top:5*70}); check(eq(cases(),g.casesCone(5,5,4,1)),'déplacement du Viseur : le gabarit suit');
   });
 
@@ -555,7 +555,7 @@ describe('Cônes, lignes, cercles et émanations : départ au Viseur', () => {
   });
 });
 
-// ================================================== ÉMANATION : suit le lanceur
+// ================================================== EMANATION: follows the caster
 [true, false].forEach((nested) => {
   describe(`Émanation : sans Viseur, suit le lanceur (évènement relancé : ${nested ? 'oui' : 'non'})`, () => {
     const R = creerRoll20({ nested });
@@ -579,7 +579,7 @@ describe('Cônes, lignes, cercles et émanations : départ au Viseur', () => {
     check(gob.get('aura1_radius') === '', 'Gob à 3 cases : pas touché');
     check(mage.get('aura1_radius') === '', 'le lanceur n\'est pas touché par sa propre émanation');
 
-    // le lanceur se déplace : l'émanation le suit
+    // the caster moves: the emanation follows
     crees.path = 0;
     deplacer(mage, 12, 10);
     check(eq(cases(), g.casesEmanation(12, 12, 10, 10, 2)), 'lanceur déplacé en (12,10) : l\'émanation le suit');
@@ -587,20 +587,20 @@ describe('Cônes, lignes, cercles et émanations : départ au Viseur', () => {
     check(gob.get('aura1_radius') === '0' && gob.get('aura1_color') === '#33aaff', 'Gob maintenant à 1 case : touché (aura bleue)');
     check(mage.get('aura1_radius') === '', 'le lanceur toujours pas touché');
 
-    // une rotation du lanceur ne change pas la zone
+    // a rotation of the caster does not change the area
     const avant = [...cases()].sort().join();
     mage.set({ rotation: 90 });
     check([...cases()].sort().join() === avant && paths().length === 1, 'lanceur tourné : même zone, un seul tracé');
 
-    // le Gob sort de la zone : aura restaurée
+    // the Gob leaves the area: aura restored
     deplacer(gob, 20, 10);
     check(gob.get('aura1_radius') === '', 'Gob sorti de la zone : aura d\'origine restaurée');
 
-    // Effacer
+    // Effacer (erase)
     send('!gabarit clear g1');
     check(Object.keys(sb.state.gabarit.liste).length === 0 && paths().length === 0, 'Effacer : émanation supprimée');
 
-    // supprimer le lanceur efface son émanation
+    // deleting the caster erases their emanation
     send(`!gabarit cast ${mage.id} emanation 1sq`); chat.splice(0);
     check(paths().length === 1, 'nouvelle émanation');
     mage.remove();
@@ -620,7 +620,7 @@ describe('Émanation d\'une grande créature (2x2) qui se déplace', () => {
   check(eq(cases(), g.casesEmanation(8, 9, 2, 3, 2)), 'géant déplacé : l\'émanation suit ses 4 cases');
 });
 
-// ====================================== TOUTES LES FORMES : macro, tailles, auras
+// ====================================== ALL SHAPES: macro, sizes, auras
 describe('Toutes les formes et tailles de la macro « Gabarit » sont acceptées', () => {
   const macro = fs.readFileSync(path.join(__dirname, '..', 'macro', 'gabarit.macro.txt'), 'utf8');
   const choix = (titre) => macro.match(new RegExp('\\?\\{' + titre + '\\|([^}]*)\\}'))[1].split('|').map((o) => o.split(',')[1]);
@@ -652,8 +652,8 @@ describe('Toutes les formes et tailles de la macro « Gabarit » sont acceptées
 });
 
 describe('Toutes les formes : une créature qui entre dans la zone ou en sort', () => {
-  // zone attendue pour chaque forme, lancée depuis un Mage en (10,10) avec le Viseur
-  // posé en (15,10) (intersection), flèche vers l'Est (ou SE pour le cône diagonal)
+  // expected area for each shape, cast from a Mage at (10,10) with the Viseur
+  // placed at (15,10) (intersection), arrow East (or SE for the diagonal cone)
   ['burst', 'straightcone', 'diagcone', 'cone', 'line', 'emanation'].forEach((forme) => {
     const R = creerRoll20();
     const { fire, mk, objs, sb } = R;
@@ -708,7 +708,7 @@ describe('Ancienne syntaxe (cible = token, sans Viseur) : suit le lanceur et la 
 });
 
 
-// ====================================================== 3D (avec altitude.js)
+// ====================================================== 3D (with altitude.js)
 describe('3D : au sol, les volumes donnent exactement les zones 2D', () => {
   let ecarts = [];
   const comparer = (nom, set, geo, x0, x1) => {
@@ -725,7 +725,7 @@ describe('3D : au sol, les volumes donnent exactement les zones 2D', () => {
 });
 
 describe('3D : sphère, pyramide, ligne, émanation', () => {
-  const boule = { forme: 'burst', ox: 0, oy: 0, z0: 0, N: 4 }; // boule de feu 20 ft au sol
+  const boule = { forme: 'burst', ox: 0, oy: 0, z0: 0, N: 4 }; // 20 ft fireball on the ground
   check(g.dansVolume(boule, 0, 0, 3), 'boule de 20 ft au sol : touche à 15 ft au-dessus du centre');
   check(!g.dansVolume(boule, 0, 0, 4), '... mais pas à 20 ft (la case commence à 20 ft, elle finit à 25)');
   check(g.dansVolume(boule, 2, 0, 2) && !g.dansVolume(boule, 3, 0, 2), 'à 10 ft de haut, la sphère est plus étroite qu\'au sol');
@@ -770,7 +770,7 @@ describe('3D : gabarit.js et altitude.js ensemble', () => {
   cmd('!alt fall', [vol]);
   check(touche(vol) && !sb.state.Altitude.alt[vol.id], 'il tombe au sol : toujours touché');
   check(!R.chat.some((t) => /^\/w "Gabarit"/.test(t)), 'pas de message parasite chuchoté au script');
-  // falaise prise comme 0 : le lanceur est en bas, à -30 ft
+  // cliff taken as 0: the caster is at the bottom, at -30 ft
   cmd(`!alt set ${mage.id} =-30`);
   cmd(`!gabarit cast ${mage.id} burst 4sq`);
   const r2 = Object.values(sb.state.gabarit.liste).find((x) => x.id !== r.id);
@@ -794,12 +794,12 @@ describe('3D : sans altitude.js, rien ne change', () => {
   check(Object.keys(sb.state.gabarit.liste).length === 1, '!gabarit refresh sans effet de bord');
 });
 
-// ------------------------------------------------------------------ bilan
-console.log(`\n${total - echecs.length}/${total} vérifications réussies`);
+// ------------------------------------------------------------------ summary
+console.log(`\n${total - echecs.length}/${total} checks passed`);
 if (echecs.length) {
-  console.log('\nÉCHECS :');
+  console.log('\nFAILURES:');
   echecs.forEach((e) => console.log('  - ' + e));
   process.exitCode = 1;
 } else {
-  console.log('TOUS LES TESTS PASSENT');
+  console.log('ALL TESTS PASS');
 }

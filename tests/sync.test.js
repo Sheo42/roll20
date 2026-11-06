@@ -1,25 +1,25 @@
-// node tests/sync.test.js : tests sans dépendance de sync/roll20-github-sync.user.js (logique pure + file d'attente simulée)
+// node tests/sync.test.js: dependency-free tests for sync/roll20-github-sync.user.js (pure logic + simulated queue)
 'use strict';
 var S = require('../sync/roll20-github-sync.user.js');
 
 var pass = 0, fail = 0;
-function ok(cond, label) { if (cond) pass++; else { fail++; console.log('ÉCHEC: ' + label); } }
+function ok(cond, label) { if (cond) pass++; else { fail++; console.log('FAIL: ' + label); } }
 function eq(a, b, label) { ok(JSON.stringify(a) === JSON.stringify(b), label + ' -> ' + JSON.stringify(a) + ' attendu ' + JSON.stringify(b)); }
 
-// --- noms : les onglets réels de la campagne retrouvent leur fichier
+// --- names: the campaign's real tabs find their file
 var pairs = [['token tool.js', 'token-tool.js'], ['TokenInfo.js', 'tokeninfo.js'], ['Dupes.js', 'dupes.js'],
   ['Gabarit.js', 'gabarit.js'], ['pjstats.js', 'pjstats.js'], ['Attackclean.js', 'attackclean.js'], ['Climat.js', 'Climat.js']];
 ok(pairs.every(function (p) { return S.normName(p[0]) === S.normName(p[1]); }), 'noms des onglets du jeu = noms des fichiers');
 ok(S.normName('Dédup.js') === 'dedup', 'accents ignorés');
 ok(S.normName('dupes.js') !== S.normName('dedup.js'), 'noms différents restent différents');
 
-// --- texte et différences
+// --- text and differences
 ok(S.normText('a\r\nb\r\n\n') === 'a\nb', 'fins de ligne et blancs de fin ignorés');
 eq(S.lineDiff('a\nb\nc', 'a\nb\nc'), { added: 0, removed: 0 }, 'identique');
 eq(S.lineDiff('a\nb\nc', 'a\nX\nc\nd'), { added: 2, removed: 1 }, '+2 / -1');
 eq(S.lineDiff('', 'a\nb'), { added: 2, removed: 1 }, 'texte vide = une ligne vide retirée');
 
-// --- fichiers du dépôt : seulement les .js, sans les tests
+// --- repo files: only .js, without the tests
 eq(S.repoFiles([{ name: 'dupes.js', type: 'file' }, { name: 'dupes.test.js', type: 'file' }, { name: 'README.md', type: 'file' },
   { name: 'lib', type: 'dir' }, { name: 'Climat.js', type: 'file' }]), ['Climat.js', 'dupes.js'], 'liste des fichiers à synchroniser');
 
@@ -45,7 +45,7 @@ ok(by['attackwatch.js'].status === 'new' && by['attackwatch.js'].tabId === null,
 ok(by['gabarit.js'].status === 'ambiguous', 'deux onglets du même nom : ignoré');
 eq(pl.extra, ['PFCompanion-patched.js', 'BlindRoll.js'], 'onglets sans fichier : listés, non touchés');
 
-// --- file d'attente
+// --- queue
 var q = S.makeQueue(19712927, 'abc1234def', pl.rows);
 eq(q.items.map(function (i) { return i.kind + ':' + i.tabId + ':' + i.file; }), ['update:2797511:dupes.js', 'install:new:attackwatch.js'],
   'seuls les modifiés et les absents entrent dans la file');
@@ -55,7 +55,7 @@ ok(!S.verify(q.items[0], [{ id: '2797511', name: 'Dupes.js', content: 'v1\nold' 
 ok(S.verify(q.items[1], [{ id: '999', name: 'attackwatch.js', content: 'a\nb\nc' }]), 'vérification d\'une installation par le nom');
 ok(!S.verify(q.items[1], []), 'installation absente détectée');
 
-// --- simulation de la page : chaque enregistrement recharge la page
+// --- page simulation: each save reloads the page
 function fakeEnv(campaign, page, opts) {
   opts = opts || {};
   var saved = null, log = { saves: [], reports: [], reloads: 0, timers: [] };
@@ -64,7 +64,7 @@ function fakeEnv(campaign, page, opts) {
     tabs: function () { return page.tabs; },
     save: function (item) {
       log.saves.push(item.file);
-      if (opts.corrupt === item.file) return; // Roll20 n'a pas enregistré
+      if (opts.corrupt === item.file) return; // Roll20 did not save
       if (item.kind === 'install') page.tabs.push({ id: 'n' + log.saves.length, name: item.name, content: item.content });
       else page.tabs.forEach(function (t) { if (t.id === item.tabId) t.content = item.content; });
     },
@@ -88,17 +88,17 @@ ok(last === 'done', 'compte rendu final');
 ok(page.tabs.some(function (t) { return t.name === 'attackwatch.js' && t.content === 'a\nb\nc'; }), 'script installé dans la page');
 ok(S.step(f.env) === 'idle', 'plus rien à faire');
 
-// enregistrement raté : la synchro s'arrête au premier écart
+// failed save: the sync stops at the first mismatch
 var page2 = { tabs: JSON.parse(JSON.stringify(tabs)) };
 var g = fakeEnv('19712927', page2, { corrupt: 'dupes.js' });
 g.env.store.set(S.makeQueue('19712927', 'abc1234def', pl.rows));
 S.step(g.env);
 ok(S.step(g.env) === 'failed' && g.log.saves.length === 1 && g.env.store.get() === null, 'contenu non enregistré : arrêt, rien d\'autre enregistré');
 
-// file d'une autre campagne : ignorée
+// queue from another campaign: ignored
 var h = fakeEnv('111', { tabs: [] });
 h.env.store.set(S.makeQueue('19712927', 'abc1234def', pl.rows));
 ok(S.step(h.env) === 'other-campaign' && h.log.saves.length === 0 && h.env.store.get() !== null, 'autre campagne : rien fait');
 
-console.log(pass + ' réussis, ' + fail + ' échecs');
+console.log(pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

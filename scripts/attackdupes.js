@@ -1,18 +1,18 @@
-// attackdupes.js - script API Roll20, LECTURE SEULE, réservé au MJ.
-// Usage dans le chat :
-//   !attackdupes Nom du Personnage        -> attaques (repeating_weapon) en double, avec date et origine
-//   !attackdupes Nom du Personnage all    -> idem + liste de toutes les lignes d'attaque
-//   !attackdupes *                        -> résumé : personnages qui ont des attaques en double
+// attackdupes.js - Roll20 API script, READ ONLY, GM only.
+// Usage in chat:
+//   !attackdupes Character Name        -> duplicate attacks (repeating_weapon), with date and origin
+//   !attackdupes Character Name all    -> same + list of all attack rows
+//   !attackdupes *                     -> summary: characters that have duplicate attacks
 //
-// Deux lignes d'attaque sont « en double » si elles ont le même nom (casse et espaces ignorés) ET la
-// même source : liées au même objet / sort / capacité (source-item, source-spell, source-ability), ou
-// toutes deux sans lien. Une attaque renommée liée au même objet est une variante, pas une copie.
-// Même définition que attackclean.js.
-// Pour chaque ligne : date d'apparition dans le jeu (la plus ancienne des dates encodées
-// dans les ids Firebase de ses attributs, heure UTC ; Paris = UTC+2 en octobre), origine
-// (objet, sort, capacité, ambidextrie, ou saisie manuelle) et si la source existe encore.
-// Ces deux indices disent quel code de la feuille Pathfinder a créé la copie.
-// Ne modifie, ne supprime et ne crée aucun objet du jeu.
+// Two attack rows are "duplicates" if they have the same name (case and spaces ignored) AND the
+// same source: linked to the same item / spell / ability (source-item, source-spell, source-ability), or
+// both unlinked. A renamed attack linked to the same item is a variant, not a copy.
+// Same definition as attackclean.js.
+// For each row: date it appeared in the game (the oldest of the dates encoded
+// in the Firebase ids of its attributes, UTC time; Paris = UTC+2 in October), origin
+// (item, spell, ability, two-weapon fighting, or manual entry) and whether the source still exists.
+// These two clues tell which part of the Pathfinder sheet code created the copy.
+// Does not change, delete or create any game object.
 
 var AttackDupes = (function () {
   'use strict';
@@ -24,7 +24,7 @@ var AttackDupes = (function () {
     { field: 'source-ability', section: 'ability', label: 'capacité' }
   ];
 
-  // date de création encodée dans un id Firebase (ms depuis 1970), ou null
+  // creation date encoded in a Firebase id (ms since 1970), or null
   function idTime(id) {
     if (!id || id.length < 8) return null;
     var t = 0;
@@ -41,7 +41,7 @@ var AttackDupes = (function () {
     if (isNaN(d.getTime())) return '?';
     return d.toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
   }
-  // retire ce qui pourrait être interprété comme un jet de dés ou du HTML dans le chat
+  // removes anything that could be read as a dice roll or HTML in chat
   function clean(v, max) {
     return String(v === undefined || v === null ? '' : v)
       .replace(/[\[\]{}<>@&"]/g, '')
@@ -50,8 +50,8 @@ var AttackDupes = (function () {
       .slice(0, max || 40);
   }
 
-  // attrs : [{id, name, current}] -> { weapons: {rowKey: row}, rows: {section: {rowKey: name}} }
-  // rowKey = id de ligne en minuscules (Roll20 ne respecte pas toujours la casse des ids de ligne)
+  // attrs: [{id, name, current}] -> { weapons: {rowKey: row}, rows: {section: {rowKey: name}} }
+  // rowKey = row id in lower case (Roll20 does not always keep the case of row ids)
   function indexRows(attrs) {
     var weapons = {}, rows = {};
     attrs.forEach(function (a) {
@@ -71,7 +71,7 @@ var AttackDupes = (function () {
     return { weapons: weapons, rows: rows };
   }
 
-  // origine d'une ligne d'attaque : {label, target, exists}
+  // origin of an attack row: {label, target, exists}
   function origin(w, rows) {
     for (var i = 0; i < SOURCES.length; i++) {
       var s = SOURCES[i], v = w.fields[s.field];
@@ -94,9 +94,9 @@ var AttackDupes = (function () {
     return x - y || (a.key < b.key ? -1 : 1);
   }
 
-  // groupes de lignes en double : même nom (casse et espaces ignorés) ET même source.
-  // C'est la définition d'une copie qu'utilise aussi attackclean.js : une attaque renommée liée au même
-  // objet est une variante faite à la main, pas une copie.
+  // groups of duplicate rows: same name (case and spaces ignored) AND same source.
+  // This is the definition of a copy that attackclean.js uses too: a renamed attack linked to the same
+  // item is a hand-made variant, not a copy.
   function findDuplicates(index) {
     var list = Object.keys(index.weapons).map(function (k) {
       var w = index.weapons[k];
@@ -122,7 +122,7 @@ var AttackDupes = (function () {
     return (i === 0 ? 'ANCIEN ' : 'copie ') + fmt(w.born).slice(0, 16) + ', ' + w.count + ' champs';
   }
 
-  // lignes de compte rendu pour un personnage
+  // report lines for one character
   function report(charName, attrs, showAll) {
     var d = findDuplicates(indexRows(attrs));
     var out = [], extra = {}, tMin = null, tMax = null;
@@ -152,7 +152,7 @@ var AttackDupes = (function () {
     return out;
   }
 
-  // résumé sur plusieurs personnages : [{name, attrs}] -> lignes
+  // summary over several characters: [{name, attrs}] -> lines
   function summary(chars) {
     var hits = [];
     chars.forEach(function (c) {

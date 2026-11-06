@@ -1,15 +1,15 @@
-// node tests/attackclean.test.js : tests sans dépendance de scripts/attackclean.js (logique pure + flux complet avec un faux Roll20)
+// node tests/attackclean.test.js: dependency-free tests for scripts/attackclean.js (pure logic + full flow with a fake Roll20)
 'use strict';
 var fs = require('fs'), path = require('path'), vm = require('vm');
 var C = require('../scripts/attackclean.js');
 
 var pass = 0, fail = 0;
-function ok(cond, label) { if (cond) pass++; else { fail++; console.log('ÉCHEC: ' + label); } }
+function ok(cond, label) { if (cond) pass++; else { fail++; console.log('FAIL: ' + label); } }
 function eq(a, b, label) { ok(JSON.stringify(a) === JSON.stringify(b), label + ' -> ' + JSON.stringify(a) + ' attendu ' + JSON.stringify(b)); }
 
 var PUSH = '-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
 var seq = 0;
-// comme les ids de ligne Roll20, sans « _ » (sinon le nom d'attribut serait ambigu) : on décale d'1 ms si besoin
+// like Roll20 row ids, without "_" (otherwise the attribute name would be ambiguous): shift by 1 ms if needed
 function pid(iso) {
   var ms = Date.parse(iso), s;
   do {
@@ -30,7 +30,7 @@ eq(C.parseArgs('Selea confirmer 3').confirm, null, 'option française refusée')
 ok(C.norm(undefined) === C.norm('0') && C.norm('') === C.norm(' 0 '), 'absent, vide et 0 se valent');
 ok(C.norm('2') !== C.norm(''), 'valeur réelle distincte');
 
-// --- fiche de test (inspirée de Selea)
+// --- test sheet (based on Selea)
 var ITEM = pid(FEB), LOAN = pid(SEP), SPELL = pid(FEB);
 function A(name, current, when) { return { id: pid(when), name: name, current: current }; }
 function row(id, when, f) {
@@ -46,16 +46,16 @@ var L1 = pid(SEP), L2 = pid(OCT), M1 = pid(FEB), M2 = pid(OCT), S1 = pid(FEB), S
 var ATTRS = [].concat(
   [A('repeating_item_' + ITEM + '_name', 'épée longue +5', FEB), A('repeating_item_' + LOAN + '_name', 'épée longue+1 prêtée', SEP),
    A('repeating_spells_' + SPELL + '_name', 'Rayon ardent', FEB)],
-  row(KEEP, FEB, base({ 'attack-mod': '0', notes: '' })),            // gardée (la plus ancienne)
-  row(C1, SEP, base()),                                              // copie identique (champs à 0 absents)
-  row(C2, OCT, base({ name: ' Épée  longue +5 ' })),                 // copie identique, casse et espaces différents
-  row(C3, OCT, base()),                                              // copie identique
-  row(VAR, FEB, base({ name: 'AAO épée longue +5', 'attack-mod': '2' })), // variante renommée : jamais touchée
-  row(ODD, OCT, base({ 'attack-mod': '4' })),                        // même nom mais réglage changé : à vérifier
-  row(BIG, OCT, base({ x1: '1', x2: '2', x3: '3', x4: '4', x5: '5' })), // plus de champs que la gardée : à vérifier
+  row(KEEP, FEB, base({ 'attack-mod': '0', notes: '' })),            // kept (the oldest)
+  row(C1, SEP, base()),                                              // identical copy (fields at 0 missing)
+  row(C2, OCT, base({ name: ' Épée  longue +5 ' })),                 // identical copy, different case and spaces
+  row(C3, OCT, base()),                                              // identical copy
+  row(VAR, FEB, base({ name: 'AAO épée longue +5', 'attack-mod': '2' })), // renamed variant: never touched
+  row(ODD, OCT, base({ 'attack-mod': '4' })),                        // same name but changed setting: to check
+  row(BIG, OCT, base({ x1: '1', x2: '2', x3: '3', x4: '4', x5: '5' })), // more fields than the kept row: to check
   row(L1, SEP, { name: 'épée longue+1 prêtée', 'source-item': LOAN }),
   row(L2, OCT, { name: 'épée longue+1 prêtée', 'source-item': LOAN }),
-  row(M1, FEB, { name: 'Coup de poing' }), row(M2, OCT, { name: 'Coup de poing' }), // sans lien : jamais touchées
+  row(M1, FEB, { name: 'Coup de poing' }), row(M2, OCT, { name: 'Coup de poing' }), // unlinked: never touched
   row(S1, FEB, { name: 'Rayon ardent', 'source-spell': SPELL }), row(S2, OCT, { name: 'Rayon ardent', 'source-spell': SPELL.toLowerCase() })
 );
 
@@ -81,7 +81,7 @@ ok(C.findCopy(plan, ODD) && C.findCopy(plan, C1) && !C.findCopy(plan, KEEP) && !
 ok(/sort « Rayon ardent »/.test(rep), 'source sort, casse de l\'id ignorée');
 eq(C.buildPlan([]).remove.length, 0, 'fiche vide');
 
-// --- flux complet avec un faux Roll20
+// --- full flow with a fake Roll20
 function fakeRoll20(attrs, isGM, others) {
   var handlers = {}, sent = [], timers = [], gone = [];
   var objs = [{ type: 'character', id: 'C1', name: 'Selea' }].concat(attrs.map(function (a) {
@@ -132,7 +132,7 @@ ok(r.objs.every(function (o) { return !doomedPrefixes.some(function (p) { return
 ok(r.objs.some(function (o) { return o.name === 'repeating_weapon_' + KEEP + '_name'; }) && r.objs.some(function (o) { return o.name === 'repeating_weapon_' + ODD + '_name'; }),
   'ligne gardée et ligne à vérifier toujours là');
 ok(/<b>0<\/b> copies à supprimer/.test(r.say('!attackclean Selea')), 'second passage : plus rien d\'automatique');
-// suppression à la main d'une copie « à vérifier »
+// deleting a "to check" copy by hand
 out = r.say('!attackclean Selea delete ' + ODD.toLowerCase());
 ok(/À supprimer : épée longue \+5/.test(out) && /\[Confirmer la suppression\]\(!attackclean Selea delete /.test(out), 'aperçu avant suppression à la main');
 ok(r.objs.some(function (o) { return o.name === 'repeating_weapon_' + ODD + '_name'; }), 'aperçu : rien supprimé');
@@ -145,12 +145,12 @@ ok(r.objs.some(function (o) { return o.name === 'repeating_weapon_' + BIG + '_na
 ok(/Usage/.test(r.say('!attackclean')), 'usage');
 eq(fakeRoll20(ATTRS, false).say('!attackclean Selea confirm 5'), '', 'joueur non MJ ignoré');
 
-// --- tous les personnages
+// --- all characters
 var LITEM = pid(FEB), LK = pid(FEB), LC = pid(OCT), LV = pid(OCT);
 var LUNE = [].concat([A('repeating_item_' + LITEM + '_name', 'Ansrivarr', FEB)],
   row(LK, FEB, { name: 'Ansrivarr', 'source-item': LITEM, 'damage-ability': 'DEX-mod' }),
-  row(LC, OCT, { name: 'Ansrivarr', 'source-item': LITEM, 'damage-ability': 'DEX-mod' }),   // copie identique
-  row(LV, OCT, { name: 'Ansrivarr', 'source-item': LITEM, 'damage-ability': 'STR-mod' }));  // à vérifier
+  row(LC, OCT, { name: 'Ansrivarr', 'source-item': LITEM, 'damage-ability': 'DEX-mod' }),   // identical copy
+  row(LV, OCT, { name: 'Ansrivarr', 'source-item': LITEM, 'damage-ability': 'STR-mod' }));  // to check
 var others = [{ name: 'Lune', attrs: LUNE }, { name: 'Monstre propre', attrs: row(pid(FEB), FEB, { name: 'Griffe' }) }];
 var ra = fakeRoll20(ATTRS, true, others);
 out = ra.say('!attackclean all');
@@ -167,5 +167,5 @@ ok(ra.objs.some(function (o) { return o.name === 'repeating_weapon_' + LV + '_na
 ok(/<b>0<\/b> copies identiques/.test(ra.say('!attackclean all')), 'all : second passage, plus rien');
 ok(/Usage.*!attackclean all/.test(ra.say('!attackclean')), 'usage mentionne all');
 
-console.log(pass + ' réussis, ' + fail + ' échecs');
+console.log(pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

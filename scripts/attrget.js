@@ -1,12 +1,12 @@
-// attrget.js - diagnostic Roll20, LECTURE SEULE, réservé au MJ.
+// attrget.js - Roll20 diagnostic, READ ONLY, GM only.
 //
-//   !attrget <personnage> <attribut> [attribut...]
+//   !attrget <character> <attribute> [attribute...]
 //
-// Chuchote la valeur (current, et max s'il y en a un) de chaque attribut demandé.
-// Un nom peut finir par * pour lister tous les attributs qui commencent ainsi (ex: migrated*).
-// La casse est ignorée. Un attribut absent est signalé comme tel.
-// Le nom du personnage peut contenir des espaces : c'est le plus long début de la commande
-// qui correspond à un personnage. Un seul passage sur les attributs. Ne modifie aucun objet du jeu.
+// Whispers the value (current, and max if there is one) of each requested attribute.
+// A name can end with * to list all attributes starting that way (e.g. migrated*).
+// Case is ignored. A missing attribute is reported as such.
+// The character name can contain spaces: it is the longest start of the command
+// that matches a character. A single pass over the attributes. Does not change any game object.
 
 var AttrGet = (function () {
   'use strict';
@@ -16,8 +16,8 @@ var AttrGet = (function () {
     return String(v === undefined || v === null ? '' : v).replace(/[\[\]{}<>@&"]/g, '').replace(/\s+/g, ' ').slice(0, max || 80);
   };
 
-  // words: mots de la commande ; charNames: noms des personnages du jeu
-  // -> { name, patterns } ou null si aucun début de commande ne correspond à un personnage
+  // words: words of the command; charNames: names of the game's characters
+  // -> { name, patterns } or null if no start of the command matches a character
   function parseArgs(words, charNames) {
     var known = {};
     charNames.forEach(function (n) { known[String(n || '').toLowerCase()] = n; });
@@ -39,7 +39,7 @@ var AttrGet = (function () {
     return function (n) { return n.toLowerCase() === p; };
   }
 
-  // attrs: [{ name, current, max }] -> lignes à chuchoter
+  // attrs: [{ name, current, max }] -> lines to whisper
   function report(charName, attrs, patterns) {
     var out = ['<b>' + clean(charName) + '</b> : ' + attrs.length + ' attributs'];
     patterns.forEach(function (p) {

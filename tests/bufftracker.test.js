@@ -1,21 +1,21 @@
 /*
- * bufftracker.test.js — tests de bufftracker.js (script API Roll20)
+ * bufftracker.test.js — tests for bufftracker.js (Roll20 API script)
  *
- * Lancer :  node tests/bufftracker.test.js            (teste scripts/bufftracker.js)
- *           node tests/bufftracker.test.js autre.js   (teste un autre fichier)
+ * Run:     node tests/bufftracker.test.js            (tests scripts/bufftracker.js)
+ *           node tests/bufftracker.test.js other.js   (tests another file)
  *
- * Aucune dépendance : Node.js suffit, Roll20 n'est pas nécessaire.
- * Deux niveaux de tests :
- *   - logique pure : durées, lecture des commandes et des cibles, décompte, tracker
- *     d'initiative, nettoyage des marqueurs, relance, sorts courants, rendu du handout, du menu et
- *     des boutons à cocher ;
- *   - flux complet : le script est chargé dans un FAUX Roll20 (joueurs, personnages,
- *     tokens, handouts, tracker, chat) et reçoit de vraies commandes « !buff ... ».
+ * No dependency: Node.js is enough, Roll20 is not needed.
+ * Two levels of tests:
+ *   - pure logic: durations, parsing commands and targets, countdown, turn
+ *     tracker, marker cleanup, recast, common spells, rendering of the handout, the menu and
+ *     the check buttons;
+ *   - full flow: the script is loaded into a FAKE Roll20 (players, characters,
+ *     tokens, handouts, tracker, chat) and gets real "!buff ..." commands.
  *
- * Limite : ces tests n'ont jamais tourné dans une vraie campagne Roll20. Non vérifié
- * ici : le rendu réel du HTML dans le chat et dans le handout, les requêtes ?{...}
- * des boutons, l'ouverture du handout par son lien, le rafraîchissement d'un handout
- * déjà ouvert chez un joueur.
+ * Limit: these tests have never run in a real Roll20 campaign. Not checked
+ * here: the real rendering of the HTML in chat and in the handout, the ?{...} queries
+ * of the buttons, opening the handout from its link, refreshing a handout
+ * already open on a player's screen.
  */
 const fs = require('fs');
 const path = require('path');
@@ -25,7 +25,7 @@ const SCRIPT = path.resolve(process.argv[2] || path.join(__dirname, '..', 'scrip
 const CODE = fs.readFileSync(SCRIPT, 'utf8');
 const B = require(SCRIPT);
 
-// ---------------------------------------------------------------- mini lanceur
+// ---------------------------------------------------------------- mini runner
 let total = 0;
 const echecs = [];
 let groupe = '';
@@ -45,7 +45,7 @@ function describe(nom, fn) {
 }
 const deepEq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
-// =============================================================== LOGIQUE PURE
+// =============================================================== PURE LOGIC
 describe('Durées : lecture', () => {
   const table = {
     '3': [3, 0], '3r': [3, 0], '3 rd': [3, 0], '3 rounds': [3, 0], '10m': [100, 0], '10 min': [100, 0],
@@ -236,7 +236,7 @@ describe('Vues, handout, menu et boutons à cocher', () => {
   check(B.renderPicker('X', []).includes('Aucun PJ'), 'aucun PJ sur la carte');
 });
 
-// ================================================================= FAUX ROLL20
+// ================================================================= FAKE ROLL20
 function creerRoll20() {
   const h = {};
   const objs = [];
@@ -288,8 +288,8 @@ function creerRoll20() {
   return env;
 }
 
-// une partie : 4 joueurs et leurs PJ liés (Solathia, Selea, Paz Tarpou, Lune) et
-// 2 gobelins non liés, sur la carte p1 ; Lune a aussi un token sur une autre carte
+// a game: 4 players and their linked PCs (Solathia, Selea, Paz Tarpou, Lune) and
+// 2 unlinked goblins, on page p1; Lune also has a token on another page
 function partie({ avantChargement } = {}) {
   const r = creerRoll20();
   ['A', 'B', 'C', 'D'].forEach((x, i) => r.mk('player', { _displayname: ['Alice', 'Bob', 'Chloé', 'Denis'][i] }, 'p' + x));
@@ -319,7 +319,7 @@ const cliquer = (p, pid, html, label) => {
   return p.dire(pid, m[1]);
 };
 
-// ============================================================== FLUX COMPLET
+// ============================================================== FULL FLOW
 describe('Démarrage', () => {
   const p = partie();
   const h = p.handout();
@@ -331,7 +331,7 @@ describe('Démarrage', () => {
 
 describe('Ajout pour une liste de PJ', () => {
   const p = partie();
-  // Chloé (Solathia) bénit le groupe : elle ne peut sélectionner que son propre token
+  // Chloé (Solathia) blesses the party: she can only select her own token
   const out = p.dire('pC', '!buff add --name Bénédiction --dur 5m --caster Solathia --targets group --effect +1 attaque');
   check(p.buffs().length === 1, 'un seul lancement');
   const b = p.buffs()[0];
@@ -378,7 +378,7 @@ describe('Carte du MJ : la dernière qu\'il a ouverte', () => {
   const p = partie();
   p.mk('page', { name: 'Préparation' }, 'p2');
   const ogre = p.tok('Ogre', null, false, 'p2');
-  // sans objet joueur pour le MJ : carte des joueurs, où l'Ogre n'est pas : nom libre
+  // no player object for the GM: the players' page, where the Ogre is not: free name
   p.dire('gm', '!buff add --name X --dur 1m --targets Ogre');
   check(p.buffs()[0].targets[0].kind === 'name', 'MJ sans carte connue : cherche sur la carte des joueurs');
   const mj = p.mk('player', { _displayname: 'MJ', _lastpage: 'p2' }, 'gm');
@@ -396,7 +396,7 @@ describe('Carte du MJ : la dernière qu\'il a ouverte', () => {
 
 describe('Sans carte : fiches et noms libres', () => {
   const p = partie();
-  p.campagne.props.playerpageid = 'p3'; // scène jouée sans carte : aucun token
+  p.campagne.props.playerpageid = 'p3'; // scene played without a page: no token
   p.dire('gm', '!buff add --name Faveur --dur 10m --caster Garde du corps --targets Garde du corps');
   const fav = p.buffs()[0];
   check(fav && fav.targets[0].kind === 'name' && noms(fav) === 'Garde du corps' && fav.caster.name === 'Garde du corps', 'PNJ sans token ni fiche : cible et lanceur par leur nom');
@@ -438,7 +438,7 @@ describe('Sans carte : fiches et noms libres', () => {
 describe('Nom partiel : choisir plutôt que deviner', () => {
   const p = partie();
   const moine = p.mk('character', { name: 'Moine noir', controlledby: '' });
-  // « Moi » ne doit pas devenir « Moine noir » sans qu'on le demande
+  // "Moi" must not become "Moine noir" without asking
   const q = p.dire('gm', '!buff add --name Test --dur 1j --caster Moi --targets Selea')[0];
   check(p.buffs().length === 0 && q.includes('« Moi » (lanceur) : lequel ?'), 'nom partiel : rien de créé, on demande');
   check(q.includes('>Moine noir</a>') && q.includes('href="!buff choose 1"') && q.includes('>Nom libre « Moi »</a>') && q.includes('href="!buff choose cancel"'), 'boutons : la fiche proche, le nom libre, Annuler');
@@ -454,19 +454,19 @@ describe('Nom partiel : choisir plutôt que deviner', () => {
   check(p.buffs()[2].caster.kind === 'name' && p.buffs()[2].caster.name === 'Moi', '« =Moi » : nom libre sans question');
   p.dire('gm', '!buff add --name Test4 --dur 5r --caster Moine noir --targets Selea');
   check(p.buffs()[3].caster.id === moine.id, 'nom exact d\'une fiche : sans question');
-  // une cible partielle au milieu d'une liste : seule elle est remplacée
+  // a partial target in the middle of a list: only it is replaced
   const q3 = p.dire('gm', '!buff add --name Test5 --dur 5r --targets Selea, Moi, Lune')[0];
   check(q3.includes('(cible)'), 'cible partielle : on demande');
   cliquer(p, 'gm', q3, 'Moine noir');
   check(noms(p.buffs()[4]) === 'Selea,Moine noir,Lune', 'les autres cibles gardées, dans l\'ordre');
-  // modification : --caster partiel
+  // edit: partial --caster
   const q4 = p.dire('gm', `!buff edit ${b1.id} --caster Moi --dur 3r`)[0];
   cliquer(p, 'gm', q4, 'Moine noir');
   check(b1.caster.id === moine.id && b1.remaining === 3, 'edit : lanceur choisi, durée appliquée en même temps');
   const q5 = p.dire('gm', '!buff add --name Test6 --dur 5r --caster Moi --targets Selea')[0];
   cliquer(p, 'gm', q5, 'Annuler');
   check(!p.buffs().some((b) => b.name === 'Test6'), 'Annuler : rien créé');
-  // sélection gardée pendant le choix
+  // selection kept during the choice
   const q6 = p.dire('gm', '!buff add --name Test7 --dur 5r --caster Moi', [p.t.gob1])[0];
   cliquer(p, 'gm', q6, 'Nom libre « Moi »');
   check(noms(p.buffs().find((b) => b.name === 'Test7')) === 'Gobelin 1', 'la sélection d\'origine est gardée');
@@ -536,7 +536,7 @@ describe('Sorts courants et bouton Ajouter', () => {
   check(favSel.includes('--caster ?{Lanceur|Gobelin 2}'), 'Sorts courants : lanceur = token sélectionné');
   check(p.dire('gm', '!buff fav')[0].includes('--caster ?{Lanceur|}'), 'MJ sans sélection : pas de lanceur proposé');
   check(p.dire('gm', '!buff')[0].includes('?{Lanceur|}'), 'MJ : pas de lanceur par défaut');
-  // les libellés des listes déroulantes ne contiennent ni virgule ni barre
+  // dropdown labels contain neither a comma nor a vertical bar
   const q = menu.match(/\?\{Cibles\|([^}]*)\}/)[1].split('|');
   check(q.every((o) => o.split(',').length === 2), 'liste Cibles : « libellé,valeur » sans virgule dans les libellés');
 });
@@ -548,7 +548,7 @@ describe('Choisir... : boutons à cocher', () => {
   check(m1.includes('Bouclier de la foi · 5 min · par Solathia'), 'titre : nom, durée, lanceur');
   check(['Lune', 'Paz Tarpou', 'Selea', 'Solathia'].every((n) => m1.includes(`>${n}</a>`)) && !m1.includes('Gobelin'), 'un bouton par PJ de la carte, rien de coché');
   check(m1.includes('Valider (0)'), 'Valider (0)');
-  // Roll20 vide le href d'un bouton qui ressemble à une adresse (« char:... ») : le bouton ne réagit plus
+  // Roll20 empties the href of a button that looks like an address ("char:..."): the button stops working
   check(hrefs(m1).every((h) => /^!buff [^:]*$/.test(h)), 'boutons à cocher : aucun « : » dans les liens');
   const m2 = cliquer(p, 'pC', m1, 'Paz Tarpou')[0];
   check(m2.includes('✔ Paz Tarpou') && m2.includes('Valider (1)'), 'clic : Paz coché, nouveau message');
@@ -559,7 +559,7 @@ describe('Choisir... : boutons à cocher', () => {
   check(p.buffs().length === 1 && noms(p.buffs()[0]) === 'Lune', 'Valider : lancement créé avec les cochés');
   check(fin[0].includes('→ Lune'), 'confirmation');
   check(p.dire('pC', '!buff pick ok')[0].includes('Aucun choix'), 'le choix est terminé après validation');
-  // Tout le groupe, Aucun, Annuler ; Valider sans cible refusé
+  // Tout le groupe, Aucun, Annuler; Valider without a target refused
   const a1 = p.dire('pA', '!buff add --name Héroïsme --dur 10m --targets pick')[0];
   const a2 = cliquer(p, 'pA', a1, 'Tout le groupe')[0];
   check(a2.includes('Valider (4)'), 'Tout le groupe : 4 cochés');
@@ -568,12 +568,12 @@ describe('Choisir... : boutons à cocher', () => {
   check(cliquer(p, 'pA', a3, 'Valider \\(0\\)')[0].includes('Aucune cible'), 'Valider sans cible : refusé');
   cliquer(p, 'pA', a3, 'Annuler');
   check(p.buffs().length === 1 && !p.sb.state.BuffTracker.drafts.pA, 'Annuler : rien créé, choix oublié');
-  // sans --targets ni sélection : les boutons à cocher ; avec sélection : la sélection, sans question
+  // without --targets or selection: the check buttons; with a selection: the selection, no question
   check(p.dire('pA', '!buff add --name Y --dur 1m')[0].includes('pick toggle'), 'sans --targets ni sélection : boutons à cocher');
   p.dire('pA', '!buff pick cancel');
   p.dire('pA', '!buff add --name Z --dur 1m', [p.t.selea]);
   check(noms(p.buffs()[1]) === 'Selea', 'sans --targets, avec sélection : la sélection');
-  // la sélection est pré-cochée dans Choisir..., même un monstre
+  // the selection is pre-checked in Choisir..., even a monster
   const g1 = p.dire('gm', '!buff add --name Peur --dur 2r --targets pick', [p.t.gob1])[0];
   check(g1.includes('✔ Gobelin 1') && g1.includes('>Selea</a>'), 'Choisir... avec sélection : sélection pré-cochée et ajoutée à la liste');
   check(p.dire('pB', '!buff pick toggle char:nimporte')[0].includes('Aucun choix'), 'chaque joueur a son propre choix en cours');
@@ -605,7 +605,7 @@ describe('Relance', () => {
 
 describe('Même sort de deux lanceurs : le plus long compte', () => {
   const p = partie();
-  // lanceur 1 : 5 rounds ; lanceur 2, plus tard : 8 rounds sur Selea seulement
+  // caster 1: 5 rounds; caster 2, later: 8 rounds on Selea only
   p.dire('pC', '!buff add --name Bénédiction --dur 5r --caster Solathia --targets Selea, Paz');
   p.dire('gm', '!buff add --name Bénédiction --dur 8r --caster =Aelric --targets Selea');
   const voir = () => p.handout().props.notes;
@@ -706,8 +706,8 @@ describe('Modification', () => {
 describe('Bouton Cibles : les PJ de la carte où l\'on est', () => {
   const p = partie();
   p.mk('page', { name: 'Autre carte' }, 'p2');
-  // Ewen a un token sur une autre carte (créé en premier) et un sur la carte des joueurs ;
-  // Dolbyrion n'est que sur l'autre carte
+  // Ewen has a token on another page (created first) and one on the players' page;
+  // Dolbyrion is only on the other page
   const ewen = p.mk('character', { name: 'Ewen', controlledby: 'pB' });
   p.tok('Ewen', ewen, true, 'p2');
   p.tok('Ewen', ewen, true, 'p1');
@@ -721,7 +721,7 @@ describe('Bouton Cibles : les PJ de la carte où l\'on est', () => {
 
 describe('Token de PJ sans barre liée : toujours le personnage', () => {
   const p = partie();
-  const lune2 = p.tok('Lune', p.c.lune, false); // un second token de Lune, barres non liées
+  const lune2 = p.tok('Lune', p.c.lune, false); // a second Lune token, bars not linked
   p.dire('pD', '!buff add --name Bouclier --dur 1min --targets selected', [lune2]);
   p.dire('pD', '!buff add --name Héroïsme --dur 10min --targets group');
   const b = p.buffs()[0];
@@ -773,7 +773,7 @@ describe('clear : retirer un personnage de ses effets', () => {
   const essai = p.dire('pB', '!buff clear', [p.t.paz])[0];
   check(essai.includes('Retirerait 2') && essai.includes(`href="!buff clear --keys char.${p.c.paz.id} confirm 2"`), 'essai à blanc : 2 effets sur Paz, clés dans le bouton');
   const conf = essai.match(/href="([^"]*)">Confirmer/)[1];
-  p.dire('pB', conf); // le bouton fonctionne même si la sélection a changé
+  p.dire('pB', conf); // the button works even if the selection changed
   check(p.buffs().length === 2 && noms(p.buffs()[0]) === 'Lune,Selea,Solathia', 'Paz quitte la Bénédiction, les autres la gardent ; Rage retirée');
   check(p.buffs()[1].name === 'Flou', 'les effets des autres ne bougent pas');
   check(p.dire('pB', '!buff clear all')[0].includes('MJ'), 'clear all par un joueur : refusé');
@@ -802,29 +802,29 @@ describe('Passage du temps (MJ)', () => {
 describe('Tracker d\'initiative : tour du lanceur, sinon début du round', () => {
   const p = partie();
   const { selea, paz, sol, gob1 } = p.t;
-  p.dire('pC', '!buff add --name Bénédiction --dur 3r --caster Solathia --targets group');   // 1 : lanceur dans le tracker
-  p.dire('pB', '!buff add --name Potion --dur 2r --caster  --targets me');                    // 2 : sans lanceur
-  p.dire('pA', '!buff add --name Armure de mage --dur 3h --caster Lune --targets me');        // 3 : Lune hors tracker
-  p.dire('gm', '!buff add --name Peur --dur 2r --caster Gobelin 1 --hidden --targets Paz');   // 4 : caché, lanceur gobelin
+  p.dire('pC', '!buff add --name Bénédiction --dur 3r --caster Solathia --targets group');   // 1: caster in the tracker
+  p.dire('pB', '!buff add --name Potion --dur 2r --caster  --targets me');                    // 2: no caster
+  p.dire('pA', '!buff add --name Armure de mage --dur 3h --caster Lune --targets me');        // 3: Lune not in the tracker
+  p.dire('gm', '!buff add --name Peur --dur 2r --caster Gobelin 1 --hidden --targets Paz');   // 4: hidden, goblin caster
   const rem = () => p.buffs().map((b) => b.name + ':' + b.remaining).join(' ');
   p.ordre([entree(sol, 20), entree(selea, 15), entree(gob1, 10), entree(paz, 5)]);
   check(rem() === 'Bénédiction:3 Potion:2 Armure de mage:1800 Peur:2', 'tracker rempli et trié : rien ne bouge');
   const tour = () => { const cur = JSON.parse(p.campagne.props.turnorder); return p.ordre(cur.slice(1).concat([cur[0]])); };
   tour(); // Selea
   check(rem() === 'Bénédiction:3 Potion:2 Armure de mage:1800 Peur:2', 'tour de Selea (cible) : rien, l\'effet suit son lanceur');
-  const o2 = tour(); // Gobelin 1, lanceur de la Peur
+  const o2 = tour(); // Gobelin 1, caster of Peur
   check(p.buffs()[3].remaining === 1, 'tour du Gobelin 1 : Peur -1');
   check(o2.length === 1 && o2[0].startsWith('/w gm ') && o2[0].includes('Dernier round') && o2[0].includes('<b>Peur</b> (Paz Tarpou)') && !o2[0].includes('Voir les effets'), 'dernier round d\'un effet caché : au MJ seulement');
   tour(); // Paz
   check(rem() === 'Bénédiction:3 Potion:2 Armure de mage:1800 Peur:1', 'tour de Paz : la Potion (sans lanceur) attend le round');
-  tour(); // Solathia, nouveau round
+  tour(); // Solathia, new round
   check(rem() === 'Bénédiction:2 Potion:1 Armure de mage:1799 Peur:1', 'nouveau round (Solathia) : Bénédiction -1 (lanceur), Potion et Armure -1 (début du round)');
-  // recul puis ré-avance au même tour : pas de double décompte
+  // back then forward again to the same turn: no double countdown
   const cur = JSON.parse(p.campagne.props.turnorder);
   p.ordre([cur[cur.length - 1]].concat(cur.slice(0, -1)));
   p.ordre(cur);
   check(rem() === 'Bénédiction:2 Potion:1 Armure de mage:1799 Peur:1', 'recul puis ré-avance : pas de double décompte');
-  tour(); const o6 = tour(); // Selea, Gobelin 1 : Peur finie
+  tour(); const o6 = tour(); // Selea, Gobelin 1: Peur over
   check(!rem().includes('Peur') && o6.some((m) => m.startsWith('/w gm ') && m.includes('Fin') && m.includes('Peur')), 'Peur finie, annoncée au MJ seulement');
   tour(); // Paz
   const o8 = tour(); // Solathia, round 3
@@ -842,7 +842,7 @@ describe('Tracker d\'initiative : tour du lanceur, sinon début du round', () =>
 
 describe('Tracker : entrée de round, lanceur suivi par son nom', () => {
   const p = partie();
-  p.dire('pA', '!buff add --name Mystère --dur 3r --caster Ombre --targets me'); // Ombre n'existe pas encore
+  p.dire('pA', '!buff add --name Mystère --dur 3r --caster Ombre --targets me'); // Ombre does not exist yet
   check(p.buffs()[0].caster.kind === 'name' && p.buffs()[0].caster.name === 'Ombre', 'lanceur introuvable : gardé par son nom');
   check(noms(p.buffs()[0]) === 'Ombre', 'Moi seul avec un lanceur sans token : le lanceur, par son nom');
   const amb = p.dire('pB', '!buff add --name Ambigu --dur 3r --caster gob --targets me')[0];
@@ -850,15 +850,15 @@ describe('Tracker : entrée de round, lanceur suivi par son nom', () => {
   cliquer(p, 'pB', amb, 'Nom libre « gob »');
   check(p.buffs()[1].caster.kind === 'name', 'Nom libre choisi pour le lanceur');
   const ombre = p.tok('Ombre', null, false);
-  // tracker non trié (Selea avant Ombre malgré l'initiative) avec une entrée « -- Début du round -- »
+  // unsorted tracker (Selea before Ombre despite initiative) with a "-- Début du round --" entry
   const o = [{ id: '-1', pr: 0, custom: '-- Début du round --' }, entree(p.t.selea, 5), entree(ombre, 12)];
   p.ordre(o);
   const rem = () => p.buffs().map((b) => b.name + ':' + b.remaining).join(' ');
   const tour = () => { const cur = JSON.parse(p.campagne.props.turnorder); return p.ordre(cur.slice(1).concat([cur[0]])); };
   tour(); // Selea
-  tour(); // Ombre : l'initiative remonte, mais l'entrée de round a priorité
+  tour(); // Ombre: the initiative goes back up, but the round entry has priority
   check(rem() === 'Mystère:2 Ambigu:3', 'lanceur retrouvé par son nom dans le tracker ; pas de nouveau round sans l\'entrée de round');
-  tour(); // entrée de round en tête
+  tour(); // round entry at the top
   check(rem() === 'Mystère:2 Ambigu:2', 'entrée « Début du round » en tête : effets hors tracker -1');
 });
 
@@ -912,9 +912,9 @@ describe('Marqueurs posés par la version 2.0 : retirés au démarrage', () => {
   check(marq(ids.sel) === 'red', 'redémarrage : rien de plus retiré');
 });
 
-// ------------------------------------------------------------------- résumé
-console.log(`\n${total - echecs.length}/${total} vérifications réussies`);
+// ------------------------------------------------------------------- summary
+console.log(`\n${total - echecs.length}/${total} checks passed`);
 if (echecs.length) {
-  console.log('\nÉchecs :\n' + echecs.map((e) => ' - ' + e).join('\n'));
+  console.log('\nFailures:\n' + echecs.map((e) => ' - ' + e).join('\n'));
   process.exit(1);
 }

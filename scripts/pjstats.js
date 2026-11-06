@@ -1,8 +1,8 @@
-/* pjstats.js - !pjstats <nom> [sections]
- * Lecture seule, MJ uniquement. Chuchote les chiffres utiles d'une fiche Pathfinder Community
- * (caracs, PV, CA, JS, BBA, BMO/DMD, armes, dons, objets, sorts, buffs) sans ouvrir la feuille.
- * Sections (facultatives, séparées par des espaces, en anglais): base weapons feats items spells buffs. Défaut: toutes.
- * Les attributs sont indexés en une seule passe findObjs (pas de getAttrByName en boucle).
+/* pjstats.js - !pjstats <name> [sections]
+ * Read only, GM only. Whispers the useful numbers of a Pathfinder Community sheet
+ * (abilities, HP, AC, saves, BAB, CMB/CMD, weapons, feats, items, spells, buffs) without opening the sheet.
+ * Sections (optional, separated by spaces, in English): base weapons feats items spells buffs. Default: all.
+ * Attributes are indexed in a single findObjs pass (no getAttrByName in a loop).
  */
 var PjStats = (function () {
   'use strict';
@@ -10,7 +10,7 @@ var PjStats = (function () {
   var SECTIONS = ['base', 'weapons', 'feats', 'items', 'spells', 'buffs'];
   var REP_RE = /^repeating_([a-z0-9-]+)_(-[A-Za-z0-9_-]{19}|[A-Za-z0-9_-]{20})_(.+)$/;
 
-  // attrs: [{name, current, max}] -> {flat: {nom: {current,max}}, rep: {section: {rowid: {champ: valeur}}}, order: {section: [rowid]}}
+  // attrs: [{name, current, max}] -> {flat: {name: {current,max}}, rep: {section: {rowid: {field: value}}}, order: {section: [rowid]}}
   function indexAttrs(attrs) {
     var flat = {}, rep = {}, order = {};
     attrs.forEach(function (a) {
@@ -155,7 +155,7 @@ var PjStats = (function () {
     return lines;
   }
 
-  // Regroupe les lignes en messages de taille raisonnable pour le chat.
+  // Groups the lines into chat messages of reasonable size.
   function chunk(lines, maxLen) {
     maxLen = maxLen || 1800;
     var out = [], cur = '';

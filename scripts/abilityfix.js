@@ -1,28 +1,28 @@
-// abilityfix.js - script API Roll20, réservé au MJ. MODIFIE des attributs, avec garde-fous.
+// abilityfix.js - Roll20 API script, GM only. CHANGES attributes, with safeguards.
 //
-//   !abilityfix <personnage>              -> ESSAI À BLANC: ne modifie rien, annonce ce qui serait modifié
-//   !abilityfix <personnage> confirm N  -> modifie, SEULEMENT si le nombre N est encore exact
+//   !abilityfix <character>              -> DRY RUN: changes nothing, reports what would be changed
+//   !abilityfix <character> confirm N  -> changes, ONLY if the number N is still exact
 //
-// Cause vérifiée (code de la feuille Pathfinder Community, PFAbility.getTopOfMenu, et test sur une copie):
-// une capacité dont "showinmenu" est vrai mais dont le type ("ability_type") est vide ou absent est lue
-// par la feuille avec un type invalide ("0"). Cela produit "could not find top macro for 0" en boucle
-// et alourdit beaucoup la page à chaque modification d'un token lié au personnage.
+// Verified cause (Pathfinder Community sheet code, PFAbility.getTopOfMenu, and a test on a copy):
+// an ability whose "showinmenu" is true but whose type ("ability_type") is empty or missing is read
+// by the sheet with an invalid type ("0"). This produces "could not find top macro for 0" in a loop
+// and makes the page much heavier on every change to a token linked to the character.
 //
-// Correctif: pour ces lignes seulement, showinmenu est mis à "0" (la capacité n'apparaît plus dans le menu
-// de capacités du chat; elle reste intacte sur la fiche). Aucune autre valeur n'est touchée, rien n'est supprimé.
-// Pour que la capacité reste dans le menu, donnez-lui plutôt un vrai type (Ex, Sp ou Su) sur la fiche.
-// À essayer d'abord sur une COPIE du personnage.
+// Fix: for these rows only, showinmenu is set to "0" (the ability no longer appears in the chat's ability
+// menu; it stays intact on the sheet). No other value is touched, nothing is deleted.
+// To keep the ability in the menu, give it a real type (Ex, Sp or Su) on the sheet instead.
+// Try it first on a COPY of the character.
 
 (function () {
-  var BATCH = 20;     // modifications par lot
-  var PAUSE = 600;    // ms entre deux lots
+  var BATCH = 20;     // changes per batch
+  var PAUSE = 600;    // ms between two batches
   var ROW = /^repeating_ability_(-[\w-]{19})_(.+)$/;
 
   var clean = function (v, max) {
     return String(v === undefined || v === null ? '' : v).replace(/[\[\]{}<>@&"]/g, '').replace(/\s+/g, ' ').slice(0, max || 40);
   };
 
-  // lignes à corriger: showinmenu vrai ET ability_type vide ou absent
+  // rows to fix: showinmenu true AND ability_type empty or missing
   var buildPlan = function (charId) {
     var rows = {};
     findObjs({ _type: 'attribute', _characterid: charId }).forEach(function (a) {

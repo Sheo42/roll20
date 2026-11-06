@@ -1,8 +1,8 @@
-// pjinfo.js - script API Roll20, LECTURE SEULE, réservé au MJ.
-// Usage dans le chat : !pjinfo Nom du Personnage
-// Répond en chuchotement au MJ : identité, classes, capacités, doublons d'attributs,
-// et signale un éventuel handout portant le même nom que le personnage.
-// Ne modifie aucun objet du jeu.
+// pjinfo.js - Roll20 API script, READ ONLY, GM only.
+// Usage in chat: !pjinfo Character Name
+// Whispers to the GM: identity, classes, abilities, duplicate attributes,
+// and flags any handout with the same name as the character.
+// Does not change any game object.
 
 on('chat:message', function (msg) {
   if (msg.type !== 'api' || !/^!pjinfo(\s|$)/.test(msg.content)) return;
@@ -10,7 +10,7 @@ on('chat:message', function (msg) {
 
   var who = msg.who.replace(/ \(GM\)$/, '');
   var clean = function (v) {
-    // retire ce qui pourrait être interprété comme un jet ou du HTML dans le chat
+    // removes anything that could be read as a roll or HTML in chat
     return String(v === undefined || v === null ? '' : v).replace(/[\[\]{}<>@&]/g, '').slice(0, 80);
   };
   var reply = function (t) { sendChat('pjinfo', '/w "' + who + '" ' + t); };
@@ -31,7 +31,7 @@ on('chat:message', function (msg) {
   }
 
   chars.forEach(function (c) {
-    // un seul passage sur les attributs (évite le piège de getAttrByName en boucle)
+    // a single pass over the attributes (avoids the getAttrByName-in-a-loop trap)
     var attrs = findObjs({ _type: 'attribute', _characterid: c.id });
     var byName = {};
     var counts = {};

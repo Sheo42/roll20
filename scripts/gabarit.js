@@ -1,118 +1,118 @@
 /*
- * gabarit.js — Gabarits de zones d'effet (Pathfinder 1e) pour l'API Roll20
- * Version 1.5 — 3D avec altitude.js : sphère, pyramide (cône) et ligne à
- *               l'altitude du Viseur ; émanation depuis le volume du lanceur ;
- *               v1.4 : l'émanation n'a plus de Viseur (elle reste sur le lanceur) ;
- *               v1.3 : l'émanation suit son lanceur ; les auras se mettent à
- *               jour quand une créature entre dans une zone ou en sort ;
- *               v1.2 : lignes obliques à N cases exactement (formes du manuel) ;
- *               v1.1 : plusieurs gabarits peuvent rester en même temps sur la carte,
- *               chacun avec son propre Viseur, sa couleur et son bouton Effacer ;
- *               cônes droits / diagonaux ; le cône et la ligne PARTENT du Viseur,
- *               direction choisie en le TOURNANT.
+ * gabarit.js — Area-of-effect templates (Pathfinder 1e) for the Roll20 API
+ * Version 1.5 — 3D with altitude.js: sphere, pyramid (cone) and line at
+ *               the Viseur's altitude; emanation from the caster's volume;
+ *               v1.4: the emanation no longer has a Viseur (it stays on the caster);
+ *               v1.3: the emanation follows its caster; auras are updated
+ *               when a creature enters or leaves an area;
+ *               v1.2: oblique lines of exactly N squares (rulebook shapes);
+ *               v1.1: several templates can stay on the map at the same time,
+ *               each with its own Viseur, color and Effacer button;
+ *               straight / diagonal cones; the cone and the line START from the Viseur,
+ *               direction chosen by ROTATING it.
  *
- * MISE EN PLACE (une seule fois) : crée la macro « Gabarit » (visible par tous,
- * dans la barre de macros) :
+ * SETUP (once): create the "Gabarit" macro (visible to all,
+ * in the macro bar):
  *
  *   !gabarit cast @{selected|token_id} ?{Forme|Cercle,burst|Cône droit,straightcone|Cône diagonal,diagcone|Ligne,line|Émanation,emanation} ?{Taille|1.5 m / 1 case,1sq|3 m / 2 cases,2sq|4.5 m / 3 cases,3sq|6 m / 4 cases,4sq|7.5 m / 5 cases,5sq|9 m / 6 cases,6sq|12 m / 8 cases,8sq|15 m / 10 cases,10sq|18 m / 12 cases,12sq|24 m / 16 cases,16sq|30 m / 20 cases,20sq|36 m / 24 cases,24sq}
  *
- * UTILISATION (joueur)
- *   Sélectionne ton token, clique « Gabarit », choisis la forme puis la taille.
- *   Un Viseur apparaît près de ton personnage et le gabarit se dessine, avec sa
- *   propre couleur.
- *   - Cercle : déplace le Viseur, le cercle est centré sur lui.
- *   - Cône / ligne : le gabarit PART du Viseur (calé sur l'intersection de grille
- *     la plus proche), comme un gabarit posé sur la carte. TOURNE le Viseur (sa
- *     flèche donne la direction) : touche E + molette de la souris, par pas de
- *     45° (Alt + E + molette : 1° par 1°). Le cône droit s'aimante sur les 4
- *     directions droites, le cône diagonal sur les 4 diagonales ; la rotation du
- *     Viseur s'ajuste toute seule.
- *     Pour appliquer la règle à la lettre, pose le Viseur sur un coin de la case
- *     du lanceur ; sinon, tu simules ce que donnerait le sort si le lanceur se
- *     trouvait ailleurs (le script ne vérifie pas l'origine).
- *   - Émanation : pas de Viseur. Elle part des bords de la case du lanceur et le
- *     SUIT quand il se déplace.
- *   Le gabarit suit le Viseur. Il reste sur la carte jusqu'à ce qu'on l'efface :
- *   relance « Gabarit » pour en ajouter un autre (nouveau Viseur, nouvelle
- *   couleur).
- *   Effacer : bouton « Effacer » du message reçu, ou supprimer le Viseur.
+ * USAGE (player)
+ *   Select your token, click "Gabarit", choose the shape then the size.
+ *   A Viseur (aiming token) appears near your character and the template is drawn,
+ *   in its own color.
+ *   - Cercle: move the Viseur, the circle is centered on it.
+ *   - Cone / line: the template STARTS from the Viseur (snapped to the nearest grid
+ *     intersection), like a template laid on the map. ROTATE the Viseur (its
+ *     arrow gives the direction): E key + mouse wheel, in steps of
+ *     45° (Alt + E + wheel: 1° at a time). The straight cone snaps to the 4
+ *     straight directions, the diagonal cone to the 4 diagonals; the Viseur's
+ *     rotation adjusts by itself.
+ *     To apply the rule to the letter, put the Viseur on a corner of the caster's
+ *     square; otherwise, you simulate what the spell would do if the caster
+ *     stood elsewhere (the script does not check the origin).
+ *   - Emanation: no Viseur. It starts from the edges of the caster's square and
+ *     FOLLOWS the caster when they move.
+ *   The template follows the Viseur. It stays on the map until erased:
+ *   run "Gabarit" again to add another one (new Viseur, new
+ *   color).
+ *   Erase: "Effacer" button in the received message, or delete the Viseur.
  *
- * UNITÉS
- *   Une taille se donne en cases (4sq), en mètres (6m) ou en pieds (20, 20ft).
- *   Le script la convertit en CASES (5 ft = 1,5 m = 1 case) : l'échelle de la
- *   carte (pieds, mètres...) n'a aucune influence sur la zone.
+ * UNITS
+ *   A size is given in squares (4sq), meters (6m) or feet (20, 20ft).
+ *   The script converts it to SQUARES (5 ft = 1.5 m = 1 square): the map's
+ *   scale (feet, meters...) has no effect on the area.
  *
- * IMAGE DU VISEUR
- *   Roll20 ne permet à un script de créer un token qu'avec une image qui est
- *   déjà dans TA bibliothèque (pas le Marketplace). Le script cherche, dans
- *   l'ordre : l'image choisie avec « !gabarit aimerimg », la constante
- *   VISEUR_IMG ci-dessous, puis l'image du lanceur ou d'un autre token de la
- *   carte (image de secours : teintée en rouge).
- *   L'image doit montrer une FLÈCHE vers le haut (rotation 0 = vers le haut) :
- *   c'est elle qui indique la direction des cônes et des lignes.
- *   Pour un joli réticule : importe une image dans ta bibliothèque, pose-la
- *   comme token, sélectionne-la et lance (MJ) :
+ * VISEUR IMAGE
+ *   Roll20 only lets a script create a token with an image that is
+ *   already in YOUR library (not the Marketplace). The script looks, in
+ *   order, for: the image chosen with "!gabarit aimerimg", the VISEUR_IMG
+ *   constant below, then the image of the caster or of another token on the
+ *   page (fallback image: tinted red).
+ *   The image must show an ARROW pointing up (rotation 0 = up):
+ *   it gives the direction of cones and lines.
+ *   For a nice reticle: import an image into your library, place it
+ *   as a token, select it and run (GM):
  *       !gabarit aimerimg @{selected|token_id}
  *
- * AUTRES COMMANDES
- *   !gabarit cast <id lanceur> <forme> <taille> [color=fire] [duration=60]
- *   !gabarit clear          (efface tous TES gabarits)
- *   !gabarit clear g3       (efface le gabarit n°3)
- *   !gabarit clear all      (MJ : efface tous les gabarits)
- *   (options en anglais : les anciens mots français ne sont plus acceptés)
- *   formes : burst (cercle, aussi sphere, circle), straightcone (cône droit),
- *            diagcone (cône diagonal), cone (8 directions, selon la rotation
- *            du Viseur), line (ligne), emanation
- *   tailles : 4sq (cases), 6m (mètres), 20 ou 20ft (pieds)
- *   couleurs (color=, facultatif, sinon choisie automatiquement) :
+ * OTHER COMMANDS
+ *   !gabarit cast <caster id> <shape> <size> [color=fire] [duration=60]
+ *   !gabarit clear          (erases all YOUR templates)
+ *   !gabarit clear g3       (erases template #3)
+ *   !gabarit clear all      (GM: erases all templates)
+ *   (options in English: the old French words are no longer accepted)
+ *   shapes: burst (circle, also sphere, circle), straightcone (straight cone),
+ *            diagcone (diagonal cone), cone (8 directions, following the
+ *            Viseur's rotation), line, emanation
+ *   sizes: 4sq (squares), 6m (meters), 20 or 20ft (feet)
+ *   colors (color=, optional, otherwise chosen automatically):
  *     fire cold acid electricity (elec) sonic force negative neutral
- *   avec une cible (2e id de token) : corner=nw|ne|sw|se|center
+ *   with a target (2nd token id): corner=nw|ne|sw|se|center
  *
- * RÈGLES PF1e APPLIQUÉES (Chapitre 9, « Aiming a Spell »)
- *  - Le point d'origine est toujours une intersection de grille.
- *  - On compte les cases depuis l'intersection comme pour un déplacement :
- *    « chaque seconde diagonale compte double ». Coût d'une case située à
- *    a cases en largeur et b en hauteur de l'origine (a, b >= 1) :
+ * PF1e RULES APPLIED (Chapter 9, "Aiming a Spell")
+ *  - The point of origin is always a grid intersection.
+ *  - Squares are counted from the intersection as for movement:
+ *    "every second diagonal counts double". Cost of a square located
+ *    a squares across and b squares down from the origin (a, b >= 1):
  *        max(a, b) + floor(min(a, b) / 2)
- *    La case est touchée si ce coût <= la portée en cases.
- *  - cercle : zone centrée sur l'intersection.
- *  - cône droit : quart de cercle dirigé vers le haut, le bas, la gauche ou la
- *    droite (celle des 4 la plus proche de la direction du Viseur). Il part de
- *    l'intersection du Viseur, et couvre les deux cases voisines de ce point
- *    dans la direction visée. Bords à 45°.
- *  - cône diagonal : quart de cercle dirigé vers l'une des 4 diagonales (la plus
- *    proche de la direction du Viseur), parti de l'intersection du Viseur. Les
- *    cases sont comptées avec la règle des diagonales (donc un cône diagonal
- *    couvre moins de cases qu'un cône droit).
- *    (Règle du livre : un cône part d'un coin de la case du lanceur. Le script
- *    laisse l'origine libre pour pouvoir simuler ; c'est au joueur de poser le
- *    Viseur sur un coin de son token pour la règle stricte.)
- *  - ligne : cases traversées par la droite, dans la direction exacte du Viseur,
- *    depuis l'intersection du Viseur (portée comptée de la même façon). Une ligne
- *    exactement horizontale ou verticale longe une frontière entre deux rangées :
- *    elle suit alors la rangée (ou la colonne) du côté du lanceur.
- *  - emanation : comptée depuis le bord de la case du lanceur (lanceur exclu),
- *    redessinée quand le lanceur bouge.
- *  - Une créature est touchée si UNE de ses cases est dans la zone (elle reçoit
- *    l'aura de la couleur du gabarit), recalculée quand une créature se
- *    déplace. Le lanceur n'est jamais touché par son
- *    propre cône, ligne ou émanation.
- *  - 3D (si altitude.js est installé) : l'altitude du gabarit est celle du
- *    Viseur (au départ celle du lanceur ; « Altitude » du menu Vol pour la
- *    changer). Les hauteurs se comptent comme les cases au sol (une diagonale
- *    sur deux compte double) : cercle = sphère, cône = pyramide qui s'ouvre
- *    autant en hauteur que sur les côtés, ligne = à la hauteur du Viseur
- *    seulement, émanation = depuis le volume du lanceur. Le tracé reste en 2D
- *    (la tranche à l'altitude du gabarit) ; l'aura montre qui est touché.
- *    Sans altitude.js, ou tout le monde au sol : mêmes résultats qu'en 2D.
- *  - Non géré : ligne d'effet (murs), grilles hexagonales, cônes vers le haut
- *    ou le bas.
+ *    The square is affected if this cost <= the range in squares.
+ *  - circle: area centered on the intersection.
+ *  - straight cone: quarter circle pointing up, down, left or
+ *    right (whichever of the 4 is closest to the Viseur's direction). It starts from
+ *    the Viseur's intersection, and covers the two squares next to that point
+ *    in the aimed direction. Edges at 45°.
+ *  - diagonal cone: quarter circle pointing toward one of the 4 diagonals (the one
+ *    closest to the Viseur's direction), starting from the Viseur's intersection. The
+ *    squares are counted with the diagonal rule (so a diagonal cone
+ *    covers fewer squares than a straight cone).
+ *    (Rulebook: a cone starts from a corner of the caster's square. The script
+ *    leaves the origin free so you can simulate; it is up to the player to put the
+ *    Viseur on a corner of their token for the strict rule.)
+ *  - line: squares crossed by the straight line, in the Viseur's exact direction,
+ *    from the Viseur's intersection (range counted the same way). A line
+ *    that is exactly horizontal or vertical runs along a boundary between two rows:
+ *    it then follows the row (or column) on the caster's side.
+ *  - emanation: counted from the edge of the caster's square (caster excluded),
+ *    redrawn when the caster moves.
+ *  - A creature is affected if ONE of its squares is in the area (it gets
+ *    an aura in the template's color), recomputed when a creature
+ *    moves. The caster is never affected by their
+ *    own cone, line or emanation.
+ *  - 3D (if altitude.js is installed): the template's altitude is the
+ *    Viseur's (at first the caster's; "Altitude" in the Vol menu to
+ *    change it). Heights are counted like squares on the ground (every second
+ *    diagonal counts double): circle = sphere, cone = pyramid that opens
+ *    as much in height as on the sides, line = at the Viseur's height
+ *    only, emanation = from the caster's volume. The drawing stays 2D
+ *    (the slice at the template's altitude); the aura shows who is affected.
+ *    Without altitude.js, or with everyone on the ground: same results as in 2D.
+ *  - Not handled: line of effect (walls), hex grids, cones pointing up
+ *    or down.
  */
 (() => {
-  const PX = 70; // pixels par unité de page Roll20
+  const PX = 70; // pixels per Roll20 page unit
 
-  // Optionnel : URL d'une image de TA bibliothèque Roll20 pour le Viseur
-  // (laisser vide pour que le script en trouve une tout seul).
+  // Optional: URL of an image from YOUR Roll20 library for the Viseur
+  // (leave empty so the script finds one by itself).
   const VISEUR_IMG = '';
 
   const COULEURS = {
@@ -121,7 +121,7 @@
     negative: '#555555', neutral: '#ffffff'
   };
 
-  // mots acceptés dans la commande (anglais) -> nom interne de la forme
+  // words accepted in the command (English) -> internal shape name
   const FORMES = {
     burst: 'burst', sphere: 'burst', circle: 'burst',
     cone: 'cone',
@@ -133,27 +133,27 @@
 
   const DIRS = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
 
-  // ===================== LOGIQUE PURE (testable hors Roll20) =====================
+  // ===================== PURE LOGIC (testable outside Roll20) =====================
 
-  // index (>=1) d'une case par rapport à l'intersection, dans le sens `sign`
+  // index (>=1) of a square relative to the intersection, in the `sign` direction
   const idxRel = (c, o, sign) => (sign > 0 ? c - o + 1 : o - c);
-  // index (>=1) d'une case par rapport à l'intersection, sans tenir compte du sens
+  // index (>=1) of a square relative to the intersection, regardless of direction
   const idxAbs = (c, o) => (c >= o ? c - o + 1 : o - c);
-  // coût PF1e : chaque seconde diagonale compte double
+  // PF1e cost: every second diagonal counts double
   const cout = (a, b) => Math.max(a, b) + Math.floor(Math.min(a, b) / 2);
 
   const cle = (i, j) => i + ',' + j;
 
-  // Rotation d'un token Roll20 (degrés, sens horaire, 0 = flèche vers le haut)
-  // -> angle en radians dans le repère de l'écran (y vers le bas, 0 = vers la droite)
+  // Rotation of a Roll20 token (degrees, clockwise, 0 = arrow pointing up)
+  // -> angle in radians in screen coordinates (y down, 0 = right)
   const angleDeRotation = (rot) => ((Number(rot) || 0) - 90) * Math.PI / 180;
 
-  // Direction d'un cône (indice 0..7 dans DIRS : 0 = droite, 1 = bas-droite,
-  // 2 = bas, 3 = bas-gauche, 4 = gauche, 5 = haut-gauche, 6 = haut, 7 = haut-droite).
-  // angle en radians, y vers le bas (repère Roll20). mode :
-  //   'droit' -> 4 directions orthogonales, la plus proche
-  //   'diag'  -> 4 diagonales, celle du quadrant visé
-  //   'auto'  -> la plus proche parmi les 8
+  // Direction of a cone (index 0..7 in DIRS: 0 = right, 1 = down-right,
+  // 2 = down, 3 = down-left, 4 = left, 5 = up-left, 6 = up, 7 = up-right).
+  // angle in radians, y down (Roll20 coordinates). mode:
+  //   'droit' -> 4 orthogonal directions, the closest
+  //   'diag'  -> 4 diagonals, the one of the aimed quadrant
+  //   'auto'  -> the closest of the 8
   function dirCone(angle, mode) {
     const q = Math.PI / 4;
     let k;
@@ -163,8 +163,8 @@
     return ((k % 8) + 8) % 8;
   }
 
-  // "20", "20ft" -> pieds ; "6m" -> mètres ; "4sq" / "4squares" -> cases.
-  // Règle : 5 ft = 1,5 m = 1 case. Renvoie un nombre de cases entier >= 1, ou null.
+  // "20", "20ft" -> feet; "6m" -> meters; "4sq" / "4squares" -> squares.
+  // Rule: 5 ft = 1.5 m = 1 square. Returns a whole number of squares >= 1, or null.
   function tailleEnCases(txt) {
     const m = String(txt).trim().toLowerCase().match(/^(\d+(?:[.,]\d+)?)\s*(ft|m|sq|square|squares)?$/);
     if (!m) return null;
@@ -178,7 +178,7 @@
     return cases >= 1 ? cases : null;
   }
 
-  // Boule : origine = intersection (ox, oy) en indices de grille, N = portée en cases
+  // Burst: origin = intersection (ox, oy) in grid indices, N = range in squares
   function casesBurst(ox, oy, N) {
     const set = new Set();
     for (let i = ox - N - 1; i <= ox + N; i++) {
@@ -189,7 +189,7 @@
     return set;
   }
 
-  // Cône : dir = indice 0..7 dans DIRS
+  // Cone: dir = index 0..7 in DIRS
   function casesCone(ox, oy, N, dir) {
     const [ux, uy] = DIRS[dir];
     const diag = ux !== 0 && uy !== 0;
@@ -212,8 +212,8 @@
     return set;
   }
 
-  // paramètre d'entrée t (0..1) du segment (x0,y0)-(x1,y1) dans le rectangle,
-  // ou -1 s'il le traverse sur une longueur nulle
+  // entry parameter t (0..1) of the segment (x0,y0)-(x1,y1) in the rectangle,
+  // or -1 if it crosses it over a zero length
   function segmentTraverse(x0, y0, x1, y1, xmin, ymin, xmax, ymax) {
     let t0 = 0, t1 = 1;
     const dx = x1 - x0, dy = y1 - y0;
@@ -230,10 +230,10 @@
     return (t1 - t0) * Math.hypot(dx, dy) > 1e-3 ? t0 : -1;
   }
 
-  // Ligne : origine en pixels (O), angle en radians, casePx = taille d'une case.
-  // Comme dans le manuel : une ligne droite compte N cases ; une ligne en diagonale
-  // exacte suit la règle « une diagonale sur deux compte double » (30 ft = 4 cases) ;
-  // une ligne oblique garde les N premières cases traversées, dans l'ordre du trajet.
+  // Line: origin in pixels (O), angle in radians, casePx = size of a square.
+  // As in the rulebook: a straight line counts N squares; an exactly diagonal line
+  // follows the "every second diagonal counts double" rule (30 ft = 4 squares);
+  // an oblique line keeps the first N squares crossed, in the order of travel.
   function casesLigne(O, angle, N, casePx) {
     const ox = Math.round(O[0] / casePx), oy = Math.round(O[1] / casePx);
     const ux = Math.cos(angle), uy = Math.sin(angle);
@@ -257,7 +257,7 @@
     return set;
   }
 
-  // Émanation : depuis le rectangle de cases du lanceur [ci0..ci1] x [cj0..cj1]
+  // Emanation: from the caster's rectangle of squares [ci0..ci1] x [cj0..cj1]
   function casesEmanation(ci0, ci1, cj0, cj1, N) {
     const set = new Set();
     for (let i = ci0 - N; i <= ci1 + N; i++) {
@@ -272,17 +272,17 @@
     return set;
   }
 
-  // ---------- 3D (altitudes de altitude.js) ----------
-  // Une case de hauteur k (altitude en cases, 0 = niveau de référence, négatif
-  // possible) est-elle dans le volume ?
-  // Les hauteurs se comptent comme les cases au sol, depuis le plan horizontal
-  // de l'origine (z0) : chaque seconde diagonale compte double, la hauteur étant
-  // un axe de plus. Au sol (k = z0 = 0), le résultat est celui de la 2D.
-  //   burst      : sphère depuis l'intersection (ox, oy, z0)
-  //   cone       : pyramide horizontale : elle s'ouvre autant en hauteur que sur
-  //                les côtés (hauteur <= avancée)
-  //   ligne      : seulement à la hauteur de l'origine (k = z0)
-  //   emanation  : depuis le volume du lanceur [ci0..ci1] x [cj0..cj1] x [ck0..ck1]
+  // ---------- 3D (altitudes from altitude.js) ----------
+  // Is a square at height k (altitude in squares, 0 = reference level, negative
+  // allowed) inside the volume?
+  // Heights are counted like squares on the ground, from the horizontal plane
+  // of the origin (z0): every second diagonal counts double, height being
+  // one more axis. On the ground (k = z0 = 0), the result is the 2D one.
+  //   burst      : sphere from the intersection (ox, oy, z0)
+  //   cone       : horizontal pyramid: it opens as much in height as on
+  //                the sides (height <= forward distance)
+  //   line       : only at the origin's height (k = z0)
+  //   emanation  : from the caster's volume [ci0..ci1] x [cj0..cj1] x [ck0..ck1]
   function dansVolume(g, i, j, k) {
     if (g.forme === 'burst') {
       return cout(cout(idxAbs(i, g.ox), idxAbs(j, g.oy)), idxAbs(k, g.z0)) <= g.N;
@@ -307,14 +307,14 @@
     if (g.forme === 'emanation') {
       const ecart = (x, x0, x1) => (x < x0 ? x0 - x : x > x1 ? x - x1 : 0);
       const gx = ecart(i, g.ci0, g.ci1), gy = ecart(j, g.cj0, g.cj1), gz = ecart(k, g.ck0, g.ck1);
-      if (!gx && !gy && !gz) return false; // le lanceur lui-même
+      if (!gx && !gy && !gz) return false; // the caster itself
       const h = gx && gy ? cout(gx, gy) : Math.max(gx, gy);
       return (h && gz ? cout(h, gz) : Math.max(h, gz)) <= g.N;
     }
     return false;
   }
 
-  // Contour : boucles fermées (en indices de grille) délimitant l'ensemble de cases
+  // Outline: closed loops (in grid indices) bounding the set of squares
   function contour(set) {
     const arcs = new Map();
     const add = (x1, y1, x2, y2) => {
@@ -347,7 +347,7 @@
         if (cur[0] === depart[0] && cur[1] === depart[1]) break;
         boucle.push(cur);
       }
-      // retire les points alignés
+      // removes collinear points
       const n = boucle.length;
       const simple = boucle.filter((p, idx) => {
         const a = boucle[(idx + n - 1) % n], b = boucle[(idx + 1) % n];
@@ -361,16 +361,16 @@
   if (typeof module !== 'undefined') {
     module.exports = { tailleEnCases, dirCone, angleDeRotation, cout, casesBurst, casesCone, casesLigne, casesEmanation, contour, dansVolume };
   }
-  if (typeof on !== 'function') return; // hors Roll20 : on s'arrête ici
+  if (typeof on !== 'function') return; // outside Roll20: stop here
 
-  // ===================== PARTIE ROLL20 =====================
+  // ===================== ROLL20 PART =====================
 
   state.gabarit = state.gabarit || {};
-  state.gabarit.liste = state.gabarit.liste || {};       // id -> gabarit
-  state.gabarit.auraOrig = state.gabarit.auraOrig || {}; // token -> aura d'origine
+  state.gabarit.liste = state.gabarit.liste || {};       // id -> template
+  state.gabarit.auraOrig = state.gabarit.auraOrig || {}; // token -> original aura
   state.gabarit.compteur = state.gabarit.compteur || 0;
 
-  // couleurs attribuées automatiquement, dans l'ordre, pour distinguer les gabarits
+  // colors assigned automatically, in order, to tell templates apart
   const PALETTE = ['#ff4400', '#33aaff', '#66cc00', '#ffd800', '#bb88ff', '#ff66cc', '#00cccc', '#ff9900'];
 
   const FORME_NOM = { burst: 'Cercle', cone: 'Cône', conedroit: 'Cône droit', conediag: 'Cône diagonal', ligne: 'Ligne', emanation: 'Émanation' };
@@ -390,8 +390,8 @@
 
   const plusProche = (pts, ref) => pts.reduce((a, b) => (dist(b, ref) < dist(a, ref) ? b : a));
 
-  // coins de la case du lanceur qui regardent dans la direction (ux, uy) :
-  // une diagonale -> 1 coin ; une direction droite -> les 2 coins de ce côté
+  // corners of the caster's square that face the direction (ux, uy):
+  // a diagonal -> 1 corner; a straight direction -> the 2 corners on that side
   function coinsDeLaDirection(c, ux, uy) {
     const out = [];
     ['nw', 'ne', 'sw', 'se'].forEach((k) => {
@@ -406,7 +406,7 @@
   const estViseur = (t) => /^viseur/i.test(t.get('name') || '');
   const gidDuViseur = (id) => Object.keys(state.gabarit.liste).find((g) => state.gabarit.liste[g].viseurId === id);
 
-  // rectangle de cases (indices) occupé par un token
+  // rectangle of squares (indices) covered by a token
   function rectCases(t, casePx) {
     const nx = Math.max(1, Math.round(t.get('width') / casePx));
     const ny = Math.max(1, Math.round(t.get('height') / casePx));
@@ -415,7 +415,7 @@
     return { ci0, cj0, ci1: ci0 + nx - 1, cj1: cj0 + ny - 1 };
   }
 
-  // boucles en indices de grille -> un seul tracé Roll20 (plusieurs sous-chemins)
+  // loops in grid indices -> a single Roll20 path (several subpaths)
   function creerChemin(pageId, boucles, casePx, couleur) {
     const bp = boucles.map((b) => b.map((p) => [p[0] * casePx, p[1] * casePx]));
     const tous = [].concat(...bp);
@@ -446,7 +446,7 @@
     return path;
   }
 
-  // ---------- calcul et dessin d'un gabarit ----------
+  // ---------- computing and drawing a template ----------
   function calculerCases(rec, lanceur, casePx) {
     const N = rec.N;
     if (rec.forme === 'emanation') {
@@ -458,7 +458,7 @@
     const viseur = rec.viseurId && getObj('graphic', rec.viseurId);
     const cible = viseur || (rec.cibleId && getObj('graphic', rec.cibleId));
     if (!cible) return null;
-    // sans Viseur, la zone dépend du lanceur ; avec, le lanceur peut avoir disparu
+    // without a Viseur, the area depends on the caster; with one, the caster may be gone
     if (!viseur && !lanceur) return null;
 
     if (rec.forme === 'burst') {
@@ -472,9 +472,9 @@
       return casesBurst(rec.geo.ox, rec.geo.oy, N);
     }
 
-    // direction et origine : le Viseur donne les deux (rotation = direction,
-    // intersection la plus proche de son centre = origine). À défaut (cible = un
-    // token), direction lanceur -> cible, départ d'un coin de la case du lanceur.
+    // direction and origin: the Viseur gives both (rotation = direction,
+    // intersection closest to its center = origin). Otherwise (target = a
+    // token), caster -> target direction, starting from a corner of the caster's square.
     const c0 = centre(lanceur || viseur);
     const mode = MODE_CONE[rec.forme];
     let angle, o;
@@ -503,13 +503,13 @@
     }
     rec.geo = { forme: 'ligne' };
 
-    // ligne : une ligne exactement horizontale ou verticale partant d'une
-    // intersection longe la frontière entre deux rangées et ne traverserait aucune
-    // case : on la décale d'une fraction de pixel vers le côté du lanceur.
+    // line: an exactly horizontal or vertical line starting from an
+    // intersection runs along the boundary between two rows and would cross no
+    // square: it is shifted by a fraction of a pixel toward the caster's side.
     const ux = Math.cos(angle), uy = Math.sin(angle);
     let nx = 0, ny = 0;
     if (Math.abs(ux) < 1e-9 || Math.abs(uy) < 1e-9) {
-      const px = -uy, py = ux; // perpendiculaire à la direction
+      const px = -uy, py = ux; // perpendicular to the direction
       const cote = (c0[0] - o[0]) * px + (c0[1] - o[1]) * py;
       const sg = cote < -1e-6 ? -1 : 1;
       nx = sg * 0.5 * px;
@@ -518,7 +518,7 @@
     return casesLigne([ox * casePx + nx, oy * casePx + ny], angle, N, casePx);
   }
 
-  // (re)dessine le contour du gabarit ; renvoie false si impossible
+  // (re)draws the template's outline; returns false if impossible
   function dessiner(rec) {
     const lanceur = getObj('graphic', rec.lanceurId);
     const page = getObj('page', rec.pageId);
@@ -537,9 +537,9 @@
     return true;
   }
 
-  // état des tokens dont dépend la zone, au moment du dessin : évite de redessiner
-  // deux fois le même état (évènement relancé ou non par Roll20).
-  // Émanation : le lanceur ; avec un Viseur : le Viseur ; sinon : lanceur + cible.
+  // state of the tokens the area depends on, at drawing time: avoids redrawing
+  // the same state twice (event fired again by Roll20 or not).
+  // Emanation: the caster; with a Viseur: the Viseur; otherwise: caster + target.
   function signature(rec) {
     const pos = (id) => {
       const t = id && getObj('graphic', id);
@@ -550,12 +550,12 @@
     return pos(rec.lanceurId) + '|' + pos(rec.cibleId);
   }
 
-  // ---------- altitudes (script altitude.js, facultatif) ----------
-  // altitude d'un token en cases ; 0 si altitude.js n'est pas installé
+  // ---------- altitudes (altitude.js script, optional) ----------
+  // a token's altitude in squares; 0 if altitude.js is not installed
   const altitude = (id) => (state.Altitude && state.Altitude.alt && state.Altitude.alt[id]) || 0;
 
-  // volume 3D d'un gabarit pour dansVolume ; null pour un gabarit dessiné avant
-  // la v1.5 (pas d'origine mémorisée) : on garde alors le calcul 2D
+  // 3D volume of a template for dansVolume; null for a template drawn before
+  // v1.5 (no stored origin): the 2D calculation is kept then
   function volume3D(rec, cases, casePx) {
     if (!rec.geo) return null;
     const g = Object.assign({ N: rec.N, cases }, rec.geo);
@@ -568,14 +568,14 @@
       g.ck1 = g.ck0 + Math.max(r.ci1 - r.ci0, r.cj1 - r.cj0);
       return g;
     }
-    // origine : le Viseur ; sans Viseur, la cible (cercle) ou le lanceur
+    // origin: the Viseur; without a Viseur, the target (circle) or the caster
     g.z0 = altitude(rec.viseurId || (g.forme === 'burst' && rec.cibleId) || rec.lanceurId);
     return g;
   }
 
-  // ---------- auras des créatures touchées ----------
-  // Recalculées pour TOUS les gabarits de la page : le dernier gabarit posé
-  // l'emporte sur une créature touchée par plusieurs zones.
+  // ---------- auras of affected creatures ----------
+  // Recomputed for ALL templates on the page: the last template placed
+  // wins on a creature affected by several areas.
   function rafraichirAuras(pageId) {
     const page = getObj('page', pageId);
     if (!page) return;
@@ -583,7 +583,7 @@
     const tokens = findObjs({ _type: 'graphic', _subtype: 'token', _pageid: pageId, layer: 'objects' })
       .filter((t) => !estViseur(t));
 
-    const touche = new Map(); // id du token -> couleur
+    const touche = new Map(); // token id -> color
     Object.keys(state.gabarit.liste).forEach((gid) => {
       const rec = state.gabarit.liste[gid];
       if (rec.pageId !== pageId) return;
@@ -592,7 +592,7 @@
       tokens.forEach((t) => {
         if (rec.forme !== 'burst' && t.id === rec.lanceurId) return;
         const r = rectCases(t, casePx);
-        // hauteur du token : de son altitude, sur autant de cases que sa largeur
+        // token height: from its altitude, over as many squares as its width
         const k0 = altitude(t.id), k1 = k0 + Math.max(r.ci1 - r.ci0, r.cj1 - r.cj0);
         for (let i = r.ci0; i <= r.ci1; i++) {
           for (let j = r.cj0; j <= r.cj1; j++) {
@@ -605,7 +605,7 @@
       });
     });
 
-    // créatures qui ne sont plus touchées : on restaure leur aura d'origine
+    // creatures no longer affected: their original aura is restored
     Object.keys(state.gabarit.auraOrig).forEach((id) => {
       const t = getObj('graphic', id);
       if (!t) { delete state.gabarit.auraOrig[id]; return; }
@@ -637,19 +637,19 @@
     rafraichirAuras(rec.pageId);
   }
 
-  // ---------- le Viseur ----------
-  // URL d'image utilisable par createObj (bibliothèque perso uniquement)
+  // ---------- the Viseur ----------
+  // image URL usable by createObj (personal library only)
   const nettoyerImg = (src) => {
     const m = (src || '').match(/(.*\/images\/.*)(thumb|med|original|max)(.*)$/);
     return m ? m[1] + 'thumb' + m[3] : null;
   };
 
-  // direction de départ du Viseur : vers la droite (cône droit, ligne), vers le
-  // bas-droite (cône diagonal) ; le cercle n'en a pas besoin
+  // starting direction of the Viseur: to the right (straight cone, line), to the
+  // bottom right (diagonal cone); the circle does not need one
   const rotationInitiale = (forme) => (forme === 'conediag' ? 135 : forme === 'burst' ? 0 : 90);
 
-  // rotation que le Viseur doit afficher pour refléter la direction réellement
-  // utilisée par un cône (aimantation) ; null = pas d'aimantation
+  // rotation the Viseur must show to reflect the direction actually
+  // used by a cone (snapping); null = no snapping
   function rotationAimantee(rec, v) {
     const mode = MODE_CONE[rec.forme];
     if (!mode) return null;
@@ -685,8 +685,8 @@
     }
   }
 
-  // première intersection libre autour du lanceur (sans chevaucher le lanceur
-  // ni un autre Viseur) ; renvoie des pixels
+  // first free intersection around the caster (without overlapping the caster
+  // or another Viseur); returns pixels
   function positionLibre(lanceur, casePx) {
     const r = rectCases(lanceur, casePx);
     const viseurs = findObjs({ _type: 'graphic', _subtype: 'token', _pageid: lanceur.get('_pageid') }).filter(estViseur);
@@ -696,7 +696,7 @@
       for (let dx = -d; dx <= d; dx++) {
         for (let dy = -d; dy <= d; dy++) {
           if (Math.max(Math.abs(dx), Math.abs(dy)) !== d) continue;
-          const x = base[0] + dx, y = base[1] + dy; // intersection = centre du Viseur 2x2
+          const x = base[0] + dx, y = base[1] + dy; // intersection = center of the 2x2 Viseur
           if (x - 1 <= r.ci1 && x >= r.ci0 && y - 1 <= r.cj1 && y >= r.cj0) continue;
           if (vc.some((c) => Math.abs(c[0] - x) < 2 && Math.abs(c[1] - y) < 2)) continue;
           return [x * casePx, y * casePx];
@@ -706,12 +706,12 @@
     return [base[0] * casePx, base[1] * casePx];
   }
 
-  // crée un NOUVEAU Viseur pour ce gabarit et le place près du lanceur
+  // creates a NEW Viseur for this template and places it near the caster
   function preparerViseur(lanceur, rec) {
     const page = getObj('page', rec.pageId);
     const { casePx } = echelle(page);
 
-    // [image, image de secours ?] : seules les images de secours sont teintées
+    // [image, fallback image?]: only fallback images are tinted
     const candidats = [
       [state.gabarit.viseurImg, false],
       [VISEUR_IMG, false],
@@ -739,7 +739,7 @@
     return v;
   }
 
-  // ---------- commandes ----------
+  // ---------- commands ----------
   on('chat:message', (msg) => {
     if (msg.type !== 'api' || !/^!gabarit\b/i.test(msg.content)) return;
 
@@ -762,7 +762,7 @@
       return;
     }
 
-    // envoyé par altitude.js quand une altitude change : auras à recalculer
+    // sent by altitude.js when an altitude changes: auras to recompute
     if (cmd === 'refresh') {
       const pages = args[1] ? [args[1]] : [...new Set(Object.values(state.gabarit.liste).map((r) => r.pageId))];
       pages.forEach((p) => rafraichirAuras(p));
@@ -819,7 +819,7 @@
       label: libelle(forme, N)
     };
 
-    // l'émanation n'a pas de Viseur : elle reste attachée au lanceur
+    // the emanation has no Viseur: it stays attached to the caster
     if (forme !== 'emanation' && !rec.cibleId) {
       const viseur = preparerViseur(lanceur, rec);
       if (!viseur) {
@@ -827,8 +827,8 @@
         return;
       }
       rec.viseurId = viseur.id;
-      // le Viseur part à l'altitude du lanceur (altitude.js l'affiche et
-      // relance le calcul des auras)
+      // the Viseur starts at the caster's altitude (altitude.js shows it and
+      // reruns the aura calculation)
       if (altitude(lanceur.id)) sendChat('Gabarit', `!alt set ${viseur.id} =${altitude(lanceur.id)}sq`);
     }
 
@@ -856,24 +856,24 @@
     if (CLES_POSITION.every((k) => obj.get(k) === prev[k])) return;
     const gid = gidDuViseur(obj.id);
 
-    // le gabarit suit son Viseur quand on le déplace ou qu'on le tourne
+    // the template follows its Viseur when it is moved or rotated
     if (gid) {
       const rec = state.gabarit.liste[gid];
 
-      // cône : la flèche du Viseur s'aimante sur la direction utilisée. On ne compte
-      // pas sur l'évènement que ce set pourrait relancer : Roll20 ne le relance pas
-      // forcément pour une modification faite par un script. On redessine donc tout de
-      // suite, et la signature évite un second dessin si l'évènement arrive quand même.
+      // cone: the Viseur's arrow snaps to the direction used. We do not rely
+      // on the event this set could fire again: Roll20 does not necessarily fire it
+      // for a change made by a script. So we redraw right away,
+      // and the signature avoids a second drawing if the event arrives anyway.
       const cible = rotationAimantee(rec, obj);
       if (cible !== null && ecartAngle(cible, obj.get('rotation')) > 0.5) obj.set({ rotation: cible });
 
-      if (signature(rec) === rec.sig) return; // déjà dessiné dans cet état
+      if (signature(rec) === rec.sig) return; // already drawn in this state
       if (dessiner(rec)) rafraichirAuras(rec.pageId);
       return;
     }
 
-    // un autre token : lanceur d'une émanation, lanceur / cible d'un gabarit sans
-    // Viseur, ou simple créature qui entre dans une zone ou en sort
+    // another token: caster of an emanation, caster / target of a template without
+    // a Viseur, or just a creature entering or leaving an area
     const pageId = obj.get('_pageid');
     const recs = Object.values(state.gabarit.liste).filter((r) => r.pageId === pageId);
     if (!recs.length) return;
@@ -883,8 +883,8 @@
     rafraichirAuras(pageId);
   });
 
-  // supprimer le Viseur efface son gabarit ; supprimer le lanceur efface les
-  // gabarits sans Viseur qui dépendaient de ce token (émanation, cible = token)
+  // deleting the Viseur erases its template; deleting the caster erases the
+  // templates without a Viseur that depended on that token (emanation, target = token)
   on('destroy:graphic', (obj) => {
     const gid = gidDuViseur(obj.id);
     if (gid) { effacer(gid); return; }
@@ -895,5 +895,5 @@
     });
   });
 
-  on('ready', () => log('gabarit.js v1.5 chargé'));
+  on('ready', () => log('gabarit.js v1.5 loaded'));
 })();

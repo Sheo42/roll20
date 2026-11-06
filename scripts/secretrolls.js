@@ -1,35 +1,35 @@
-// secretrolls.js - script API Roll20, réservé au MJ. Ajoute aux PJ un bouton de token « Blindroll » :
-// une liste déroulante des compétences (avec le bonus du personnage) puis un jet secret natif de Roll20 (/sr) :
-// seul le MJ voit le résultat, le joueur reçoit juste une confirmation.
+// secretrolls.js - Roll20 API script, GM only. Adds a "Blindroll" token button to PCs:
+// a dropdown of skills (with the character's bonus) then a native Roll20 secret roll (/sr):
+// only the GM sees the result, the player just gets a confirmation.
 //
-// Même principe que les boutons de PFCompanion (All Skills, All Attacks...) : une capacité (ability)
-// du personnage en action de token. Le script ne sert qu'à la créer : ensuite le jet marche sans lui
-// (et même si le bac à sable API plante).
+// Same principle as the PFCompanion buttons (All Skills, All Attacks...): an ability
+// of the character as a token action. The script is only there to create it: afterwards the roll works without it
+// (even if the API sandbox crashes).
 //
-// Usage dans le chat :
-//   !secretrolls                 -> ESSAI À BLANC sur les personnages des tokens sélectionnés
-//   !secretrolls all             -> ESSAI À BLANC sur tous les PJ (personnages contrôlés par un joueur)
-//   !secretrolls confirm N       -> crée / met à jour, SEULEMENT si le nombre de personnages (N) est exact
+// Usage in chat:
+//   !secretrolls                 -> DRY RUN on the characters of the selected tokens
+//   !secretrolls all             -> DRY RUN on all PCs (characters controlled by a player)
+//   !secretrolls confirm N       -> creates / updates, ONLY if the number of characters (N) is exact
 //   !secretrolls all confirm N
-//   !secretrolls remove [all] [confirm N] -> retire la capacité
-//   !secretrolls auto on|off     -> ajout automatique (activé par défaut) : dès qu'un personnage contrôlé
-//                                   par un joueur change ou qu'un de ses tokens est posé, la capacité est
-//                                   créée ou mise à jour
+//   !secretrolls remove [all] [confirm N] -> removes the ability
+//   !secretrolls auto on|off     -> automatic add (on by default): as soon as a character controlled
+//                                   by a player changes or one of their tokens is placed, the ability is
+//                                   created or updated
 //
-// Une seule capacité par personnage : « Blindroll ». Les anciennes capacités du script (« Secret »,
-// « sr-<compétence> ») sont retirées à la mise à jour.
-// Pas de menu de boutons (tout essayé, 2026-11-04) : « !&#13;/sr » casse dans une capacité (formula error),
-// un lien à accent grave [x](`/sr ...) marche mais pas dans un chuchotement (formula error), un menu public
-// n'est pas voulu, des capacités cachées par compétence encombrent la fiche, et passer par l'API ne marche
-// plus quand le bac à sable plante. La liste déroulante est privée et sans API.
+// A single ability per character: "Blindroll". The script's old abilities ("Secret",
+// "sr-<skill>") are removed on update.
+// No button menu (all tried, 2026-11-04): "!&#13;/sr" breaks in an ability (formula error),
+// a backtick link [x](`/sr ...) works but not in a whisper (formula error), a public menu
+// is not wanted, hidden abilities per skill clutter the sheet, and going through the API no longer
+// works when the sandbox crashes. The dropdown is private and needs no API.
 
 var SecretRolls = (function () {
   'use strict';
-  var TOKEN_ACTION = 'Blindroll'; // même nom que l'ancienne macro, pour que les joueurs s'y retrouvent
-  var OLD_TOKEN_ACTION = 'Secret'; // nom des versions du 2026-11-04, retiré à la mise à jour
+  var TOKEN_ACTION = 'Blindroll'; // same name as the old macro, so players find their way
+  var OLD_TOKEN_ACTION = 'Secret'; // name used by the 2026-11-04 versions, removed on update
   var LEGACY_PREFIX = 'sr-';
-  // [libellé affiché, attribut de la feuille Pathfinder Community]
-  // pas de virgule ni de barre verticale dans les libellés (liste déroulante)
+  // [displayed label, Pathfinder Community sheet attribute]
+  // no comma or vertical bar in labels (dropdown)
   var SKILLS = [
     ['Évaluation', 'appraise'], ['Bluff', 'bluff'], ['Diplomatie', 'diplomacy'], ['Sabotage', 'disable-device'],
     ['Déguisement', 'disguise'], ['Intimidation', 'intimidate'], ['Perception', 'perception'],
@@ -37,21 +37,21 @@ var SecretRolls = (function () {
     ['Survie', 'survival'], ['Représentation', 'perform'], ['Linguistique', 'linguistics']
   ];
 
-  // même forme que la macro Blindroll testée dans le jeu, avec le bonus dans chaque libellé
+  // same form as the Blindroll macro tested in the game, with the bonus in each label
   function secretAction() {
     return '/sr 1d20+?{Compétence|' + SKILLS.map(function (s) {
       return s[0] + ' (@{' + s[1] + '}),@{' + s[1] + '}[' + s[0] + ']';
     }).join('|') + '}';
   }
 
-  // anciennes capacités du script : sr-<compétence>, et « Secret » seulement si c'est bien la nôtre (un jet /sr)
+  // the script's old abilities: sr-<skill>, and "Secret" only if it really is ours (a /sr roll)
   function isLegacy(abilityName, action) {
     if (abilityName === OLD_TOKEN_ACTION) return /\/sr |Jets secrets|!secretroll/.test(String(action || ''));
     return SKILLS.some(function (s) { return abilityName === LEGACY_PREFIX + s[1]; });
   }
   function isOurs(abilityName, action) { return abilityName === TOKEN_ACTION || isLegacy(abilityName, action); }
 
-  // existing : [{id, name, action, istokenaction}] -> {create, update, remove:[ids], same}
+  // existing: [{id, name, action, istokenaction}] -> {create, update, remove:[ids], same}
   function plan(existing) {
     var out = { create: null, update: null, remove: [], same: false };
     var mine = existing.filter(function (a) { return a.name === TOKEN_ACTION; });
@@ -92,7 +92,7 @@ var SecretRolls = (function () {
   if (typeof module !== 'undefined') module.exports = api;
   if (typeof on !== 'function') return api;
 
-  // ------------------------------------------------------------------ partie Roll20
+  // ------------------------------------------------------------------ Roll20 part
   var NOM = 'SecretRolls';
   function tell(text) { sendChat(NOM, '/w gm ' + text, null, { noarchive: true }); }
   function isPC(c) { return !!c && String(c.get('controlledby') || '').trim() !== ''; }
@@ -125,7 +125,7 @@ var SecretRolls = (function () {
     return state.SecretRolls;
   }
 
-  // ajout automatique : PJ (contrôlé par un joueur) -> crée / met à jour sans demander
+  // automatic add: PC (controlled by a player) -> creates / updates without asking
   function autoSync(c) {
     if (!st().auto || !isPC(c)) return;
     var p = planFor(c);
@@ -172,9 +172,9 @@ var SecretRolls = (function () {
     tell((a.remove ? 'Retiré' : 'Fait') + ' pour ' + todo.length + ' personnage(s) :<br>' + lines.join('<br>'));
   }
 
-  // tout changement du personnage (dont « Contrôlé par » sur une fiche toute neuve), et tout token posé
-  // ou relié à un personnage : on vérifie, il ne se passe rien si la capacité est déjà à jour
-  // dans « ready » : sinon Roll20 envoie un add:graphic pour chaque token existant au démarrage
+  // any change to the character (including "Controlled by" on a brand-new sheet), and any token placed
+  // or linked to a character: we check, nothing happens if the ability is already up to date
+  // in "ready": otherwise Roll20 sends an add:graphic for every existing token at startup
   on('ready', function () {
     on('change:character', function (c) { autoSync(c); });
     on('add:graphic', function (g) { autoSyncToken(g); });

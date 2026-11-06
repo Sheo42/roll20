@@ -180,7 +180,7 @@
     Object.keys(s.tokens).forEach((id) => { if (!getObj('graphic', id)) delete s.tokens[id]; });
     const a = api();
     if (a) { a.observe(synchro); synchro(); }
-    log(`${NOM} (lumiere.js) prêt${a ? ', lié à bufftracker.js' : ' : bufftracker.js absent'}.`);
+    log(`${NOM} (lumiere.js) ready${a ? ', linked to bufftracker.js' : ': bufftracker.js missing'}.`);
     on('add:graphic', () => setTimeout(synchro, 500));
     on('change:graphic:represents', () => synchro());
   });

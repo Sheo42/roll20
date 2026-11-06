@@ -1,23 +1,23 @@
 /*
- * Climat.test.js — tests de Climat.js (script API Roll20)
+ * Climat.test.js — tests for Climat.js (Roll20 API script)
  *
- * Lancer :  node Climat.test.js            (teste ../scripts/Climat.js)
- *           node Climat.test.js autre.js   (teste un autre fichier)
+ * Run:     node Climat.test.js            (tests ../scripts/Climat.js)
+ *           node Climat.test.js other.js   (tests another file)
  *
- * Aucune dépendance : Node.js suffit, Roll20 n'est pas nécessaire.
- * Trois niveaux de tests :
- *   - logique pure avec des dés SCRIPTÉS : on impose chaque tirage (« le d100 vaut 85,
- *     le d10 vaut 3 ») et on vérifie les phases, les textes et les températures. Le faux
- *     dé refuse une valeur hors de ses faces et un dé tiré en trop ;
- *   - propriétés sur des milliers de tirages (générateur pseudo-aléatoire à graine
- *     fixe, donc résultat identique à chaque lancement) : bornes de température,
- *     cohérence neige / pluie / blizzard, prémices, débordement d'un jour sur l'autre,
- *     proportions de la table, persistance ;
- *   - flux complet : le script est chargé dans un FAUX Roll20 (module vm) et on lui
- *     envoie de vraies commandes « !climat », « !region », « !RollClimat ».
+ * No dependency: Node.js is enough, Roll20 is not needed.
+ * Three levels of tests:
+ *   - pure logic with SCRIPTED dice: each roll is forced ("the d100 is 85,
+ *     the d10 is 3") and the phases, texts and temperatures are checked. The fake
+ *     die refuses a value outside its faces and a die rolled once too often;
+ *   - properties over thousands of rolls (seeded pseudo-random generator,
+ *     so the same result on every run): temperature bounds,
+ *     snow / rain / blizzard consistency, warning signs, spill-over from one day to the next,
+ *     table proportions, persistence;
+ *   - full flow: the script is loaded into a FAKE Roll20 (vm module) and gets
+ *     real "!climat", "!region", "!RollClimat" commands.
  *
- * Limite : ces tests n'ont jamais tourné dans une vraie campagne Roll20. Le rendu du
- * modèle pf_generic et les boutons à question (?{Mois|...}) ne sont pas vérifiés ici.
+ * Limit: these tests have never run in a real Roll20 campaign. The rendering of the
+ * pf_generic template and the query buttons (?{Mois|...}) are not checked here.
  */
 const fs = require('fs');
 const path = require('path');
@@ -27,7 +27,7 @@ const SCRIPT = path.resolve(process.argv[2] || path.join(__dirname, '..', 'scrip
 const CODE = fs.readFileSync(SCRIPT, 'utf8');
 const C = require(SCRIPT);
 
-// ---------------------------------------------------------------- mini lanceur
+// ---------------------------------------------------------------- mini runner
 let total = 0;
 const echecs = [];
 let groupe = '';
@@ -47,8 +47,8 @@ function describe(nom, fn) {
 }
 const proche = (valeur, cible, tolerance) => Math.abs(valeur - cible) <= tolerance;
 
-// ---------------------------------------------------------------- dés
-// Dé scripté : renvoie les valeurs données, dans l'ordre.
+// ---------------------------------------------------------------- dice
+// Scripted die: returns the given values, in order.
 function scripte(valeurs) {
   const file = valeurs.slice();
   const rng = (faces) => {
@@ -60,7 +60,7 @@ function scripte(valeurs) {
   rng.reste = () => file.length;
   return rng;
 }
-// Générateur pseudo-aléatoire à graine (mulberry32) : mêmes tirages à chaque lancement.
+// Seeded pseudo-random generator (mulberry32): same rolls on every run.
 function graine(seed) {
   let a = seed >>> 0;
   const alea = () => {
@@ -76,14 +76,14 @@ const equilibre = (s) => (s.match(/\(/g) || []).length === (s.match(/\)/g) || []
 const INTERDITS = /undefined|NaN|\{\{|\}\}|\[|\]|@|%\{|=|\|/;
 const NB = C.PHASES.length;
 
-// phénomène créé avec des dés scriptés, qui doivent tous être consommés
+// phenomenon created with scripted dice, which must all be used
 const cree = (cat, profil, tj, des) => {
   const rng = scripte(des);
   const ph = C.creerPhenomene(cat, profil, tj, rng);
   if (rng.reste() !== 0) throw new Error('dés non consommés : ' + rng.reste());
   return ph;
 };
-// jour créé avec des dés scriptés, qui doivent tous être consommés
+// day created with scripted dice, which must all be used
 const jour = (numero, ctx, des, precedent, grille) => {
   const rng = scripte(des);
   const j = C.genererJour(numero, ctx, rng, precedent || null, grille);
@@ -93,7 +93,7 @@ const jour = (numero, ctx, des, precedent, grille) => {
 const etats = (j) => j.phases.map((p) => p.etat);
 const temperatures = (j) => j.phases.map((p) => p.temperature);
 
-// ================================================================ DONNÉES
+// ================================================================ DATA
 describe('Données du calendrier et des niveaux', () => {
   check(C.MOIS.length === 12, '12 mois');
   check(C.MOIS.map((m) => m.nom).join(' ') ===
@@ -136,7 +136,7 @@ describe('Lecture des arguments (niveau, mois, jours)', () => {
     'anciens niveaux français refusés');
 });
 
-// ================================================================ TABLE DES ÉVÈNEMENTS
+// ================================================================ EVENT TABLE
 describe('Table d100 : limites des tranches', () => {
   const ev = (profil, jet, des, prec) => C.tirerEvenement(profil, jet, scripte(des || []), prec || null);
   ['froid', 'tempere', 'desert'].forEach((p) => {
@@ -167,7 +167,7 @@ describe('Vagues de chaleur et de froid', () => {
     'veille calme : le sens est tiré normalement (50 -> chaleur, 51 -> froid)');
 });
 
-// ================================================================ TEMPÉRATURES DANS LA JOURNÉE
+// ================================================================ TEMPERATURES DURING THE DAY
 describe('Température de chaque phase', () => {
   check(C.temperaturesPhases(10, 0).join(',') === '4,10,6,0', 'jour 10, nuit 0 : matin 4, après-midi 10, soir 6, nuit 0');
   check(C.temperaturesPhases(5, 4).join(',') === '4,5,5,4', 'écart d’un seul degré : 4, 5, 5, 4');
@@ -183,7 +183,7 @@ describe('Température de chaque phase', () => {
   check(ok, 'toujours : nuit <= matin <= soir <= après-midi, après-midi = jour, nuit = nuit (2 000 tirages)');
 });
 
-// ================================================================ CRÉATION DES PHÉNOMÈNES
+// ================================================================ CREATING PHENOMENA
 describe('Précipitations', () => {
   const p = (tj, des) => cree('precipitation', 'tempere', tj, des);
   let ph = p(10, [30, 2, 3]);
@@ -277,7 +277,7 @@ describe('Phase de départ et noms par phase', () => {
     'autres noms');
 });
 
-// ================================================================ UN JOUR
+// ================================================================ ONE DAY
 describe('Température du jour et de la nuit', () => {
   const ctx = { profil: 'tempere', base: 10, ecart: 3 };
   let j = jour(1, ctx, [4, 4, 50, 7]);
@@ -319,44 +319,44 @@ describe('Vent du désert (ancien défaut : priorité d’opérateurs)', () => {
 
 describe('Phénomène dans la journée : prémices, phase de départ', () => {
   const tempere = { profil: 'tempere', base: 10, ecart: 0 };
-  // orage au soir (d4 = 3), 3 heures
+  // thunderstorm in the evening (d4 = 3), 3 hours
   let j = jour(1, tempere, [3, 2, 95, 4, 2, 2, 5, 3]);
   check(etats(j).join(' | ') === 'calme | prémices (air lourd, gros nuages sombres) | orage | calme',
     'orage le soir : prémices l’après-midi : ' + etats(j).join(' | '));
   check(j.cat === 'tempete' && j.agite === true && j.description.startsWith('Orage :'), 'catégorie tempête, jour agité, règles en seconde ligne');
   check(temperatures(j).join(',') === '8,10,8,6', 'températures des phases : 8, 10, 8, 6');
-  // orage l'après-midi (d4 = 2) : prémices le matin
+  // thunderstorm in the afternoon (d4 = 2): warning signs in the morning
   j = jour(1, tempere, [3, 2, 95, 4, 2, 2, 5, 2]);
   check(etats(j).join(' | ') === 'prémices (air lourd, gros nuages sombres) | orage | calme | calme', 'orage l’après-midi : prémices le matin');
-  // orage au lever (d4 = 1) : pas de prémices ; orage dans la nuit (d4 = 4) : prémices le soir
+  // thunderstorm at dawn (d4 = 1): no warning signs; thunderstorm at night (d4 = 4): warning signs in the evening
   j = jour(1, tempere, [3, 2, 95, 4, 2, 2, 5, 1]);
   check(etats(j).join(' | ') === 'orage | calme | calme | calme', 'orage au lever : n’importe quand, sans prémices');
   j = jour(1, tempere, [3, 2, 95, 4, 2, 2, 5, 4]);
   check(etats(j).join(' | ') === 'calme | calme | prémices (air lourd, gros nuages sombres) | orage', 'orage dans la nuit : prémices le soir');
-  // blizzard d'un jour qui commence au lever : pas de prémices, toute la journée
+  // one-day blizzard starting at dawn: no warning signs, the whole day
   const froid = { profil: 'froid', base: -10, ecart: 0 };
   j = jour(1, froid, [3, 2, 100, 5, 1, 1, 1]);
   check(etats(j).join(' | ') === 'blizzard | blizzard | blizzard | blizzard', 'blizzard déjà là au lever : toute la journée, sans prémices');
   check(!/se poursuit/.test(j.ligne), 'un blizzard de 24 h qui finit avec la journée ne « se poursuit » pas');
   check(j.ligne.startsWith('Matin (-13 °C) : blizzard · Après-midi (-10 °C) : blizzard'), 'ligne : ' + j.ligne.slice(0, 80));
-  // blizzard de 2 jours qui commence le soir, sur un seul jour demandé
+  // 2-day blizzard starting in the evening, over a single requested day
   j = jour(1, froid, [3, 2, 100, 5, 1, 2, 3]);
   check(etats(j).join(' | ') === 'calme | prémices (ciel plombé, le vent forcit) | blizzard | blizzard (se poursuit)',
     'blizzard de 2 jours à partir du soir : « se poursuit » : ' + etats(j).join(' | '));
   check(j.description.includes('2 jours') && j.description.includes('30 cm'), 'règles : 2 jours, 30 cm');
-  // brouillard : le matin (d2 = 1) ou le soir (d2 = 2), jamais de prémices
+  // fog: in the morning (d2 = 1) or the evening (d2 = 2), never warning signs
   j = jour(1, tempere, [3, 2, 85, 4, 30, 1, 1, 1]);
   check(etats(j).join(' | ') === 'brouillard | calme | calme | calme', 'brouillard le matin, sans prémices');
   check(j.description === 'Brouillard pendant 2 heures.', 'description : ' + j.description);
   j = jour(1, tempere, [3, 2, 85, 4, 30, 1, 1, 2]);
   check(etats(j).join(' | ') === 'calme | calme | brouillard | calme', 'brouillard le soir, sans prémices');
-  // précipitation qui commence l'après-midi
+  // precipitation starting in the afternoon
   j = jour(1, tempere, [3, 2, 85, 4, 50, 2, 3, 2]);
   check(etats(j).join(' | ') === 'calme | pluie | calme | calme', 'pluie l’après-midi (5 heures, une seule phase)');
 });
 
 describe('La neige ou la pluie suit la température de la phase', () => {
-  // 7 heures de précipitations = 2 phases : après-midi (juste au-dessus de 0) puis soir (sous 0)
+  // 7 hours of precipitation = 2 phases: afternoon (just above 0) then evening (below 0)
   const ctx = { profil: 'froid', base: -4, ecart: 0 };
   const j = jour(1, ctx, [3, 2, 85, 8, 50, 4, 3, 2]);
   check(temperatures(j).join(',') === '-9,-4,-7,-12', 'températures : -9, -4, -7, -12 (jour -4, nuit -12)');
@@ -382,11 +382,11 @@ describe('Persistance d’un jour sur l’autre', () => {
   check(j.cat === 'vague' && j.sens === -1 && j.tag === 'Vague de froid (-5 °C), jour 1 sur 3', 'vague après vague de froid : même sens, aucun dé de sens');
 });
 
-// ================================================================ UNE SÉRIE
+// ================================================================ A SERIES
 describe('Débordement d’un phénomène sur les jours suivants', () => {
-  // très froid, Abadius : écart d10 - 10 = 4 - 10 = -6, base -10, aléa 0 -> jour -16 °C
-  // J1 : d100 = 100, blizzard de 2 jours (48 h = 8 phases) qui commence au soir (phase 3)
-  // J2 : phénomène en cours au lever -> aucun d100 ; J3 : idem jusqu'au milieu de l'après-midi
+  // very cold, Abadius: offset d10 - 10 = 4 - 10 = -6, base -10, random 0 -> day -16 °C
+  // D1: d100 = 100, 2-day blizzard (48 h = 8 phases) starting in the evening (phase 3)
+  // D2: phenomenon in progress at dawn -> no d100; D3: same until mid-afternoon
   let rng = scripte([4, 3, 2, 100, 5, 2, 2, 3, 3, 2, 3, 3, 2, 4]);
   let m = C.genererMeteo('verycold', 'abadius', 3, rng);
   check(rng.reste() === 0, 'jours 2 et 3 : aucun d100 tiré (le blizzard est l’évènement du jour)');
@@ -403,14 +403,14 @@ describe('Débordement d’un phénomène sur les jours suivants', () => {
     'les températures continuent de varier : jour 2 nuit -19, jour 3 nuit -20');
   check(!/se poursuit/.test(m.jours.map((j) => j.ligne).join(' ')), 'sur 3 jours, le blizzard finit dans la série : pas de « se poursuit »');
 
-  // même blizzard, mais 2 jours demandés : la période est prolongée d'un jour (aléa 2d4 + d10 de nuit seulement)
+  // same blizzard, but 2 days requested: the period is extended by one day (2d4 random + night d10 only)
   rng = scripte([4, 3, 2, 100, 5, 2, 2, 3, 3, 2, 3, 3, 2, 4]);
   m = C.genererMeteo('verycold', 'abadius', 2, rng);
   check(rng.reste() === 0 && m.jours.length === 3 && m.demandes === 2, 'série de 2 jours : prolongée à 3 jours sans d100 (dés tous consommés)');
   check(etats(m.jours[2]).join(' | ') === 'blizzard | blizzard | calme | calme' && m.jours[2].suite, 'le jour ajouté contient la fin du blizzard');
   check(!/se poursuit/.test(m.jours.map((j) => j.ligne).join(' ')), 'plus de « se poursuit » : la période a été prolongée');
 
-  // 1 seul jour demandé, blizzard commencé le soir : 3 jours affichés
+  // only 1 day requested, blizzard started in the evening: 3 days shown
   rng = scripte([4, 3, 2, 100, 5, 2, 2, 3, 3, 2, 3, 3, 2, 4]);
   m = C.genererMeteo('verycold', 'abadius', 1, rng);
   check(rng.reste() === 0 && m.jours.length === 3 && m.demandes === 1, '1 jour demandé, blizzard de 2 jours : 3 jours affichés');
@@ -422,8 +422,8 @@ describe('Débordement d’un phénomène sur les jours suivants', () => {
 });
 
 describe('Vague de chaleur, de froid et vent : 3 jours', () => {
-  // froid, Neth (base 0) : écart d10 - 5 = 5 - 5 = 0
-  // J1 : d100 = 75, d100 = 10 -> vague de CHALEUR ; J2 et J3 : en suite, aucun d100 ; J4 : d100 = 50 -> calme
+  // cold, Neth (base 0): offset d10 - 5 = 5 - 5 = 0
+  // D1: d100 = 75, d100 = 10 -> HEAT wave; D2 and D3: continued, no d100; D4: d100 = 50 -> calm
   let rng = scripte([5, 3, 2, 75, 10, 4, 4, 4, 2, 2, 2, 1, 3, 2, 50, 3]);
   let m = C.genererMeteo('cold', 'neth', 4, rng);
   check(rng.reste() === 0, 'jours 2 et 3 : aucun d100 ni dé de sens (la vague est l’évènement du jour)');
@@ -441,13 +441,13 @@ describe('Vague de chaleur, de froid et vent : 3 jours', () => {
     'ligne du jour 2 : ' + j2.ligne);
   check(j4.ligne.startsWith('Calme toute la journée - Matin'), 'jour 4 : journée calme');
 
-  // une nouvelle vague juste après va dans le même sens, sans dé de sens
+  // a new wave right after goes in the same direction, without a direction die
   rng = scripte([5, 3, 2, 75, 10, 4, 4, 4, 2, 2, 2, 1, 3, 2, 75, 3, 3, 2, 4, 3, 2, 4]);
   m = C.genererMeteo('cold', 'neth', 4, rng);
   check(rng.reste() === 0 && m.jours[3].tag === 'Vague de chaleur (+5 °C), jour 1 sur 3' && !m.jours[3].suite,
     'une vague qui suit une vague va dans le même sens (chaleur), sans dé de sens');
 
-  // vent du désert : même durée
+  // desert wind: same duration
   rng = scripte([10, 3, 2, 85, 2, 4, 3, 2, 4, 3, 2, 4]);
   m = C.genererMeteo('veryhot', 'arodus', 3, rng);
   check(rng.reste() === 0, 'vent du désert : jours 2 et 3 sans d100');
@@ -455,28 +455,28 @@ describe('Vague de chaleur, de froid et vent : 3 jours', () => {
     'vent important sur 3 jours : ' + m.jours.map((j) => j.tag).join(' / '));
   check(m.jours.every((j) => j.temperatureJour === 35 && j.temperatureNuit === 31), 'le vent ne change pas la température (35 °C, nuit 31 °C)');
 
-  // série plus courte que la vague : la période est prolongée jusqu'au jour 3 sur 3
+  // series shorter than the wave: the period is extended up to day 3 of 3
   rng = scripte([10, 3, 2, 85, 2, 4, 3, 2, 4, 3, 2, 4]);
   m = C.genererMeteo('veryhot', 'arodus', 2, rng);
   check(rng.reste() === 0 && m.jours.length === 3 && m.jours[2].tag.endsWith('jour 3 sur 3'), 'série de 2 jours : prolongée jusqu’à « jour 3 sur 3 »');
 
-  // le cas signalé : 1 seul jour demandé, vague de froid tirée -> 3 jours
+  // the reported case: only 1 day requested, cold wave rolled -> 3 days
   rng = scripte([5, 3, 2, 75, 80, 4, 3, 2, 4, 3, 2, 4]);
   m = C.genererMeteo('cold', 'neth', 1, rng);
   check(rng.reste() === 0 && m.jours.length === 3 && m.demandes === 1 && m.jours[0].tag.startsWith('Vague de froid') &&
     m.jours[2].tag === 'Vague de froid (-5 °C), jour 3 sur 3', '1 jour demandé + vague de froid : jours 2 et 3 ajoutés');
-  // vague au 2e jour d'une série de 2 : 2 jours ajoutés
+  // wave on the 2nd day of a 2-day series: 2 days added
   rng = scripte([5, 3, 2, 50, 4, 3, 2, 75, 80, 4, 3, 2, 4, 3, 2, 4]);
   m = C.genererMeteo('cold', 'neth', 2, rng);
   check(rng.reste() === 0 && m.jours.length === 4, 'vague tirée le dernier jour demandé : 2 jours ajoutés');
-  // jour calme : aucune prolongation
+  // calm day: no extension
   rng = scripte([5, 3, 2, 50, 4]);
   m = C.genererMeteo('cold', 'neth', 1, rng);
   check(rng.reste() === 0 && m.jours.length === 1, 'jour calme : pas de prolongation');
 });
 
 describe('Série de jours', () => {
-  // tempéré : pas de d10 d'écart
+  // temperate: no offset d10
   let rng = scripte([3, 2, 50, 4]);
   let m = C.genererMeteo('temperate', 'pharast', 1, rng);
   check(rng.reste() === 0 && m.ecart === 0, 'tempéré : aucun d10 d’écart');
@@ -520,7 +520,7 @@ describe('Série de jours', () => {
   check(JSON.stringify(a) === JSON.stringify(b), 'mêmes dés, même météo : aucun état caché');
 });
 
-// ================================================================ PROPRIÉTÉS SUR DES MILLIERS DE TIRAGES
+// ================================================================ PROPERTIES OVER THOUSANDS OF ROLLS
 describe('Bornes et sorties saines sur tous les mois et tous les niveaux', () => {
   const rng = graine(2026);
   let jours = 0, mauvais = 0, bornes = 0, interdits = 0, nuit = 0, phasesFaux = 0, parentheses = 0;
@@ -560,13 +560,13 @@ describe('Cohérence du texte avec la température et les phases (5 régions, 12
       const m = C.genererMeteo(r.id, mo.id, C.MAX_JOURS, rng);
       m.jours.forEach((j, i) => {
         const tj = j.temperatureJour, d = j.description;
-        // neige / pluie : selon la température de la phase elle-même
+        // snow / rain: based on the temperature of the phase itself
         j.phases.forEach((p) => {
           if (p.etat === 'neige') { vus.neige++; if (p.temperature > 0) faux.push('neige à ' + p.temperature); }
           if (p.etat === 'pluie') { vus.pluie++; if (p.temperature <= 0) faux.push('pluie à ' + p.temperature); }
           if (/^prémices/.test(p.etat)) vus.premices++;
         });
-        // type de phénomène : selon le maximum du jour
+        // phenomenon type: based on the day's maximum
         if (/^Neige fondue/.test(d)) { vus.neigeFondue++; if (tj > 3) faux.push('neige fondue à ' + tj); }
         if (/^Grêle/.test(d)) { vus.grele++; if (tj <= 3) faux.push('grêle à ' + tj); }
         if (/\(blizzard\)/.test(d)) { vus.blizzard++; if (tj > 0) faux.push('blizzard à ' + tj); }
@@ -576,33 +576,33 @@ describe('Cohérence du texte avec la température et les phases (5 régions, 12
         if (/^Tempête de sable/.test(d)) { vus.sable++; if (r.profil !== 'desert') faux.push('sable hors désert'); }
         if (/^Orage/.test(d)) { vus.orage++; if (tj <= 0 || r.profil === 'desert') faux.push('orage à ' + tj + ' en ' + r.profil); }
         if (/^Tempête de neige/.test(d) && (tj > 0 || r.profil === 'desert')) faux.push('tempête de neige à ' + tj);
-        // heures de départ
+        // start times
         if (/^Brouillard/.test(d)) {
           vus.brouillard++;
           const idx = premier(j, /^brouillard/);
           if (idx !== 0 && idx !== 2) faux.push('brouillard en phase ' + idx + ' (attendu : matin ou soir)');
         }
-        // prémices : juste avant le phénomène, jamais avant le matin, jamais seules
+        // warning signs: just before the phenomenon, never before the morning, never alone
         j.phases.forEach((p, n) => {
           if (/^prémices/.test(p.etat)) {
             const suivant = j.phases[n + 1];
             if (!suivant || suivant.etat === 'calme' || /^prémices/.test(suivant.etat)) faux.push('prémices sans phénomène derrière');
           }
         });
-        // débordement : un jour « suite » n'a ni d100 ni nouvelle description
+        // spill-over: a "suite" day has neither a d100 nor a new description
         if (j.suite) {
           vus.suite++;
           const veille = m.jours[i - 1];
           if (i === 0) faux.push('suite le premier jour');
           else if (j.jet !== null || j.description !== '') faux.push('suite avec d100 ou description');
           else if (j.cat === 'vague' || j.cat === 'vent') {
-            // vague ou vent : jours 2 et 3, numérotés à la suite de la veille, phases calmes
+            // wave or wind: days 2 and 3, numbered following the previous day, calm phases
             vus.journalier++;
             if (!/jour [23] sur 3$/.test(j.tag) || !/jour [12] sur 3$/.test(veille.tag)) faux.push('numérotation : ' + veille.tag + ' puis ' + j.tag);
             if (!j.phases.every((p) => p.etat === 'calme')) faux.push('phases non calmes un jour de vague ou de vent');
             if (j.agite) faux.push('jour de vague ou de vent compté comme agité');
           } else {
-            // phénomène : la veille se terminait sur une phase active, et ce matin l'est encore
+            // phenomenon: the previous day ended on an active phase, and this morning still is
             if (j.tag !== '') faux.push('suite de phénomène avec un tag');
             const derniere = veille.phases[NB - 1].etat;
             if (derniere === 'calme' || /^prémices/.test(derniere)) faux.push('suite après une nuit calme');
@@ -651,7 +651,7 @@ describe('Proportions de la table d100 et heures de départ (jours isolés)', ()
   check(proche(fort / vents, 0.5, 0.03), 'désert : vent important ~ 50 % des vents : ' + (100 * fort / vents).toFixed(1) + ' %');
   check(proche(vents / N, 0.20, 0.012), 'désert : vent sur 71 à 90, soit ~ 20 % des jours : ' + (100 * vents / N).toFixed(1) + ' %');
 
-  // heure de départ des tempêtes de neige : uniforme sur les 4 phases
+  // start time of snowstorms: uniform over the 4 phases
   const gel = { profil: 'froid', base: -10, ecart: 0 };
   const depart = [0, 0, 0, 0];
   let tempetes = 0;
@@ -661,7 +661,7 @@ describe('Proportions de la table d100 et heures de départ (jours isolés)', ()
   }
   check(depart.every((d) => proche(d / tempetes, 0.25, 0.04)), 'tempête de neige : départ uniforme matin / après-midi / soir / nuit : ' +
     depart.map((d) => (100 * d / tempetes).toFixed(0) + ' %').join(', '));
-  // orage : n'importe quelle phase
+  // thunderstorm: any phase
   const orages = [0, 0, 0, 0];
   let nbOrages = 0;
   for (let i = 0; i < N; i++) {
@@ -670,7 +670,7 @@ describe('Proportions de la table d100 et heures de départ (jours isolés)', ()
   }
   check(orages.every((o) => proche(o / nbOrages, 0.25, 0.04)),
     'orage : départ uniforme matin / après-midi / soir / nuit : ' + orages.map((o) => (100 * o / nbOrages).toFixed(0) + ' %').join(', '));
-  // brouillard : matin ou soir, une chance sur deux, jamais l'après-midi ni en début de nuit
+  // fog: morning or evening, one chance in two, never in the afternoon or early night
   const brouillards = [0, 0, 0, 0];
   let nbBrouillards = 0;
   for (let i = 0; i < N; i++) {
@@ -724,7 +724,7 @@ describe('Boutons et cartes', () => {
   check(/name=Mois - Froid/.test(cm), 'titre rappelant le niveau');
   check(!/Calistril\]\(!RollClimat Calistril/.test(cm), 'plus de bouton sans niveau (ancien : !RollClimat Calistril)');
 
-  // une ligne par jour, plus une ligne de règles pour chaque phénomène qui naît
+  // one line per day, plus a rules line for each phenomenon that starts
   const compte = (meteo) => 1 + meteo.jours.length + meteo.jours.filter((j) => j.description).length + (meteo.jours.length > meteo.demandes ? 1 : 0);
   const m1 = C.genererMeteo('cold', 'abadius', 1, graine(3));
   const un = C.carteResultat(m1);
@@ -770,7 +770,7 @@ describe('Commandes', () => {
   check(C.traiterCommande('!RollClimat', 'cold abadius', graine(11))[0] === r[0], 'mêmes dés, même carte');
 });
 
-// ================================================================ FAUX ROLL20
+// ================================================================ FAKE ROLL20
 describe('Flux complet dans un faux Roll20', () => {
   function monde(seed) {
     const envoyes = [];
@@ -827,12 +827,12 @@ describe('Flux complet dans un faux Roll20', () => {
   check(w.envoyes.length === 0, 'messages ordinaires et commandes d’autres scripts : aucune réponse');
   check(w.logs.length === 0, 'plus aucun log (avant : chaque message du chat était écrit dans le journal)');
 
-  // sans état : l'ordre des appels ne change pas le résultat, et deux niveaux ne se mélangent pas
+  // stateless: the order of calls does not change the result, and two levels do not mix
   const seul = monde(5);
   seul.dire('!RollClimat veryhot arodus');
   const attendu = seul.envoyes[0].texte;
   const melange = monde(5);
-  melange.dire('!region verycold');          // une région « choisie » avant n'a plus d'effet
+  melange.dire('!region verycold');          // a region "chosen" before no longer has any effect
   melange.envoyes.length = 0;
   melange.dire('!RollClimat veryhot arodus');
   check(melange.envoyes[0].texte === attendu, 'un !region précédent n’influence plus la météo (avant : région globale partagée)');
@@ -841,17 +841,17 @@ describe('Flux complet dans un faux Roll20', () => {
   deux.dire('!RollClimat veryhot abadius');
   const t1 = deux.envoyes[0].texte, t2 = deux.envoyes[1].texte;
   const temp = (s) => parseInt(s.match(/Après-midi \((-?\d+) °C\)/)[1], 10);
-  // très froid en Abadius : au plus -10 + 0 + 3 + 5 = -2 °C, donc toujours négatif ; très chaud : au moins -7 °C
+  // very cold in Abadius: at most -10 + 0 + 3 + 5 = -2 °C, so always negative; very hot: at least -7 °C
   check(temp(t1) < 0 && temp(t2) > temp(t1),
     'très froid puis très chaud, même mois, deux niveaux bien distincts : ' + temp(t1) + ' °C puis ' + temp(t2) + ' °C');
 });
 
-// ------------------------------------------------------------------ bilan
-console.log(`\n${total - echecs.length}/${total} vérifications réussies`);
+// ------------------------------------------------------------------ summary
+console.log(`\n${total - echecs.length}/${total} checks passed`);
 if (echecs.length) {
-  console.log('\nÉCHECS :');
+  console.log('\nFAILURES:');
   echecs.forEach((e) => console.log('  - ' + e));
   process.exitCode = 1;
 } else {
-  console.log('TOUS LES TESTS PASSENT');
+  console.log('ALL TESTS PASS');
 }

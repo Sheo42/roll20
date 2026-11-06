@@ -1,41 +1,41 @@
 /*
- * invis.js — Tokens invisibles pour l'API Roll20
+ * invis.js — Invisible tokens for the Roll20 API
  * Version 1.0
- * Version 1.1 — un token déjà sur sa 2e face (ancienne macro Invisible) compte comme
- *               invisible : !invis le remet sur sa 1re face au lieu de noter la 2e.
- *               Un seul message « est invisible » par personnage, au joueur seulement.
+ * Version 1.1 — a token already on its 2nd side (old Invisible macro) counts as
+ *               invisible: !invis puts it back on its 1st side instead of saving the 2nd.
+ *               A single "est invisible" message per character, to the player only.
  *
- * Remplace les macros TokenMod « Invisible » / « Visible ». Le token passe sur sa
- * 2e face (une image transparente) et son nom, ses barres et ses auras ne sont plus
- * montrés qu'au MJ et à ceux qui le contrôlent. Les autres joueurs ne voient rien.
- * La lumière du token n'est pas touchée (voulu : le PJ voit la lumière qu'il porte).
- * Les marqueurs d'état ne sont pas touchés non plus (les joueurs s'en servent).
+ * Replaces the TokenMod "Invisible" / "Visible" macros. The token switches to its
+ * 2nd side (a transparent image) and its name, bars and auras are only
+ * shown to the GM and to those who control it. Other players see nothing.
+ * The token's light is not touched (on purpose: the PC sees the light they carry).
+ * Status markers are not touched either (players use them).
  *
- * Avant de cacher, le script note l'état réel du token (face, image, taille, nom,
- * barres, auras) et le remet tel quel au retour : plus de taille écrite en dur.
+ * Before hiding, the script saves the token's real state (side, image, size, name,
+ * bars, auras) and restores it as it was: no more hard-coded size.
  *
- * COMMANDES (options en anglais)
- *   !invis                 bascule les tokens sélectionnés (invisible <-> visible)
- *   !invis on | off        rend invisible / visible
- *   !invis break           termine l'Invisibilité (pas la suprême) : le personnage attaque
- *   !invis list            MJ : les tokens invisibles, avec un bouton pour chacun
+ * COMMANDS (options in English)
+ *   !invis                 toggles the selected tokens (invisible <-> visible)
+ *   !invis on | off        makes invisible / visible
+ *   !invis break           ends Invisibilité (not the greater one): the character attacks
+ *   !invis list            GM: the invisible tokens, with a button for each
  *   !invis help
- *   --ids id1,id2          agit sur ces tokens au lieu de la sélection (boutons)
- *   Un joueur agit sur les tokens qu'il contrôle, le MJ sur tous.
+ *   --ids id1,id2          acts on these tokens instead of the selection (buttons)
+ *   A player acts on the tokens they control, the GM on all.
  *
- * AVEC bufftracker.js (version 2.6 ou plus)
- *   Un effet nommé Invisibilité, Invisibilité suprême ou Invisibilité de groupe
- *   (ou Invisibility, Greater Invisibility, Mass Invisibility) rend ses cibles
- *   invisibles, sur toutes les cartes, et visibles à la fin de l'effet. Le
- *   joueur reçoit un bouton « Rompre » (il attaque : l'Invisibilité se termine).
- *   !invis off sur un token caché par un effet termine cet effet pour lui.
+ * WITH bufftracker.js (version 2.6 or later)
+ *   An effect named Invisibilité, Invisibilité suprême or Invisibilité de groupe
+ *   (or Invisibility, Greater Invisibility, Mass Invisibility) makes its targets
+ *   invisible, on every page, and visible again when the effect ends. The
+ *   player gets a "Rompre" button (they attack: Invisibilité ends).
+ *   !invis off on a token hidden by an effect ends that effect for it.
  *
- * MISE EN PLACE
- *   Le token doit avoir au moins 2 faces (token à faces multiples) : la 2e est
- *   l'image transparente. Les images doivent venir de la bibliothèque du MJ (pas
- *   du Marketplace) : l'API ne peut pas poser les autres.
+ * SETUP
+ *   The token must have at least 2 sides (rollable table token): the 2nd is
+ *   the transparent image. Images must come from the GM's library (not
+ *   the Marketplace): the API cannot place the others.
  *
- * Données : state.Invis.
+ * Data: state.Invis.
  */
 (() => {
   'use strict';
@@ -44,34 +44,34 @@
   const ETAT = 'Invis';
   const CMD = '!invis';
 
-  // ======================================================= LOGIQUE PURE (testable)
+  // ======================================================= PURE LOGIC (testable)
   const normalize = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
     .toLowerCase().replace(/[^a-z0-9]/g, '');
 
-  // noms d'effets qui rendent invisible (exacts, après normalize : « Voir l'invisibilité »
-  // ou « Purge d'invisibilité » ne comptent pas)
+  // effect names that make invisible (exact, after normalize: "Voir l'invisibilité"
+  // or "Purge d'invisibilité" do not count)
   const BREAKS = ['invisibilite', 'invisibilitedegroupe', 'invisibility', 'massinvisibility'];
   const LASTS = ['invisibilitesupreme', 'invisibilitesuperieure', 'invisibilitemajeure', 'greaterinvisibility', 'improvedinvisibility'];
   const isInvisBuff = (name) => { const n = normalize(name); return BREAKS.includes(n) || LASTS.includes(n); };
-  // l'invisibilité simple se termine quand on attaque, pas la suprême
+  // plain invisibility ends when you attack, the greater one does not
   const breaksOnAttack = (name) => BREAKS.includes(normalize(name));
 
-  // image posable par l'API : bibliothèque du MJ, forme « thumb » (comme TokenMod)
+  // image the API can place: GM's library, "thumb" form (like TokenMod)
   const cleanImgsrc = (src) => {
     const m = String(src || '').match(/(.*\/images\/.*)(thumb|med|original|max)([^?]*)(\?[^?]+)?$/);
     return m ? `${m[1]}thumb${m[3]}${m[4] || `?${Math.round(Math.random() * 9999999)}`}` : null;
   };
-  // n : face 1, 2... ; sides = images séparées par « | », encodées
+  // n: side 1, 2...; sides = images separated by "|", encoded
   const sideImage = (sides, n) => {
     const l = String(sides || '').split('|').filter(Boolean);
     if (l.length < n) return null;
     let src = l[n - 1];
-    try { src = decodeURIComponent(src); } catch (e) { /* déjà décodée */ }
+    try { src = decodeURIComponent(src); } catch (e) { /* already decoded */ }
     return cleanImgsrc(src);
   };
 
   const SHOWN = ['showplayers_name', 'showplayers_bar1', 'showplayers_bar2', 'showplayers_bar3', 'showplayers_aura1', 'showplayers_aura2'];
-  // ce qu'on note avant de cacher
+  // what we save before hiding
   const snapshot = (get) => {
     const o = { currentside: get('currentside') || 0, imgsrc: get('imgsrc'), width: get('width'), height: get('height') };
     SHOWN.forEach((k) => { o[k] = !!get(k); });
@@ -88,12 +88,12 @@
     return o;
   };
 
-  // token trouvé déjà caché (ancienne macro : 2e face, sans état noté) : ce qu'il faut
-  // remettre = sa 1re face, nom et barre 1 visibles (comme l'ancienne macro Visible)
+  // token found already hidden (old macro: 2nd side, no saved state): what to
+  // restore = its 1st side, name and bar 1 visible (like the old Visible macro)
   const visibleFromHidden = (snap, side1) => Object.assign({}, snap,
     { currentside: 0, imgsrc: side1, showplayers_name: true, showplayers_bar1: true });
 
-  // "!invis off --ids a,b" -> {sub:'off', ids:['a','b']} ; autre commande -> null
+  // "!invis off --ids a,b" -> {sub:'off', ids:['a','b']}; other command -> null
   const parseCommand = (content) => {
     const t = String(content || '').trim();
     if (!/^!invis(\s|$)/i.test(t)) return null;
@@ -109,12 +109,12 @@
 
   const exportsPurs = { normalize, isInvisBuff, breaksOnAttack, cleanImgsrc, sideImage, snapshot, hiddenProps, restoreProps, visibleFromHidden, parseCommand };
   if (typeof module !== 'undefined' && module.exports) module.exports = exportsPurs;
-  if (typeof on !== 'function') return; // hors Roll20 : on s'arrête ici
+  if (typeof on !== 'function') return; // outside Roll20: stop here
 
-  // ============================================================== PARTIE ROLL20
+  // ============================================================== ROLL20 PART
   const etat = () => {
     const s = state[ETAT] = state[ETAT] || {};
-    s.tokens = s.tokens || {}; // id du token -> { saved, reason: 'manual' | 'buff' }
+    s.tokens = s.tokens || {}; // token id -> { saved, reason: 'manual' | 'buff' }
     return s;
   };
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -137,17 +137,17 @@
     return liste(tok.get('controlledby')).concat(c ? liste(c.get('controlledby')) : []);
   };
   const controle = (pid, tok) => playerIsGM(pid) || controleurs(tok).some((x) => x === pid || x === 'all');
-  // prévient ceux qui contrôlent le token (le MJ toujours)
-  // prévient les joueurs qui contrôlent le token ; le MJ seulement si aucun joueur
-  // (il voit déjà l'annonce de bufftracker)
+  // notifies those who control the token (the GM always)
+  // notifies the players who control the token; the GM only if no player does
+  // (the GM already sees bufftracker's announcement)
   const prevenir = (tok, html) => {
     const pids = [...new Set(controleurs(tok).filter((x) => x !== 'all'))].filter((p) => !playerIsGM(p));
     if (!pids.length) return dire(null, html);
     pids.forEach((p) => dire(p, html));
   };
 
-  // cache le token ; renvoie un texte d'erreur, ou '' si c'est fait
-  // token déjà sur sa 2e face sans état noté (ancienne macro) : on le prend en charge
+  // hides the token; returns an error text, or '' if done
+  // token already on its 2nd side without a saved state (old macro): we take it over
   const adopter = (tok) => {
     const s = etat();
     if (s.tokens[tok.id] || Number(tok.get('currentside')) !== 1) return;
@@ -180,8 +180,8 @@
 
   // ---- bufftracker.js
   const api = () => (typeof globalThis !== 'undefined' && globalThis.BuffTrackerAPI) || null;
-  const signales = new Set(); // tokens sans 2e face déjà signalés au MJ
-  // tokens que les effets d'invisibilité veulent cacher : id -> nom de l'effet
+  const signales = new Set(); // tokens without a 2nd side already reported to the GM
+  // tokens that invisibility effects want to hide: id -> effect name
   const voulus = () => {
     const a = api(), out = new Map();
     if (!a) return out;
@@ -214,7 +214,7 @@
             avertis.add(cleErr);
             return;
           }
-          // un seul message par personnage, même s'il a des tokens sur plusieurs cartes
+          // a single message per character, even if they have tokens on several pages
           const cle = tok.get('represents') || id;
           if (!nouveaux.has(cle)) nouveaux.set(cle, { tok, nomEffet });
         });
@@ -229,8 +229,8 @@
       } while (encore);
     } finally { enCours = false; }
   };
-  // termine les effets d'invisibilité de ce token (il attaque, ou !invis off)
-  // seulement : celles qui se terminent en attaquant (bouton « Rompre »)
+  // ends the invisibility effects of this token (it attacks, or !invis off)
+  // only: those that end on attacking ("Rompre" button)
   const finirEffets = (tok, seulement) => {
     const a = api();
     if (!a) return 0;
@@ -238,7 +238,7 @@
       a.tokensOf(t).some((x) => x && x.id === tok.id));
   };
 
-  // ---- commandes
+  // ---- commands
   const tokensDuMessage = (msg, c) => (c.ids ? c.ids.map((id) => getObj('graphic', id)) : (msg.selected || []).map((x) => getObj('graphic', x._id)))
     .filter((t) => t && t.get('_subtype') === 'token');
 
@@ -289,15 +289,15 @@
     `<b>${CMD} list</b> MJ : tokens invisibles<br>` +
     'Le token doit avoir une 2e face transparente. Avec bufftracker.js, les effets Invisibilité et Invisibilité suprême sont appliqués tout seuls.'));
 
-  // ------------------------------------------------------------------ évènements
+  // ------------------------------------------------------------------ events
   on('ready', () => {
     const s = etat();
     Object.keys(s.tokens).forEach((id) => { if (!getObj('graphic', id)) delete s.tokens[id]; });
     const a = api();
     if (a) { a.observe(synchro); synchro(); }
-    log(`${NOM} (invis.js) prêt : ${Object.keys(s.tokens).length} token(s) invisible(s)${a ? ', lié à bufftracker.js' : ''}.`);
+    log(`${NOM} (invis.js) ready: ${Object.keys(s.tokens).length} invisible token(s)${a ? ', linked to bufftracker.js' : ''}.`);
 
-    // un token posé (ou relié à sa fiche) d'un personnage invisible devient invisible
+    // a token placed (or linked to its sheet) of an invisible character becomes invisible
     on('add:graphic', () => setTimeout(synchro, 500));
     on('change:graphic:represents', () => synchro());
   });
@@ -314,7 +314,7 @@
         default: return dire(msg.playerid, boite(`Commande inconnue : ${esc(c.sub)}. Voir ${CMD} help.`));
       }
     } catch (e) {
-      log(`${NOM} : erreur ${e && e.stack ? e.stack : e}`);
+      log(`${NOM}: error ${e && e.stack ? e.stack : e}`);
       dire(msg.playerid, boite(`Erreur du script : ${esc(e && e.message ? e.message : e)}`));
     }
   });

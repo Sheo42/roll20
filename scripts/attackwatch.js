@@ -1,30 +1,30 @@
-// attackwatch.js - script API Roll20, LECTURE SEULE, réservé au MJ.
-// Surveille en permanence (même quand le MJ n'est pas là) ce qui crée des lignes d'attaque :
-//   - chaque modification du champ « create attack » (create-attack-entry) d'un objet, sort ou capacité,
-//     avec l'ancienne et la nouvelle valeur ;
-//   - chaque nouvelle ligne d'attaque (repeating_weapon) des personnages contrôlés par un joueur,
-//     trouvée en relisant leurs attaques toutes les 10 secondes : elle est vue même si Roll20
-//     n'envoie aucun évènement (cas des changements faits par un script API, que l'API ne voit pas) ;
-//     avec ce à quoi elle est liée et le CONTEXTE : les commandes API et les modifications d'objets
-//     de ces personnages pendant les 3 minutes d'avant ;
-//   - chaque création, PAR UN SCRIPT API, d'un champ « create attack » ou d'une ligne d'attaque
-//     (createObj), avec les fonctions qui l'ont appelée. Les modifications (set, setWithWorker) ne
-//     peuvent pas être vues : Roll20 ne laisse pas un script modifier ses objets (essayé le 19/10) ;
-//   - chaque redémarrage du sandbox API ;
-//   - pour chaque évènement : l'heure (UTC) et les joueurs connectés à ce moment.
-// Le journal est gardé dans state (les 60 derniers évènements) et chaque évènement est chuchoté au MJ.
+// attackwatch.js - Roll20 API script, READ ONLY, GM only.
+// Watches all the time (even when the GM is away) what creates attack rows:
+//   - every change to the "create attack" field (create-attack-entry) of an item, spell or ability,
+//     with the old and the new value;
+//   - every new attack row (repeating_weapon) of characters controlled by a player,
+//     found by re-reading their attacks every 10 seconds: it is seen even if Roll20
+//     sends no event (the case of changes made by an API script, which the API does not see);
+//     with what it is linked to and the CONTEXT: API commands and object changes
+//     on these characters during the 3 minutes before;
+//   - every creation, BY AN API SCRIPT, of a "create attack" field or an attack row
+//     (createObj), with the functions that called it. Changes (set, setWithWorker) cannot
+//     be seen: Roll20 does not let a script change its objects (tried on 10/19);
+//   - every restart of the API sandbox;
+//   - for every event: the time (UTC) and the players connected at that moment.
+// The log is kept in state (the last 60 events) and every event is whispered to the GM.
 //
-// Usage dans le chat :
-//   !attackwatch          -> état (actif ou non) et nombre d'évènements enregistrés
-//   !attackwatch log      -> affiche le journal
-//   !attackwatch on|off   -> active ou coupe la surveillance (active par défaut)
-//   !attackwatch clear    -> vide le journal
-//   !attackwatch context  -> commandes API et modifications d'objets des 3 dernières minutes
+// Usage in chat:
+//   !attackwatch          -> status (active or not) and number of recorded events
+//   !attackwatch log      -> shows the log
+//   !attackwatch on|off   -> turns watching on or off (on by default)
+//   !attackwatch clear    -> empties the log
+//   !attackwatch context  -> API commands and object changes of the last 3 minutes
 //
-// Pourquoi : la feuille Pathfinder Community crée une nouvelle attaque liée à un objet à CHAQUE
-// modification de son champ create-attack-entry, sans regarder la valeur. Ce script dit quand ce
-// champ change, sur quel personnage, et qui était connecté.
-// Ne modifie, ne supprime et ne crée aucun objet du jeu (seul son propre state est écrit).
+// Why: the Pathfinder Community sheet creates a new attack linked to an item on EVERY
+// change to its create-attack-entry field, without looking at the value. This script tells when that
+// field changes, on which character, and who was connected.
+// Does not change, delete or create any game object (only its own state is written).
 
 var AttackWatch = (function () {
   'use strict';
@@ -54,17 +54,17 @@ var AttackWatch = (function () {
     return String(v === undefined || v === null ? '' : v)
       .replace(/[\[\]{}<>@&"]/g, '').replace(/\s+/g, ' ').trim().slice(0, max || 40);
   }
-  // champ « create attack » : {section, rowId} ou null
+  // "create attack" field: {section, rowId} or null
   function parseButton(name) {
     var m = BUTTON_RE.exec(name || '');
     return m ? { section: m[1], rowId: m[2] } : null;
   }
-  // attribut d'une ligne d'attaque : {rowId, field} ou null
+  // attribute of an attack row: {rowId, field} or null
   function parseWeapon(name) {
     var m = WEAPON_RE.exec(name || '');
     return m ? { rowId: m[1], field: m[2] } : null;
   }
-  // une ligne est neuve si aucun de ses attributs n'a été créé plus de `age` ms avant `ref`
+  // a row is new if none of its attributes was created more than `age` ms before `ref`
   function isNewRow(attrIds, ref, age) {
     if (!attrIds.length) return false;
     return attrIds.every(function (id) {
@@ -72,7 +72,7 @@ var AttackWatch = (function () {
       return t !== null && t >= ref - age;
     });
   }
-  // origine d'une ligne d'attaque à partir de ses champs et des noms des lignes sources
+  // origin of an attack row from its fields and the names of the source rows
   function linkOf(fields, sourceNames) {
     for (var i = 0; i < SOURCE_FIELDS.length; i++) {
       var v = fields[SOURCE_FIELDS[i][0]];
@@ -106,30 +106,30 @@ var AttackWatch = (function () {
     while (log.length > (max || MAX_LOG)) log.shift();
     return log;
   }
-  // clés (minuscules) présentes dans `now` et absentes de `before`
+  // keys (lower case) present in `now` and missing from `before`
   function newKeys(before, now) {
     return Object.keys(now).filter(function (k) { return !before[k]; }).sort();
   }
-  // contexte d'un évènement : entrées {t, txt} entre t - windowMs et t, les `max` plus récentes
+  // context of an event: entries {t, txt} between t - windowMs and t, the `max` most recent
   function contextFor(ring, t, windowMs, max) {
     var c = ring.filter(function (x) { return x.t <= t && x.t >= t - windowMs; });
     return c.slice(-(max || 8)).map(function (x) { return fmt(x.t).slice(11, 19) + ' ' + x.txt; });
   }
-  // champ d'une ligne d'objet : {rowId, field} ou null
+  // field of an item row: {rowId, field} or null
   var ITEM_RE = /^repeating_item_(-[^_]+)_(.+)$/;
   function parseItem(name) {
     var m = ITEM_RE.exec(name || '');
     return m ? { rowId: m[1], field: m[2] } : null;
   }
 
-  // noms des fonctions appelantes tirés d'une pile d'appels (V8), sans les cadres de ce script
+  // names of the calling functions taken from a call stack (V8), without this script's frames
   function callers(stack, skip, max) {
     return String(stack || '').split('\n').slice(1).map(function (l) {
       var m = /^\s*at\s+(?:async\s+)?([^\s(]+)(?:\s+\[as [^\]]+\])?\s*\(/.exec(l);
       return m ? m[1] : (/^\s*at\s/.test(l) ? '(anonyme)' : null);
     }).filter(function (n) { return n && !skip.test(n); }).slice(0, max || 4);
   }
-  // nom d'attribut que l'on veut voir écrit par les scripts
+  // attribute name we want to see written by scripts
   function watchedName(name) {
     return !!(parseButton(name) || parseWeapon(name));
   }
@@ -144,12 +144,12 @@ if (typeof module !== 'undefined') module.exports = AttackWatch;
   'use strict';
   if (typeof on !== 'function') return;
   var W = AttackWatch;
-  var POLL = 5000;           // ms : un tour de relecture
-  var PER_TICK = 12;         // personnages relus par tour (chacun est relu toutes les ~40 s avec 96 personnages)
+  var POLL = 5000;           // ms: one re-read round
+  var PER_TICK = 12;         // characters re-read per round (each one is re-read every ~40 s with 96 characters)
   var cursor = 0;
-  var REPORT_DELAY = 2000;   // ms : laisse à la feuille le temps d'écrire le nom et le lien
-  var CONTEXT_MS = 180000;   // ms : contexte gardé avant une nouvelle attaque
-  var ring = [];             // contexte récent (mémoire seulement) : {t, txt}
+  var REPORT_DELAY = 2000;   // ms: gives the sheet time to write the name and the link
+  var CONTEXT_MS = 180000;   // ms: context kept before a new attack
+  var ring = [];             // recent context (memory only): {t, txt}
   var polls = 0;
 
   function st() {
@@ -183,7 +183,7 @@ if (typeof module !== 'undefined') module.exports = AttackWatch;
     return findObjs({ _type: 'character' }).filter(function (c) { return !!c.get('controlledby'); });
   }
 
-  // ids (en minuscules) des lignes d'attaque d'un personnage
+  // ids (lower case) of a character's attack rows
   function weaponRows(cid) {
     var keys = {};
     attrsOf(cid).forEach(function (a) {
@@ -207,13 +207,13 @@ if (typeof module !== 'undefined') module.exports = AttackWatch;
     record({ kind: 'row', t: born || seen, seen: seen, atStart: atStart, char: charName(cid), name: fields.name || '',
       link: W.linkOf(fields, names), context: context });
   }
-  // relit les attaques des personnages joués et annonce les nouvelles lignes
+  // re-reads the attacks of played characters and announces the new rows
   function poll() {
     var s = st(), now = Date.now(), atStart = polls === 0;
     polls++;
     if (!s.on) return;
     var all = played();
-    // au démarrage, tout le monde d'un coup ; ensuite, quelques personnages par tour
+    // at startup, everyone at once; then, a few characters per round
     var batch = atStart ? all : [];
     for (var i = 0; !atStart && i < Math.min(PER_TICK, all.length); i++) batch.push(all[(cursor + i) % all.length]);
     cursor = all.length ? (cursor + PER_TICK) % all.length : 0;
@@ -221,7 +221,7 @@ if (typeof module !== 'undefined') module.exports = AttackWatch;
       var cid = c.id, rows = weaponRows(cid);
       var before = s.known[cid];
       s.known[cid] = rows;
-      if (!before) return; // première fois qu'on voit ce personnage : référence
+      if (!before) return; // first time we see this character: baseline
       var fresh = W.newKeys(before, rows);
       if (!fresh.length) return;
       var context = W.contextFor(ring, now, CONTEXT_MS, 8);
@@ -231,9 +231,9 @@ if (typeof module !== 'undefined') module.exports = AttackWatch;
     });
   }
 
-  // Les scripts API partagent le même bac à sable : on enveloppe les méthodes d'écriture des attributs
-  // (prototype commun) et createObj pour voir les écritures des AUTRES scripts. Lecture seule : l'appel
-  // d'origine est toujours fait, à l'identique.
+  // API scripts share the same sandbox: we wrap the attribute write methods
+  // (shared prototype) and createObj to see the writes of OTHER scripts. Read only: the original
+  // call is always made, unchanged.
   var SKIP = /(spyWrap|spyCreate|logWrite)/;
   function logWrite(method, obj, field, value) {
     var cid = obj && obj.get ? obj.get('_characterid') : '';
@@ -243,7 +243,7 @@ if (typeof module !== 'undefined') module.exports = AttackWatch;
     note(W.clean(e.char, 25) + ' : écriture API ' + method + ' ' + W.clean(field, 40) + ' = ' + W.clean(value, 12) +
       (e.callers.length ? ' par ' + e.callers.join(' ← ') : ''));
   }
-  // enveloppe la méthode m (set / setWithWorker) de l'objet `owner` (prototype ou attribut lui-même)
+  // wraps method m (set / setWithWorker) of the `owner` object (prototype or the attribute itself)
   function wrapMethod(owner, m) {
     if (!owner || typeof owner[m] !== 'function' || owner[m].__attackwatch) return false;
     var orig = owner[m];
@@ -253,7 +253,7 @@ if (typeof module !== 'undefined') module.exports = AttackWatch;
           var v = typeof a === 'object' && a ? (a.current !== undefined ? a.current : JSON.stringify(a)) : (a === 'current' ? b : a + '=' + b);
           logWrite(m, this, this.get('name'), v);
         }
-      } catch (err) { /* ne jamais gêner l'appel d'origine */ }
+      } catch (err) { /* never get in the way of the original call */ }
       return orig.apply(this, arguments);
     };
     spyWrap.__attackwatch = true;
@@ -264,17 +264,17 @@ if (typeof module !== 'undefined') module.exports = AttackWatch;
     var done = [];
     var sample = null;
     try {
-      // un attribut d'un personnage joué suffit (ne pas charger tous les attributs du jeu)
+      // one attribute of a played character is enough (do not load all the game's attributes)
       var c0 = played()[0];
       sample = c0 ? findObjs({ _type: 'attribute', _characterid: c0.id })[0] : null;
     } catch (err) { sample = null; }
     ['set', 'setWithWorker'].forEach(function (m) {
       try {
-        // premier objet de la chaîne de prototypes qui porte la méthode
+        // first object in the prototype chain that has the method
         var p = sample;
         while (p && !Object.prototype.hasOwnProperty.call(p, m)) p = Object.getPrototypeOf(p);
         if (p && p !== sample && p !== Object.prototype && wrapMethod(p, m)) done.push(m);
-      } catch (err) { /* prototype non modifiable */ }
+      } catch (err) { /* prototype not writable */ }
     });
     try {
       if (typeof createObj === 'function' && !createObj.__attackwatch) {
@@ -283,14 +283,14 @@ if (typeof module !== 'undefined') module.exports = AttackWatch;
           var o = origCreate.apply(this, arguments);
           try {
             if (type === 'attribute' && props && W.watchedName(props.name)) logWrite('createObj', o, props.name, props.current);
-          } catch (err) { /* idem */ }
+          } catch (err) { /* same */ }
           return o;
         };
         spyCreate.__attackwatch = true;
         createObj = spyCreate; // eslint-disable-line no-global-assign
         if (createObj === spyCreate) done.push('createObj');
       }
-    } catch (err) { /* createObj non modifiable */ }
+    } catch (err) { /* createObj not writable */ }
     return done;
   }
 
@@ -305,7 +305,7 @@ if (typeof module !== 'undefined') module.exports = AttackWatch;
       return;
     }
     var it = W.parseItem(name);
-    if (!it || !st().known[cid]) return; // objets des personnages joués seulement
+    if (!it || !st().known[cid]) return; // objects of played characters only
     note(charName(cid) + ' : objet « ' + W.clean(sourceName(cid, 'item', it.rowId), 40) + ' » ' + W.clean(it.field, 25) + ' ' +
       W.clean(prev ? prev.current : '', 12) + ' → ' + W.clean(obj.get('current'), 12));
   }

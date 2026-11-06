@@ -1,10 +1,10 @@
-// node tests/attackwatch.test.js : tests sans dépendance de scripts/attackwatch.js (logique pure + flux complet avec un faux Roll20)
+// node tests/attackwatch.test.js: dependency-free tests for scripts/attackwatch.js (pure logic + full flow with a fake Roll20)
 'use strict';
 var fs = require('fs'), path = require('path'), vm = require('vm');
 var W = require('../scripts/attackwatch.js');
 
 var pass = 0, fail = 0;
-function ok(cond, label) { if (cond) pass++; else { fail++; console.log('ÉCHEC: ' + label); } }
+function ok(cond, label) { if (cond) pass++; else { fail++; console.log('FAIL: ' + label); } }
 function eq(a, b, label) { ok(JSON.stringify(a) === JSON.stringify(b), label + ' -> ' + JSON.stringify(a) + ' attendu ' + JSON.stringify(b)); }
 
 var PUSH = '-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
@@ -17,7 +17,7 @@ function pidAt(ms) {
 }
 function pid(iso) { return pidAt(Date.parse(iso)); }
 
-// --- logique pure
+// --- pure logic
 eq(W.fmt(W.idTime(pid('2026-10-03T16:09:12Z'))), '2026-10-03 16:09:12 UTC', 'date décodée à la seconde');
 eq(W.parseButton('repeating_item_-Abc123_create-attack-entry'), { section: 'item', rowId: '-Abc123' }, 'bouton d\'objet');
 eq(W.parseButton('repeating_spells_-x_create-attack-entry'), { section: 'spells', rowId: '-x' }, 'bouton de sort');
@@ -46,7 +46,7 @@ var log = [];
 for (var i = 0; i < W.MAX_LOG + 5; i++) W.push(log, { n: i });
 ok(log.length === W.MAX_LOG && log[0].n === 5, 'journal limité aux derniers évènements');
 
-// --- logique ajoutée : nouvelles lignes, contexte, champs d'objet
+// --- added logic: new rows, context, item fields
 eq(W.newKeys({ a: 1, b: 1 }, { a: 1, b: 1, c: 1 }), ['c'], 'nouvelle clé');
 eq(W.newKeys({ a: 1, b: 1 }, { a: 1 }), [], 'ligne supprimée : rien de nouveau');
 var ring = [{ t: NOW - 200000, txt: 'trop vieux' }, { t: NOW - 60000, txt: 'Paz : !pfc --rest' }, { t: NOW - 1000, txt: 'objet' }, { t: NOW + 5000, txt: 'après' }];
@@ -59,7 +59,7 @@ ok(/nouvelle attaque « Marteau », objet « Marteau » \(vue à 18:28:00\) · c
 ok(/avant : rien/.test(W.line({ kind: 'row', t: NOW, seen: NOW, char: 'P', name: 'x', link: 'sans lien', online: [], context: [] })), 'contexte vide dit');
 ok(/vue au redémarrage, à/.test(W.line({ kind: 'row', t: NOW, seen: NOW, atStart: true, char: 'P', name: 'x', link: 'sans lien', online: [], context: [] })), 'ligne trouvée au redémarrage');
 
-// --- flux complet avec un faux Roll20 (horloge simulée, setInterval capturé)
+// --- full flow with a fake Roll20 (simulated clock, captured setInterval)
 function fakeRoll20(isGM) {
   var clock = { now: NOW };
   var handlers = {}, sent = [], timers = [], intervals = [], objs = [];
@@ -125,7 +125,7 @@ ok(r.intervals.length === 1 && r.intervals[0].ms === 5000, 'un tour de relecture
 ok(r.ctx.state.AttackWatch.known.PAZ && !r.ctx.state.AttackWatch.known.MOB, 'seuls les personnages joués sont surveillés');
 ok(/1 personnages joués surveillés\./.test(r.say('!attackwatch')), 'état : personnages surveillés');
 
-// cas du 18 octobre : une ligne apparaît sans aucun évènement (changement fait côté API)
+// the October 18 case: a row appears without any event (change made on the API side)
 r.say('!pfc --rest', 'Tankadlavie');
 r.clock.now += 20000;
 r.fire('change:attribute', r.wrap(r.attr('PAZ', 'repeating_item_' + ITEM + '_qty', '1', OLD)), { current: '2' });
@@ -141,7 +141,7 @@ ok(out.split('nouvelle attaque').length === 2, 'une seule annonce');
 ok(r.tick(10000) === '', 'relecture suivante : rien de neuf');
 ok(r.ctx.state.AttackWatch.log.some(function (e) { return e.kind === 'row' && e.context.length === 2; }), 'contexte gardé dans le journal');
 
-// bouton : changement journalisé, puis la ligne trouvée à la relecture
+// button: change logged, then the row found on re-read
 var btn = r.attr('PAZ', 'repeating_item_' + ITEM + '_create-attack-entry', '1', OLD);
 r.fire('change:attribute', r.wrap(btn), { current: '0' });
 out = r.flush();
@@ -150,12 +150,12 @@ r.attr('PAZ', 'repeating_weapon_-NewRow00000000000002_name', 'marteau de guerre 
 out = r.tick(10000);
 ok(/nouvelle attaque/.test(out) && /bouton create attack de « marteau de guerre \+3 \+saint »/.test(out), 'nouvelle ligne avec le bouton dans le contexte');
 
-// personnage non joué : ignoré ; changements d'objets d'un PNJ : pas dans le contexte
+// character not played: ignored; object changes on an NPC: not in the context
 r.attr('MOB', 'repeating_weapon_-MobRow0000000000002_name', 'Morsure');
 r.fire('change:attribute', r.wrap(r.attr('MOB', 'repeating_item_-MobItem000000000001_qty', '0', OLD)), { current: '1' });
 ok(!/Gobelin/.test(r.tick(10000)) && !/Gobelin/.test(r.say('!attackwatch context')), 'PNJ ignoré');
 
-// lignes créées pendant que le sandbox était arrêté : vues au redémarrage
+// rows created while the sandbox was stopped: seen at restart
 var r3 = fakeRoll20();
 r3.attr('PAZ', 'repeating_weapon_' + OLDROW + '_name', 'Marteau', OLD);
 r3.ctx.state.AttackWatch = { on: true, log: [], known: { PAZ: {} } };
@@ -164,7 +164,7 @@ r3.attr('PAZ', 'repeating_weapon_-NewRow00000000000009_name', 'Marteau');
 r3.fire('ready');
 ok(/nouvelle attaque « Marteau », sans lien \(vue au redémarrage, à/.test(r3.flush()), 'ligne apparue pendant l\'arrêt : signalée au redémarrage');
 
-// beaucoup de personnages joués : relus par groupes de 12, chacun vu en quelques tours
+// many played characters: re-read in groups of 12, each one seen within a few rounds
 var r4 = fakeRoll20();
 for (var ci = 0; ci < 30; ci++) { r4.char('C' + ci, 'Forme ' + ci, 'P2'); r4.attr('C' + ci, 'repeating_weapon_-Base' + ci + '000000000000_name', 'Arme', OLD); }
 r4.fire('ready'); r4.flush();
@@ -174,7 +174,7 @@ var found = '', ticks = 0;
 while (!/Forme 29/.test(found) && ticks < 5) { found += r4.tick(5000); ticks++; }
 ok(/Forme 29<\/b> : nouvelle attaque « Arme »/.test(found) && ticks <= 3, 'personnage n°30 vu en ' + ticks + ' tours (3 au plus)');
 
-// commandes
+// commands
 ok(/Contexte des 3 dernières minutes/.test(r.say('!attackwatch context')), 'commande context');
 out = r.say('!attackwatch log');
 ok(/redémarrage/.test(out) && /nouvelle attaque/.test(out), 'journal');
@@ -187,7 +187,7 @@ ok(/Usage/.test(r.say('!attackwatch tout')), 'option inconnue');
 eq(r.say('!attackwatchX'), '', 'autre commande ignorée');
 eq(fakeRoll20(false).say('!attackwatch log'), '', 'joueur non MJ ignoré');
 
-// --- espion : écritures faites par un AUTRE script API (aucun évènement Roll20 dans ce cas)
+// --- spy: writes made by ANOTHER API script (no Roll20 event in that case)
 eq(W.callers('Error\n    at Attr.spyWrap [as setWithWorker] (apiscript.js:10:5)\n    at setResource (apiscript.js:900:3)\n    at Object.applyConditions (apiscript.js:1200:9)\n    at apiscript.js:5:1',
   /(spyWrap|logWrite)/, 4), ['setResource', 'Object.applyConditions', '(anonyme)'], 'noms des fonctions appelantes');
 ok(W.watchedName('repeating_item_-A_create-attack-entry') && W.watchedName('repeating_weapon_-B_name') && !W.watchedName('HP'), 'champs surveillés');
@@ -221,7 +221,7 @@ ok(W.watchedName('repeating_item_-A_create-attack-entry') && W.watchedName('repe
   (handlers.ready || []).forEach(function (fn) { fn(); });
   ok(/écritures des scripts surveillées : set, setWithWorker, createObj/.test(sent.join('\n')), 'espion installé sur set, setWithWorker et createObj');
   sent.length = 0;
-  // un « autre script » écrit le bouton avec setWithWorker, puis HP
+  // "another script" writes the button with setWithWorker, then HP
   vm.runInContext("function setResource(a){ a.setWithWorker('current','1'); } function autreScript(){ var a = findObjs({_type:'attribute', name:'repeating_item_-I1_create-attack-entry'})[0]; setResource(a); findObjs({_type:'attribute', name:'HP'})[0].set('current','9'); } autreScript();", ctx);
   var t = sent.join('\n');
   ok(/Paz Tarpou<\/b> : écriture par un script API, setWithWorker repeating_item_-I1_create-attack-entry = 1 \(appelée par : setResource ← autreScript/.test(t), 'écriture du bouton par un script : vue, avec l\'appelant');
@@ -236,5 +236,5 @@ ok(W.watchedName('repeating_item_-A_create-attack-entry') && W.watchedName('repe
   ok(/écriture API setWithWorker repeating_item_-I1_create-attack-entry = 1 par setResource ← autreScript/.test(sent.join('\n')), 'écriture d\'un script visible dans le contexte');
 })();
 
-console.log(pass + ' réussis, ' + fail + ' échecs');
+console.log(pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

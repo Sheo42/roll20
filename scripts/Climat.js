@@ -1,92 +1,92 @@
 /*
- * Climat.js — météo aléatoire (Pathfinder 1e, calendrier de Golarion) pour l'API Roll20
- * Version 3.0 — la journée est découpée en 4 phases ; les phénomènes ont une heure de
- *               début, des prémices et peuvent déborder sur les jours suivants.
+ * Climat.js — random weather (Pathfinder 1e, Golarion calendar) for the Roll20 API
+ * Version 3.0 — the day is split into 4 phases; phenomena have a start time,
+ *               warning signs, and can spill over into the following days.
  *
- * UTILISATION (MJ)
- *   !climat                       5 boutons de niveau de chaleur
- *   !region <niveau>              12 boutons de mois (Abadius à Kuthona)
- *   !RollClimat <niveau> <mois> [jours]
- *                                 météo, chuchotée au MJ. Exemples :
+ * USAGE (GM)
+ *   !climat                       5 heat-level buttons
+ *   !region <level>               12 month buttons (Abadius to Kuthona)
+ *   !RollClimat <level> <month> [days]
+ *                                 weather, whispered to the GM. Examples:
  *                                   !RollClimat cold abadius
  *                                   !RollClimat verycold kuthona 7
- *   Niveaux (en anglais) : verycold, cold, temperate, hot, veryhot (majuscules
- *   et espaces acceptés : « very cold »). Le niveau est passé dans la commande :
- *   le script ne retient rien entre deux appels.
- *   Prolongation : si un phénomène tiré (vague de chaleur ou de froid, vent du désert, blizzard,
- *     ouragan...) dépasse le dernier jour demandé, la période est allongée jusqu'à sa fin (5 jours
- *     au plus) ; la carte l'indique. Ces jours ajoutés n'ont ni d100 ni nouveau phénomène.
- *   Plusieurs jours : de 1 à 14, dans le même mois (pour un voyage à cheval sur deux
- *   mois, lancer le second mois à part).
+ *   Levels (in English): verycold, cold, temperate, hot, veryhot (capitals
+ *   and spaces accepted: "very cold"). The level is passed in the command:
+ *   the script remembers nothing between two calls.
+ *   Extension: if a rolled phenomenon (heat or cold wave, desert wind, blizzard,
+ *     hurricane...) goes past the last requested day, the period is extended until it ends (5 days
+ *     at most); the card says so. These added days have neither a d100 nor a new phenomenon.
+ *   Several days: from 1 to 14, in the same month (for a journey spanning two
+ *   months, roll the second month separately).
  *
- * LA JOURNÉE EN 4 PHASES
- *   Matin (6-12 h) · Après-midi (12-18 h) · Soir (18-24 h) · Nuit (0-6 h)
- *   Chaque jour s'affiche sur une ligne : la température et l'état de chaque phase.
+ * THE DAY IN 4 PHASES
+ *   Morning (6-12 h) · Afternoon (12-18 h) · Evening (18-24 h) · Night (0-6 h)
+ *   Each day is shown on one line: the temperature and the state of each phase.
  *     Jour 2 - Matin (-9 °C) : calme · Après-midi (-6 °C) : prémices (ciel plombé,
  *     le vent forcit) · Soir (-9 °C) : blizzard · Nuit (-15 °C) : blizzard
- *   Quand un phénomène naît, une seconde ligne en donne les règles (vents, durée...).
+ *   When a phenomenon starts, a second line gives its rules (winds, duration...).
  *
- * TEMPÉRATURE
- *   Jour (maximum, après-midi) = base du mois (-10 à 15 °C) + écart du niveau + aléa
- *     écart du niveau : très froid d10 - 10 · froid d10 - 5 · tempéré 0 · chaud d10 + 5
- *                       très chaud d10 + 10   (tiré UNE fois par série de jours)
- *     aléa du jour : 2d4 - 5, soit de -3 à +3 °C
- *   Nuit (minimum) = jour moins un d10. Une vague de chaleur / de froid ajoute / retire
- *   5 °C au jour ET à la nuit.
- *   Entre les deux : matin = nuit + 40 % de l'écart jour-nuit, soir = nuit + 60 %.
+ * TEMPERATURE
+ *   Day (maximum, afternoon) = month base (-10 to 15 °C) + level offset + daily random
+ *     level offset: very cold d10 - 10 · cold d10 - 5 · temperate 0 · hot d10 + 5
+ *                       very hot d10 + 10   (rolled ONCE per series of days)
+ *     daily random: 2d4 - 5, i.e. from -3 to +3 °C
+ *   Night (minimum) = day minus a d10. A heat / cold wave adds / removes
+ *   5 °C to the day AND the night.
+ *   In between: morning = night + 40% of the day-night gap, evening = night + 60%.
  *
- * ÉVÉNEMENT DU JOUR (d100)
- *    1 - 70   temps calme
- *   71 - 80   froid : vague de chaleur 30 % / de froid 70 %   tempéré : 50 % / 50 %
- *             désert : vent
- *             Une vague et le vent durent 3 jours (JOURS_VAGUE) : les jours 2 et 3 n'ont
- *             pas de nouveau tirage et la ligne du jour indique « jour 2 sur 3 ».
- *   81 - 90   froid et tempéré : brouillard 30 %, pluie ou neige 60 %,
- *             grêle ou neige fondue 10 %   désert : vent
- *   91 - 99   tempête de 1 à 7 h (2d4 - 1) : tempête de sable en désert, tempête de
- *             neige s'il gèle, sinon orage (foudre ; 10 % de tornade)
- *   100       froid et tempéré : violente tempête   désert : trombes d'eau (2d4 h)
- *   « Désert » = niveau « très chaud ». « Chaud » se traite comme « tempéré ».
- *   Durées (page « Climat » de Pathfinder-FR) : pluie, neige, neige fondue, brouillard
- *   2d4 h ; grêle d20 minutes puis 1d4 h de pluie ; cyclone d6 h ; blizzard d3 jours et
- *   1d3 x 30 cm de neige ; ouragan 24 ou 48 h d'impact ; tornade d6 x 10 minutes.
+ * EVENT OF THE DAY (d100)
+ *    1 - 70   calm weather
+ *   71 - 80   cold: heat wave 30% / cold wave 70%   temperate: 50% / 50%
+ *             desert: wind
+ *             A wave and the wind last 3 days (JOURS_VAGUE): days 2 and 3 have
+ *             no new roll and the day's line says "jour 2 sur 3".
+ *   81 - 90   cold and temperate: fog 30%, rain or snow 60%,
+ *             hail or sleet 10%   desert: wind
+ *   91 - 99   storm of 1 to 7 h (2d4 - 1): sandstorm in the desert, snowstorm
+ *             if it freezes, otherwise thunderstorm (lightning; 10% tornado)
+ *   100       cold and temperate: powerful storm   desert: downpour (2d4 h)
+ *   "Desert" = level "very hot". "Hot" is treated as "temperate".
+ *   Durations ("Climat" page on Pathfinder-FR): rain, snow, sleet, fog
+ *   2d4 h; hail d20 minutes then 1d4 h of rain; cyclone d6 h; blizzard d3 days and
+ *   1d3 x 30 cm of snow; hurricane 24 or 48 h of impact; tornado d6 x 10 minutes.
  *
- * PHÉNOMÈNES DANS LA JOURNÉE
- *   Un phénomène commence à une phase tirée au hasard (le brouillard : le matin ou le
- *   soir, une chance sur deux). S'il commence après le matin, la phase précédente
- *   affiche ses prémices. Sa durée en heures donne le nombre de phases
- *   qu'il occupe (6 h par phase) : un blizzard de 2 jours déborde donc sur le lendemain.
- *   Tant qu'un phénomène est en cours au lever, le jour n'a pas de nouveau tirage : le
- *   phénomène EST l'événement du jour, et la fin de journée est calme une fois fini.
- *   La neige ou la pluie d'une phase dépend de SA température : une pluie qui dure
- *   jusqu'au soir peut virer en neige.
- *   Type de violente tempête (selon le maximum du jour) : blizzard si <= 0 °C, cyclone de
- *   1 à 19 °C, ouragan ou tornade (1 chance sur 2) à partir de 20 °C. Grêle si > 3 °C,
- *   neige fondue sinon. Seuils : constantes TEMP_* ci-dessous.
+ * PHENOMENA DURING THE DAY
+ *   A phenomenon starts at a randomly rolled phase (fog: morning or
+ *   evening, one chance in two). If it starts after the morning, the previous phase
+ *   shows its warning signs. Its duration in hours gives the number of phases
+ *   it covers (6 h per phase): a 2-day blizzard therefore spills over into the next day.
+ *   While a phenomenon is still going at dawn, the day has no new roll: the
+ *   phenomenon IS the event of the day, and the rest of the day is calm once it ends.
+ *   Snow or rain in a phase depends on THAT phase's temperature: rain lasting
+ *   until the evening can turn into snow.
+ *   Type of powerful storm (by the day's maximum): blizzard if <= 0 °C, cyclone from
+ *   1 to 19 °C, hurricane or tornado (1 chance in 2) from 20 °C. Hail if > 3 °C,
+ *   sleet otherwise. Thresholds: TEMP_* constants below.
  *
- * CONTINUITÉ ENTRE LES JOURS
- *   Après un jour agité (d100 > 70, ou phénomène en cours), le d100 du lendemain est tiré
- *   deux fois et on garde le plus haut : le mauvais temps tend à durer. Les jours d'une
- *   vague ou de vent ne comptent pas comme agités (ce sont des temps stables). Une vague
- *   qui suit une vague va dans le même sens.
+ * CONTINUITY BETWEEN DAYS
+ *   After a stormy day (d100 > 70, or phenomenon in progress), the next day's d100 is rolled
+ *   twice and the highest is kept: bad weather tends to last. Days of a
+ *   wave or wind do not count as stormy (they are stable weather). A wave
+ *   following a wave goes in the same direction.
  *
- * Le script est un seul fichier, sans dépendance. Les tirages passent par une
- * fonction « rng(faces) » : randomInteger dans Roll20, un faux dé dans les tests.
+ * The script is a single file, with no dependency. Rolls go through a
+ * "rng(faces)" function: randomInteger in Roll20, a fake die in the tests.
  */
 (function () {
   'use strict';
 
-  // ===================== RÉGLAGES =====================
-  const JOURS_SUPPLEMENTAIRES = 5; // plafond de la prolongation automatique
-  const MAX_JOURS = 14;      // plafond du mode multi-jours
-  const TEMP_GEL = 0;        // <= : neige, blizzard, tempête de neige
-  const TEMP_GRESIL = 3;     // <= : neige fondue (sinon grêle)
-  const TEMP_ORAGE = 20;     // >= : ouragan ou tornade (sinon cyclone)
-  const VAGUE = 5;           // écart d'une vague de chaleur / de froid, en °C
-  const HEURES_PHASE = 6;    // durée d'une phase de la journée
-  const JOURS_VAGUE = 3;     // durée d'une vague de chaleur / de froid et du vent du désert
+  // ===================== SETTINGS =====================
+  const JOURS_SUPPLEMENTAIRES = 5; // cap of the automatic extension
+  const MAX_JOURS = 14;      // cap of the multi-day mode
+  const TEMP_GEL = 0;        // <= : snow, blizzard, snowstorm
+  const TEMP_GRESIL = 3;     // <= : sleet (otherwise hail)
+  const TEMP_ORAGE = 20;     // >= : hurricane or tornado (otherwise cyclone)
+  const VAGUE = 5;           // offset of a heat / cold wave, in °C
+  const HEURES_PHASE = 6;    // duration of a phase of the day
+  const JOURS_VAGUE = 3;     // duration of a heat / cold wave and of the desert wind
 
-  // ===================== DONNÉES =====================
+  // ===================== DATA =====================
   const MOIS = [
     { id: 'abadius',   nom: 'Abadius',   base: -10 },
     { id: 'calistril', nom: 'Calistril', base: -5 },
@@ -102,8 +102,8 @@
     { id: 'kuthona',   nom: 'Kuthona',   base: -5 }
   ];
 
-  // profil : froid (très froid, froid), tempere (tempéré, chaud), desert (très chaud)
-  // de10 : l'écart de température est « d10 + decalage » ; sinon il vaut 0
+  // profile: froid (very cold, cold), tempere (temperate, hot), desert (very hot)
+  // de10: the temperature offset is "d10 + decalage"; otherwise it is 0
   const REGIONS = [
     { id: 'verycold',  nom: 'Très froid', profil: 'froid',   de10: true,  decalage: -10 },
     { id: 'cold',      nom: 'Froid',      profil: 'froid',   de10: true,  decalage: -5 },
@@ -112,16 +112,16 @@
     { id: 'veryhot',   nom: 'Très chaud', profil: 'desert',  de10: true,  decalage: 10 }
   ];
 
-  // fraction : part de l'écart nuit -> jour atteinte pendant la phase
+  // fraction: share of the night -> day gap reached during the phase
   const PHASES = [
     { nom: 'Matin',      fraction: 0.4 },   //  6 - 12 h
-    { nom: 'Après-midi', fraction: 1 },     // 12 - 18 h : maximum du jour
+    { nom: 'Après-midi', fraction: 1 },     // 12 - 18 h: maximum of the day
     { nom: 'Soir',       fraction: 0.6 },   // 18 - 24 h
-    { nom: 'Nuit',       fraction: 0 }      //  0 -  6 h : minimum
+    { nom: 'Nuit',       fraction: 0 }      //  0 -  6 h: minimum
   ];
   const NB_PHASES = PHASES.length;
 
-  // signes avant-coureurs, affichés dans la phase qui précède le phénomène
+  // warning signs, shown in the phase before the phenomenon
   const PREMICES = {
     blizzard: 'ciel plombé, le vent forcit',
     cyclone: 'ciel qui s’assombrit, le vent monte',
@@ -133,10 +133,10 @@
     trombes: 'ciel chargé de nuages noirs'
   };
 
-  // évènements qui créent un phénomène posé dans la grille (les autres durent la journée)
+  // events that create a phenomenon placed in the grid (the others last the whole day)
   const CATS_PHENOMENE = ['precipitation', 'tempete', 'violente', 'trombes'];
 
-  // ===================== LOGIQUE PURE =====================
+  // ===================== PURE LOGIC =====================
   function rngParDefaut(faces) { return Math.floor(Math.random() * faces) + 1; }
 
   const parId = (liste, id) => liste.find((x) => x.id === id) || null;
@@ -145,7 +145,7 @@
 
   const nb = (n, mot) => n + ' ' + mot + (n > 1 ? 's' : '');
 
-  // minuscules, sans accents
+  // lower case, without accents
   function normaliser(s) {
     return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   }
@@ -156,12 +156,12 @@
     return Math.min(MAX_JOURS, n);
   }
 
-  // « cold abadius 5 », « very cold Sarénith », « 3 verycold neth »... dans n'importe quel ordre
+  // "cold abadius 5", "very cold Sarénith", "3 verycold neth"... in any order
   function analyserArguments(texte) {
     const brut = normaliser(texte);
     const nombre = brut.match(/\d+/);
     const lettres = brut.replace(/[^a-z]/g, '');
-    // les noms les plus longs d'abord : « veryhot » contient « hot »
+    // longest names first: "veryhot" contains "hot"
     const region = REGIONS.slice().sort((a, b) => b.id.length - a.id.length)
       .find((r) => lettres.indexOf(r.id) !== -1);
     const mois = MOIS.find((m) => lettres.indexOf(m.id) !== -1);
@@ -176,14 +176,14 @@
     return { cat: 'vent', fort: rng(2) === 2 };
   }
 
-  // jet : d100 du jour. Ne tire que les dés qui changent la température ou la nature de l'évènement.
+  // jet: the day's d100. Only rolls the dice that change the temperature or the kind of event.
   function tirerEvenement(profil, jet, rng, precedent) {
     if (jet <= 70) return { cat: 'calme' };
     if (jet <= 80) {
       if (profil === 'desert') return ventDesert(rng);
       let sens;
       if (precedent && precedent.cat === 'vague') {
-        sens = precedent.sens;                       // une vague se prolonge dans le même sens
+        sens = precedent.sens;                       // a wave carries on in the same direction
       } else {
         const seuilChaleur = profil === 'froid' ? 30 : 50;
         sens = rng(100) <= seuilChaleur ? 1 : -1;
@@ -195,12 +195,12 @@
     return profil === 'desert' ? { cat: 'trombes' } : { cat: 'violente' };
   }
 
-  // Température de chaque phase (Matin, Après-midi, Soir, Nuit), entre la nuit tn et le jour tj.
+  // Temperature of each phase (Morning, Afternoon, Evening, Night), between night tn and day tj.
   function temperaturesPhases(tj, tn) {
     return PHASES.map((p) => tn + Math.round(p.fraction * (tj - tn)));
   }
 
-  // Un phénomène : type, durée en heures, nombre de phases occupées, texte de règles, prémices.
+  // A phenomenon: type, duration in hours, number of phases covered, rules text, warning signs.
   function phenomene(type, heures, texte, extra) {
     return Object.assign({
       type: type,
@@ -211,8 +211,8 @@
     }, extra || {});
   }
 
-  // Tire la nature et la durée du phénomène. tj : maximum du jour (vague comprise).
-  // Ordre des dés : voir chaque cas. La phase de départ est tirée à part (phaseDepart).
+  // Rolls the kind and duration of the phenomenon. tj: maximum of the day (wave included).
+  // Dice order: see each case. The starting phase is rolled separately (phaseDepart).
   function creerPhenomene(cat, profil, tj, rng) {
     switch (cat) {
       case 'precipitation': {
@@ -247,7 +247,7 @@
         let texte = 'Orage' + vents + ' Il dure ' + nb(h, 'heure') +
           '. Foudre : un impact par minute pendant la première heure.';
         let tornade = false;
-        if (rng(10) === 1) {                                  // 10 % : l'orage tourne en tornade
+        if (rng(10) === 1) {                                  // 10%: the thunderstorm turns into a tornado
           texte += ' L’orage vire à la tornade pendant ' + nb(rng(6) * 10, 'minute') + '.';
           tornade = true;
         }
@@ -291,17 +291,17 @@
     }
   }
 
-  // Phase de départ (0 = matin ... 3 = nuit). Le brouillard se forme le matin ou le soir
-  // (une chance sur deux) ; tout le reste peut arriver à n'importe quelle phase.
+  // Starting phase (0 = morning ... 3 = night). Fog forms in the morning or the evening
+  // (one chance in two); everything else can happen in any phase.
   function phaseDepart(ph, rng) {
     if (ph.type === 'brouillard') return rng(2) === 1 ? 0 : 2;
     return rng(NB_PHASES) - 1;
   }
 
-  // Vague de chaleur / de froid et vent du désert : ils durent JOURS_VAGUE jours, sans phases.
+  // Heat / cold wave and desert wind: they last JOURS_VAGUE days, without phases.
   const estJournalier = (ph) => ph.type === 'vague' || ph.type === 'vent';
 
-  // Nom du phénomène dans une phase, selon la température de CETTE phase.
+  // Name of the phenomenon in a phase, based on THAT phase's temperature.
   function etiquette(ph, temperature) {
     switch (ph.type) {
       case 'blizzard':
@@ -313,7 +313,7 @@
       case 'orage': return ph.tornade ? 'orage et tornade' : 'orage';
       case 'trombes': return 'trombes d’eau';
       case 'vague':
-      case 'vent': return 'calme';          // le jour est calme : la vague ou le vent figure en tête de ligne
+      case 'vent': return 'calme';          // the day is calm: the wave or the wind shows at the start of the line
       case 'brouillard': return 'brouillard';
       case 'precip': return temperature <= TEMP_GEL ? 'neige' : 'pluie';
       case 'fondue': return 'neige fondue';
@@ -322,11 +322,11 @@
     }
   }
 
-  // Pose un phénomène dans la grille (4 cases par jour), avec ses prémices si ce n'est pas le matin.
+  // Places a phenomenon in the grid (4 cells per day), with its warning signs if it is not the morning.
   function placer(grille, debut, ph) {
     ph.debut = debut;
     ph.fin = debut + ph.longueur - 1;
-    // grille extensible (genererMeteo) : elle s'allonge pour contenir tout le phénomène, dans la limite fixée
+    // extensible grid (genererMeteo): it grows to hold the whole phenomenon, within the set limit
     if (grille.limite) while (grille.length <= ph.fin && grille.length < grille.limite) grille.push(null);
     for (let c = debut; c <= ph.fin && c < grille.length; c++) grille[c] = { ph: ph, role: 'actif' };
     if (ph.premices && debut % NB_PHASES >= 1 && grille[debut - 1] === null) {
@@ -334,7 +334,7 @@
     }
   }
 
-  // Vague ou vent : sert de préfixe à la ligne de chacun de ses jours (températures déjà corrigées).
+  // Wave or wind: used as a prefix for the line of each of its days (temperatures already adjusted).
   function texteEvenementJour(evt, numero) {
     const base = evt.cat === 'vague'
       ? (evt.sens > 0 ? 'Vague de chaleur (+' + VAGUE + ' °C)' : 'Vague de froid (-' + VAGUE + ' °C)')
@@ -342,13 +342,13 @@
     return base + ', jour ' + numero + ' sur ' + JOURS_VAGUE;
   }
 
-  // ctx : { profil, base, ecart }. precedent : le résultat de la veille (ou null).
-  // grille : une case par phase de toute la série (null = calme) ; partagée entre les jours
-  // pour que les phénomènes débordent. Sans grille, le jour est isolé.
-  // Ordre des tirages : aléa du jour (2 d4) ; d100 (+ un second si la veille était agitée), sauf si
-  // un phénomène, une vague ou un vent est en cours au lever ; dés de l'évènement (sens de la vague,
-  // intensité du vent) ; d10 de la nuit ; si un phénomène naît : sa nature et sa durée (creerPhenomene),
-  // puis sa phase de départ. Un jour « suite » (suite: true) n'a ni d100 ni nouveau phénomène.
+  // ctx: { profil, base, ecart }. precedent: the previous day's result (or null).
+  // grille: one cell per phase of the whole series (null = calm); shared between days
+  // so that phenomena spill over. Without a grid, the day stands alone.
+  // Roll order: daily random (2 d4); d100 (+ a second one if the previous day was stormy), unless
+  // a phenomenon, a wave or a wind is in progress at dawn; event dice (direction of the wave,
+  // wind strength); night d10; if a phenomenon starts: its kind and duration (creerPhenomene),
+  // then its starting phase. A "suite" day (suite: true) has neither a d100 nor a new phenomenon.
   function genererJour(numero, ctx, rng, precedent, grille) {
     const g = grille || new Array(NB_PHASES).fill(null);
     const debutJour = (numero - 1) * NB_PHASES;
@@ -358,7 +358,7 @@
     let jet = null;
     let evt;
     if (enCours) {
-      // le phénomène (ou la vague, ou le vent) en cours est l'évènement du jour : pas de d100
+      // the phenomenon (or wave, or wind) in progress is the event of the day: no d100
       evt = { cat: enCours.cat, sens: enCours.sens, fort: enCours.fort };
     } else {
       jet = rng(100);
@@ -367,14 +367,14 @@
     }
     const delta = evt.cat === 'vague' ? VAGUE * evt.sens : 0;
     const tj = ctx.base + ctx.ecart + aleaJour + delta;
-    const tn = tj - rng(10);                   // calculée après la vague : elle la subit aussi
+    const tn = tj - rng(10);                   // computed after the wave: it is affected too
     const temps = temperaturesPhases(tj, tn);
 
     let description = '';
     let tag = '';
     if (evt.cat === 'vague' || evt.cat === 'vent') {
       let ph = enCours;
-      if (!ph) {                                // elle commence au lever et dure JOURS_VAGUE jours
+      if (!ph) {                                // it starts at dawn and lasts JOURS_VAGUE days
         ph = phenomene(evt.cat, JOURS_VAGUE * 24, '', { cat: evt.cat, sens: evt.sens, fort: evt.fort });
         placer(g, debutJour, ph);
       }
@@ -398,7 +398,7 @@
       return { nom: p.nom, temperature: temps[i], etat: etat };
     });
 
-    // Une journée sans phénomène ne répète pas « calme » quatre fois.
+    // A day without a phenomenon does not repeat "calme" four times.
     const tousCalmes = phases.every((p) => p.etat === 'calme');
     const detail = phases.map((p) => p.nom + ' (' + p.temperature + ' °C)' + (tousCalmes ? '' : ' : ' + p.etat)).join(' · ');
     const prefixe = tag || (tousCalmes ? 'Calme toute la journée' : '');
@@ -409,7 +409,7 @@
       cat: evt.cat,
       sens: evt.sens,
       suite: Boolean(enCours),
-      // une vague ou un vent qui se prolonge ne rend pas le lendemain plus instable
+      // a wave or a wind that carries on does not make the next day more unstable
       agite: enCours ? !estJournalier(enCours) : jet > 70,
       temperatureJour: tj,
       temperatureNuit: tn,
@@ -427,13 +427,13 @@
     if (!region) throw new Error('Région inconnue : ' + regionId);
     if (!mois) throw new Error('Mois inconnu : ' + moisId);
     const n = limiterJours(jours);
-    const ecart = region.de10 ? r(10) + region.decalage : 0;   // tiré une seule fois pour la série
+    const ecart = region.de10 ? r(10) + region.decalage : 0;   // rolled only once for the series
     const ctx = { profil: region.profil, base: mois.base, ecart: ecart };
     const grille = new Array(n * NB_PHASES).fill(null);
     grille.limite = (n + JOURS_SUPPLEMENTAIRES) * NB_PHASES;
     const liste = [];
     let precedent = null;
-    // La période est prolongée tant qu'un phénomène, une vague ou un vent tiré déborde sur le jour suivant.
+    // The period is extended as long as a rolled phenomenon, wave or wind spills over into the next day.
     for (let i = 1; i <= n + JOURS_SUPPLEMENTAIRES; i++) {
       const c = grille[(i - 1) * NB_PHASES];
       if (i > n && !(c && c.role === 'actif')) break;
@@ -443,8 +443,8 @@
     return { region: region, mois: mois, ecart: ecart, demandes: n, jours: liste };
   }
 
-  // ===================== MESSAGES (texte prêt pour sendChat) =====================
-  // Dans une carte pf_generic : jamais de « = » ni de « }} » dans le texte d'une ligne.
+  // ===================== MESSAGES (text ready for sendChat) =====================
+  // In a pf_generic card: never "=" or "}}" in the text of a line.
   const CARTE = '/w gm &{template:pf_generic} ';
   const MOIS_CHOIX = MOIS.map((m) => m.nom).join('|');
 
@@ -475,7 +475,7 @@
 
   const erreur = (texte) => '/w gm Climat : ' + texte;
 
-  // Renvoie la liste des messages à chuchoter au MJ, ou null si la commande n'est pas la nôtre.
+  // Returns the list of messages to whisper to the GM, or null if the command is not ours.
   function traiterCommande(commande, reste, rng) {
     const cmd = String(commande || '').toLowerCase();
     if (cmd === '!climat') return [carteRegions()];
@@ -495,9 +495,9 @@
       carteResultat, traiterCommande
     };
   }
-  if (typeof on !== 'function') return; // hors Roll20 : on s'arrête ici
+  if (typeof on !== 'function') return; // outside Roll20: stop here
 
-  // ===================== PARTIE ROLL20 =====================
+  // ===================== ROLL20 PART =====================
   on('chat:message', function (msg) {
     if (msg.type !== 'api') return;
     const contenu = String(msg.content || '').trim();

@@ -16,33 +16,33 @@
 // @downloadURL  https://raw.githubusercontent.com/Sheo42/roll20/main/sync/roll20-github-sync.user.js
 // ==/UserScript==
 
-// Fonctionnement :
-// - lit la liste des fichiers .js du dossier scripts/ du dépôt, au dernier commit de la branche main
-//   (adresse figée par le commit : pas de copie périmée en cache) ;
-// - associe chaque fichier à l'onglet de script Roll20 du même nom (casse, espaces, tirets et accents
-//   ignorés : « token tool.js » = token-tool.js, « TokenInfo.js » = tokeninfo.js) ;
-// - montre pour chacun : à jour, modifié (+lignes / -lignes), ou absent du jeu ; les scripts de la
-//   bibliothèque Roll20 (one-click) et les onglets sans fichier dans le dépôt ne sont jamais touchés ;
-// - « Mettre à jour » remplace le contenu des onglets cochés (et crée ceux à installer) avec le bouton
-//   « Save Mod Script » de Roll20 lui-même, un script par chargement de page (Roll20 recharge la page
-//   après chaque enregistrement), puis vérifie après le rechargement que le contenu enregistré est bien
-//   celui du dépôt. Au premier écart, la synchro s'arrête et le dit.
-// Chaque enregistrement redémarre le sandbox API, comme un enregistrement à la main.
+// How it works:
+// - reads the list of .js files in the repo's scripts/ folder, at the latest commit of the main branch
+//   (address pinned by the commit: no stale cached copy);
+// - matches each file to the Roll20 script tab with the same name (case, spaces, dashes and accents
+//   ignored: "token tool.js" = token-tool.js, "TokenInfo.js" = tokeninfo.js);
+// - shows for each one: up to date, changed (+lines / -lines), or missing from the game; scripts from the
+//   Roll20 library (one-click) and tabs with no file in the repo are never touched;
+// - "Mettre à jour" replaces the content of the checked tabs (and creates the ones to install) with Roll20's
+//   own "Save Mod Script" button, one script per page load (Roll20 reloads the page
+//   after each save), then checks after the reload that the saved content really is
+//   the repo's. At the first mismatch, the sync stops and says so.
+// Each save restarts the API sandbox, like a manual save.
 
 var R20Sync = (function () {
   'use strict';
   var REPO = 'Sheo42/roll20', BRANCH = 'main', DIR = 'scripts';
 
-  // nom comparable : « token tool.js », « Token-Tool.js » et « tokentool » se valent
+  // comparable name: "token tool.js", "Token-Tool.js" and "tokentool" are equal
   function normName(n) {
     return String(n || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
       .replace(/\.js$/, '').replace(/[^a-z0-9]/g, '');
   }
-  // texte comparable : fins de ligne unifiées, blancs de fin ignorés
+  // comparable text: line endings unified, trailing whitespace ignored
   function normText(t) {
     return String(t == null ? '' : t).replace(/\r\n?/g, '\n').replace(/\s+$/, '');
   }
-  // lignes ajoutées / retirées (comptage par multiensemble, sans tenir compte de l'ordre)
+  // added / removed lines (multiset count, ignoring order)
   function lineDiff(oldText, newText) {
     var count = {}, added = 0, removed = 0;
     normText(oldText).split('\n').forEach(function (l) { count[l] = (count[l] || 0) + 1; });
@@ -50,15 +50,15 @@ var R20Sync = (function () {
     Object.keys(count).forEach(function (l) { removed += count[l]; });
     return { added: added, removed: removed };
   }
-  // fichiers du dépôt à synchroniser (pas les tests)
+  // repo files to sync (not the tests)
   function repoFiles(listing) {
     return (listing || []).filter(function (f) {
       return f && f.type === 'file' && /\.js$/i.test(f.name) && !/\.test\.js$/i.test(f.name);
     }).map(function (f) { return f.name; }).sort();
   }
 
-  // tabs : [{id, name, content}] (scripts utilisateur seulement) ; files : [{file, content}]
-  // -> {rows: [{file, tabId, tabName, status, added, removed}], extra: [noms d'onglets sans fichier]}
+  // tabs: [{id, name, content}] (user scripts only); files: [{file, content}]
+  // -> {rows: [{file, tabId, tabName, status, added, removed}], extra: [names of tabs without a file]}
   function plan(tabs, files) {
     var byName = {};
     tabs.forEach(function (t) { (byName[normName(t.name)] = byName[normName(t.name)] || []).push(t); });
@@ -84,7 +84,7 @@ var R20Sync = (function () {
     return { rows: rows, extra: extra };
   }
 
-  // file d'attente des enregistrements, gardée entre deux chargements de page
+  // queue of saves, kept between two page loads
   function makeQueue(campaign, sha, rows) {
     return {
       campaign: String(campaign), sha: sha, i: 0, pending: null, results: [],
@@ -95,7 +95,7 @@ var R20Sync = (function () {
       })
     };
   }
-  // l'enregistrement d'un élément est-il visible sur la page rechargée ?
+  // is an item's save visible on the reloaded page?
   function verify(item, tabs) {
     var t = item.kind === 'update'
       ? tabs.filter(function (x) { return String(x.id) === String(item.tabId); })[0]
@@ -103,8 +103,8 @@ var R20Sync = (function () {
     return !!t && normText(t.content) === normText(item.content);
   }
 
-  // Avance la file d'un pas. env : {campaign, tabs(), save(item), store, reload(), later(fn, ms), now(), report(q, done)}
-  // Renvoie 'idle' | 'saving' | 'done' | 'failed' | 'other-campaign'.
+  // Moves the queue one step forward. env: {campaign, tabs(), save(item), store, reload(), later(fn, ms), now(), report(q, done)}
+  // Returns 'idle' | 'saving' | 'done' | 'failed' | 'other-campaign'.
   var PENDING_TIMEOUT = 20000;
   function step(env) {
     var q = env.store.get();
@@ -123,7 +123,7 @@ var R20Sync = (function () {
     env.store.set(q);
     env.report(q, 'saving');
     env.save(q.items[q.i]);
-    // si Roll20 ne recharge pas la page, on la recharge nous-mêmes pour vérifier et continuer
+    // if Roll20 does not reload the page, we reload it ourselves to check and carry on
     env.later(function () { env.reload(); }, PENDING_TIMEOUT);
     return 'saving';
   }
@@ -149,7 +149,7 @@ if (typeof module !== 'undefined') module.exports = R20Sync;
     del: function () { GM_deleteValue(KEY); }
   };
 
-  // ---------- page Roll20 ----------
+  // ---------- Roll20 page ----------
   function userTabs() {
     var out = [];
     document.querySelectorAll('.nav-tabs a[href^="#script-"]').forEach(function (a) {
@@ -158,8 +158,8 @@ if (typeof module !== 'undefined') module.exports = R20Sync;
       var pane = document.querySelector(href);
       var input = pane && pane.querySelector('input[type=text]');
       var ed = pane && pane.querySelector('.editor');
-      if (!input || !ed) return; // script de la bibliothèque Roll20 : pas d'éditeur
-      // contenu enregistré chez Roll20 (le textarea caché de l'onglet), sinon celui de l'éditeur
+      if (!input || !ed) return; // Roll20 library script: no editor
+      // content saved at Roll20 (the tab's hidden textarea), otherwise the editor's
       var saved = pane.querySelector('textarea:not(.ace_text-input)');
       out.push({ id: href.replace('#script-', ''), name: input.value, content: saved ? saved.value : W.ace.edit(ed).getValue() });
     });
@@ -170,7 +170,7 @@ if (typeof module !== 'undefined') module.exports = R20Sync;
     if (!pane) throw new Error('onglet introuvable : ' + item.tabId);
     if (item.kind === 'install') pane.querySelector('input[type=text]').value = item.name;
     W.ace.edit(pane.querySelector('.editor')).setValue(item.content, -1);
-    // sans ancre dans l'adresse, le rechargement que fait Roll20 recharge vraiment la page
+    // without an anchor in the address, Roll20's reload really reloads the page
     history.replaceState(null, '', location.pathname + location.search);
     pane.querySelector('.savescript').click();
   }
@@ -208,7 +208,7 @@ if (typeof module !== 'undefined') module.exports = R20Sync;
     });
   }
 
-  // ---------- interface ----------
+  // ---------- UI ----------
   var css = 'position:fixed;z-index:100000;font:13px/1.4 sans-serif;';
   function el(tag, attrs, text) {
     var e = document.createElement(tag);
@@ -297,6 +297,6 @@ if (typeof module !== 'undefined') module.exports = R20Sync;
     var b = el('button', { type: 'button', title: 'Synchroniser les scripts avec ' + S.REPO, style: css + 'right:16px;bottom:16px;padding:6px 12px;border-radius:16px;border:none;background:#24292f;color:#fff;cursor:pointer;' }, '⟳ GitHub');
     b.addEventListener('click', showPlan);
     document.body.appendChild(b);
-    if (store.get()) run(); // une synchro était en cours avant le rechargement
+    if (store.get()) run(); // a sync was in progress before the reload
   });
 })();

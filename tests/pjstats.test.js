@@ -1,10 +1,10 @@
-// node tests/pjstats.test.js : tests sans dépendance de scripts/pjstats.js (logique pure + flux complet avec un faux Roll20)
+// node tests/pjstats.test.js: dependency-free tests for scripts/pjstats.js (pure logic + full flow with a fake Roll20)
 'use strict';
 var fs = require('fs'), path = require('path'), vm = require('vm');
 var P = require('../scripts/pjstats.js');
 
 var pass = 0, fail = 0;
-function ok(cond, label) { if (cond) pass++; else { fail++; console.log('ÉCHEC: ' + label); } }
+function ok(cond, label) { if (cond) pass++; else { fail++; console.log('FAIL: ' + label); } }
 function eq(a, b, label) { ok(JSON.stringify(a) === JSON.stringify(b), label + ' -> ' + JSON.stringify(a) + ' attendu ' + JSON.stringify(b)); }
 
 var R1 = '-NabcdefghijKLMNOPQ1', R2 = '-NabcdefghijKLMNOPQ2', R3 = '-nabcdefghijklmnopq3';
@@ -17,13 +17,13 @@ var ATTRS = [
   A('AC', '32'), A('Touch', '12'), A('Flat-Footed', '31'), A('AC-armor', '14'), A('AC-shield', '6'), A('AC-ability', '1'),
   A('Fort', '14'), A('Ref', '6'), A('Will', '8'), A('bab', '15'), A('CMB', '22'), A('CMD', '33'), A('SR', '0'), A('DR', ''),
   A('armor3-type', 'Harnois +4'), A('armor3-acbonus', '9'), A('armor3-enhance', '4'),
-  A('STR', '99'), // doublon: le premier gagne
+  A('STR', '99'), // duplicate: the first one wins
   A('repeating_weapon_' + R1 + '_name', 'Marteau de guerre +3'), A('repeating_weapon_' + R1 + '_total-attack', '26'),
   A('repeating_weapon_' + R1 + '_damage-dice-num', '1'), A('repeating_weapon_' + R1 + '_damage-die', '8'),
   A('repeating_weapon_' + R1 + '_total-damage', '13'), A('repeating_weapon_' + R1 + '_crit-target', '19'),
   A('repeating_weapon_' + R1 + '_crit-multiplier', '3'), A('repeating_weapon_' + R1 + '_enhance', '3'),
   A('repeating_feat_' + R1 + '_name', 'Combat monté'), A('repeating_feat_' + R2 + '_name', 'Attaque au galop'),
-  A('repeating_feat_' + R3 + '_name', ''), // ligne vide ignorée
+  A('repeating_feat_' + R3 + '_name', ''), // empty row ignored
   A('repeating_class-ability_' + R1 + '_name', 'Défi'),
   A('repeating_item_' + R1 + '_name', 'Ceinture de force +4'), A('repeating_item_' + R1 + '_qty', '1'), A('repeating_item_' + R1 + '_location', 'belt'),
   A('repeating_item_' + R2 + '_name', 'Potion de soins'), A('repeating_item_' + R2 + '_qty', '3'),
@@ -77,7 +77,7 @@ ok(ch.every(function (m) { return m.length <= 1800; }), 'messages sous la limite
 var big = P.chunk(['x'.repeat(4000)], 1800);
 eq(big.length, 3, 'ligne trop longue coupée');
 
-// --- Flux complet avec un faux Roll20
+// --- Full flow with a fake Roll20
 function fakeRoll20(isGM) {
   var handlers = [], sent = [];
   var objs = [
@@ -132,5 +132,5 @@ eq(out.length, 0, 'commande pjinfo ignorée');
 out = fakeRoll20(false).send('!pjstats Paz Tarpou');
 ok(/Réservé au MJ/.test(out.join('')) && !/Caracs/.test(out.join('')), 'refus pour un joueur');
 
-console.log(pass + ' réussis, ' + fail + ' échecs');
+console.log(pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

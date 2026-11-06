@@ -1,13 +1,13 @@
-// node tests/secretrolls.test.js : tests sans dépendance de scripts/secretrolls.js (logique pure + flux complet avec un faux Roll20)
+// node tests/secretrolls.test.js: dependency-free tests for scripts/secretrolls.js (pure logic + full flow with a fake Roll20)
 'use strict';
 var fs = require('fs'), path = require('path'), vm = require('vm');
 var S = require('../scripts/secretrolls.js');
 
 var pass = 0, fail = 0;
-function ok(cond, label) { if (cond) pass++; else { fail++; console.log('ÉCHEC: ' + label); } }
+function ok(cond, label) { if (cond) pass++; else { fail++; console.log('FAIL: ' + label); } }
 function eq(a, b, label) { ok(JSON.stringify(a) === JSON.stringify(b), label + ' -> ' + JSON.stringify(a) + ' attendu ' + JSON.stringify(b)); }
 
-// --- logique pure
+// --- pure logic
 var act = S.secretAction();
 ok(act.indexOf('/sr 1d20+?{Compétence|') === 0 && /\}$/.test(act), 'jet secret avec liste déroulante (forme testée dans le jeu)');
 ok(act.indexOf('|Perception (@{perception}),@{perception}[Perception]|') > 0, 'Perception : bonus dans le libellé, libellé du jet');
@@ -35,7 +35,7 @@ eq(S.parseArgs('!secretrolls remove all').remove, true, 'remove all');
 eq(S.parseArgs('!secretrolls auto off').auto, 'off', 'auto off');
 eq(S.parseArgs('!secretrolls tous confirmer 2').bad, ['tous', 'confirmer', '2'], 'options françaises refusées');
 
-// --- faux Roll20
+// --- fake Roll20
 function world() {
   var objs = [], chat = [], handlers = {}, n = 0;
   function mk(type, props) {
@@ -68,7 +68,7 @@ function world() {
   function emit(ev, a, b) { (handlers[ev] || []).forEach(function (f) { f(a, b); }); }
   return {
     mk: mk, chat: chat, emit: emit,
-    // comme Roll20 : change:character puis change:character:<champ>
+    // like Roll20: change:character then change:character:<field>
     fire: function (o, changes) {
       o.set(changes); emit('change:' + o._type, o, {});
       Object.keys(changes).forEach(function (k) { emit('change:' + o._type + ':' + k, o, {}); });
@@ -90,7 +90,7 @@ w.mk('character', { _id: 'cLune', name: 'Lune', controlledby: 'p2' });
 w.mk('character', { _id: 'cGob', name: 'Gobelin', controlledby: '' });
 w.mk('graphic', { _id: 'tPaz2', represents: 'cPaz' });
 w.mk('ability', { _characterid: 'cPaz', name: 'All Skills', action: '%{Paz Tarpou|skills}', istokenaction: true });
-// ancienne version : 13 capacités cachées
+// old version: 13 hidden abilities
 S.SKILLS.forEach(function (s) { w.mk('ability', { _characterid: 'cPaz', name: 'sr-' + s[1], action: 'x', istokenaction: false }); });
 w.mk('ability', { _characterid: 'cPaz', name: 'Secret', action: '&{template:pf_generic} {{name=Jets secrets}}', istokenaction: true });
 w.mk('ability', { _characterid: 'cPaz', name: 'Blindroll', action: 'vieux', istokenaction: true });
@@ -128,7 +128,7 @@ ok(/Sélectionne des tokens/.test(out), 'rien de sélectionné');
 out = w.say('!secretrolls tous');
 ok(/Option inconnue/.test(out), 'option inconnue');
 
-// --- ajout automatique
+// --- automatic add
 var w2 = world();
 w2.emit('ready');
 var neu = w2.mk('character', { _id: 'cNew', name: '', controlledby: '' });
@@ -142,13 +142,13 @@ var nb = w2.chat.length;
 w2.fire(neu, { name: 'Nouveau Nom', bio: 'x' });
 ok(w2.chat.length === nb && w2.abilities('cNew').length === 1, 'autre changement : rien à faire, silence');
 
-// fiche toute neuve qui reçoit tout d'un coup, seulement change:character (sans :controlledby)
+// brand-new sheet that gets everything at once, only change:character (without :controlledby)
 var fresh = w2.mk('character', { _id: 'cFresh', name: '', controlledby: '' });
 fresh.set({ name: 'Frais', controlledby: 'p4' });
 w2.emit('change:character', fresh, {});
 eq(names(w2.abilities('cFresh')), ['Blindroll'], 'fiche neuve : ajouté sur change:character');
 
-// joueur ajouté sans évènement sur le personnage : rattrapé quand un token est posé
+// player added without an event on the character: caught when a token is placed
 var quiet = w2.mk('character', { _id: 'cQuiet', name: 'Discret', controlledby: 'p5' });
 w2.emit('add:graphic', w2.mk('graphic', { _id: 'tQ', represents: 'cQuiet' }));
 eq(names(w2.abilities('cQuiet')), ['Blindroll'], 'token posé : ajouté');
@@ -174,5 +174,5 @@ w4.mk('ability', { _characterid: 'cMy', name: 'Secret', action: 'mon texte à mo
 w4.fire(my, { bio: 'x' });
 eq(names(w4.abilities('cMy')), ['Blindroll', 'Secret'], 'une capacité « Secret » écrite à la main est gardée');
 
-console.log(pass + ' OK, ' + fail + ' échec(s)');
+console.log(pass + ' OK, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

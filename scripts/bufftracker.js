@@ -1,113 +1,113 @@
 /*
- * bufftracker.js — Suivi des buffs et des durées de sort (Pathfinder 1e) pour l'API Roll20
- * Version 2.0 — un lancement porte une liste de cibles (un sort lancé sur plusieurs
- *               alliés = une seule ligne) ; choix des cibles par leur nom ou avec des
- *               boutons à cocher ; lien direct vers la fenêtre « Effets actifs ».
- * Version 2.1 — plus de marqueur d'état sur les tokens (ceux d'avant sont retirés).
- * Version 2.2 — plus besoin de carte : cibles et lanceur par fiche ou par nom libre.
- * Version 2.3 — boutons à cocher réparés ; minutes écrites « min » ; un joueur seulement
- *               ciblé ne retire que ses personnages.
- * Version 2.4 — un nom partiel n'est plus deviné : boutons pour choisir ; durées en jours.
- * Version 2.5 — relancer un sort ne remplace que celui du même lanceur ; le même sort de
- *               deux lanceurs : une seule ligne par personnage (la plus longue), et pas
- *               d'annonce de fin tant qu'un autre lancement le couvre.
- * Version 2.6 — sort courant « Invisibilité suprême » ; interface BuffTrackerAPI pour
- *               les autres scripts (invis.js cache les tokens invisibles).
- * Version 2.7 — sorts courants Lumière, Lumière du jour, Lumières dansantes (lumiere.js
- *               allume et éteint les tokens ciblés).
+ * bufftracker.js — Tracks buffs and spell durations (Pathfinder 1e) for the Roll20 API
+ * Version 2.0 — a cast carries a list of targets (a spell cast on several allies =
+ *               one line); targets picked by name or with check buttons; direct
+ *               link to the "Effets actifs" window.
+ * Version 2.1 — no more status marker on tokens (older ones are removed).
+ * Version 2.2 — no page needed: targets and caster by sheet or by free name.
+ * Version 2.3 — check buttons fixed; minutes written "min"; a player who is only
+ *               targeted removes only their own characters.
+ * Version 2.4 — a partial name is no longer guessed: buttons to choose; durations in days.
+ * Version 2.5 — recasting a spell only replaces the one from the same caster; the same
+ *               spell from two casters: one line per character (the longest), and no
+ *               end announcement while another cast still covers it.
+ * Version 2.6 — common spell "Invisibilité suprême"; BuffTrackerAPI interface for
+ *               other scripts (invis.js hides invisible tokens).
+ * Version 2.7 — common spells Lumière, Lumière du jour, Lumières dansantes (lumiere.js
+ *               lights and turns off the targeted tokens).
  *
- * MISE EN PLACE (une seule fois)
- *   1. Coller ce fichier dans un nouveau script API, enregistrer.
- *   2. Créer la macro « Buffs » (visible par tous, dans la barre de macros) : !buff
- *   Le script crée le handout « Effets actifs », visible par tous les joueurs.
+ * SETUP (once)
+ *   1. Paste this file into a new API script, save.
+ *   2. Create the "Buffs" macro (visible to all, in the macro bar): !buff
+ *   The script creates the "Effets actifs" handout, visible to all players.
  *
- * CE QUE VOIENT LES JOUEURS
- *   - La fenêtre « Effets actifs » (un handout, rangé par personnage) : à garder
- *     ouverte à côté de la carte, réécrite par le script à chaque changement. Le
- *     bouton « Ouvrir la fenêtre » du menu et le lien des annonces l'ouvrent
- *     directement, sans passer par la bibliothèque. Les effets cachés n'apparaissent
- *     que dans la partie MJ du handout.
- *   - Aucun marqueur d'état sur les tokens : les joueurs s'en servent pour autre chose.
- *   - Une annonce dans le chat au dernier round d'un effet, puis quand il se termine.
+ * WHAT PLAYERS SEE
+ *   - The "Effets actifs" window (a handout, sorted by character): keep it open
+ *     next to the map; the script rewrites it on every change. The menu's
+ *     "Ouvrir la fenêtre" button and the link in announcements open it
+ *     directly, without going through the journal. Hidden effects only appear
+ *     in the GM part of the handout.
+ *   - No status marker on tokens: players use them for something else.
+ *   - A chat announcement on an effect's last round, then when it ends.
  *
- * CE QUE FONT LES JOUEURS
- *   Cliquer sur « Buffs » : menu chuchoté, une ligne par lancement avec ses cibles et
- *   des boutons (-1, +1, Durée, Effet, Cibles, X). « Ajouter » et « Sorts courants »
- *   demandent le lanceur (le token sélectionné, sinon ton personnage) puis les cibles :
- *     Tout le groupe   les PJ présents sur ta carte (sans carte ou sans PJ dessus :
- *                      tous les PJ de la partie)
- *     Moi seul         le lanceur
+ * WHAT PLAYERS DO
+ *   Click "Buffs": whispered menu, one line per cast with its targets and
+ *   buttons (-1, +1, Durée, Effet, Cibles, X). "Ajouter" and "Sorts courants"
+ *   ask for the caster (the selected token, otherwise your character) then the targets:
+ *     Tout le groupe   the PCs on your page (no page, or no PC on it:
+ *                      all PCs in the game)
+ *     Moi seul         the caster
  *     Tokens sélectionnés
- *     Choisir...       boutons à cocher, un par PJ, puis « Valider »
- *   Un joueur ne peut sélectionner que ses propres tokens dans Roll20 : pour un allié,
- *   passer par « Tout le groupe » ou « Choisir... ».
+ *     Choisir...       check buttons, one per PC, then "Valider"
+ *   In Roll20 a player can only select their own tokens: for an ally, use
+ *   "Tout le groupe" or "Choisir...".
  *
- * DÉCOMPTE
- *   Tout est compté en rounds : 1 min = 10 rounds, 1 h = 600 rounds.
- *   - En combat : quand le tracker d'initiative passe au tour suivant, les effets
- *     dont le lanceur prend la main perdent 1 round (règle PF1 : un effet se termine
- *     juste avant le tour de son lanceur). Si le lanceur n'est pas dans le tracker, ou
- *     s'il n'y a pas de lanceur, l'effet perd 1 round au début de chaque round.
- *     Début de round : une entrée personnalisée du tracker dont le texte contient le
- *     mot « round » ou « tour » arrive en tête ; sans elle, l'initiative remonte
- *     (tracker trié par ordre décroissant). Remplir, trier le tracker ou y déplacer
- *     quelqu'un ne décompte rien. Revenir en arrière ne rend pas le round, mais
- *     repasser ensuite au même tour ne le décompte pas une seconde fois.
- *   - Hors combat : le MJ avance le temps avec !buff time 10min.
- *   Un effet qui tombe à 0 est retiré et annoncé.
+ * COUNTDOWN
+ *   Everything is counted in rounds: 1 min = 10 rounds, 1 h = 600 rounds.
+ *   - In combat: when the turn tracker moves to the next turn, the effects whose
+ *     caster takes their turn lose 1 round (PF1 rule: an effect ends just before
+ *     its caster's turn). If the caster is not in the tracker, or there is no
+ *     caster, the effect loses 1 round at the start of each round.
+ *     Start of round: a custom tracker entry whose text contains the word
+ *     "round" or "tour" comes to the top; without one, the initiative goes back up
+ *     (tracker sorted in descending order). Filling or sorting the tracker, or moving
+ *     someone in it, counts nothing. Going back does not give the round back, but
+ *     moving to the same turn again afterwards does not count it a second time.
+ *   - Out of combat: the GM advances time with !buff time 10min.
+ *   An effect that reaches 0 is removed and announced.
  *
- * COMMANDES (options en anglais)
- *   !buff                         menu (lancements des tokens sélectionnés, sinon les tiens)
+ * COMMANDS (options in English)
+ *   !buff                         menu (casts of the selected tokens, otherwise yours)
  *   !buff add --name Bénédiction --dur 5min [--caster Solathia] [--targets group]
  *             [--effect +1 attaque] [--hidden]
- *       --targets : group, me, selected, pick, ou des noms ou ids de tokens séparés
- *       par des virgules (Selea, Paz). Sans --targets : les tokens sélectionnés, sinon
- *       les boutons à cocher. Durées : 3r, 3 (rounds), 10min, 2h, 1j, perm (jusqu'à ce
- *       qu'on le retire). Relancer un effet du même nom et du même lanceur remplace
- *       l'ancien sur les cibles du nouveau lancement ; d'un autre lanceur, les deux
- *       restent, chacun avec sa durée.
- *   !buff add --spell bless --cl 5 [--caster Solathia] [--targets group]   sort courant
- *   !buff fav                     boutons des sorts courants
- *   !buff edit 3 --dur -1         -1 round (ou +2, 4r, 10min, perm) ; aussi --name,
- *                                 --effect, --caster, --targets (comme add),
- *                                 --hidden yes|no (MJ)
- *   !buff pick toggle|all|none|ok|cancel   boutons à cocher (envoyés par le script)
- *   !buff choose 2|free|cancel    choix d'un nom partiel (envoyé par le script)
- *   !buff remove 3 [4 ...]        retire des lancements : essai à blanc, puis ... confirm N
- *   !buff clear                   retire les tokens sélectionnés de tous leurs effets
- *                                 (essai à blanc, puis confirm N)
- *   !buff clear all               MJ : tous les effets (essai à blanc, puis confirm N)
- *   !buff time 10min                MJ : fait passer le temps (essai à blanc, puis confirm N) ;
- *                                 bouton « Passer le temps » du menu du MJ
- *   !buff show                    met à jour le handout et donne le lien pour l'ouvrir
+ *       --targets: group, me, selected, pick, or token names or ids separated
+ *       by commas (Selea, Paz). Without --targets: the selected tokens, otherwise
+ *       the check buttons. Durations: 3r, 3 (rounds), 10min, 2h, 1j, perm (until
+ *       removed). Recasting an effect with the same name and caster replaces the
+ *       old one on the new cast's targets; from another caster, both stay, each
+ *       with its own duration.
+ *   !buff add --spell bless --cl 5 [--caster Solathia] [--targets group]   common spell
+ *   !buff fav                     common spell buttons
+ *   !buff edit 3 --dur -1         -1 round (or +2, 4r, 10min, perm); also --name,
+ *                                 --effect, --caster, --targets (as for add),
+ *                                 --hidden yes|no (GM)
+ *   !buff pick toggle|all|none|ok|cancel   check buttons (sent by the script)
+ *   !buff choose 2|free|cancel    choice for a partial name (sent by the script)
+ *   !buff remove 3 [4 ...]        removes casts: dry run, then ... confirm N
+ *   !buff clear                   removes the selected tokens from all their effects
+ *                                 (dry run, then confirm N)
+ *   !buff clear all               GM: all effects (dry run, then confirm N)
+ *   !buff time 10min                GM: passes time (dry run, then confirm N);
+ *                                 "Passer le temps" button in the GM menu
+ *   !buff show                    updates the handout and gives the link to open it
  *   !buff help
- *   Les modifications d'un seul lancement (edit) s'appliquent tout de suite : elles se
- *   défont d'un clic. Suppressions et passage du temps passent par un essai à blanc.
+ *   Changes to a single cast (edit) apply at once: they can be undone with
+ *   one click. Removals and passing time go through a dry run.
  *
- * DROITS
- *   Tout le monde peut lancer un effet sur n'importe qui. Un joueur modifie ou retire
- *   les lancements qu'il a créés et ceux dont il contrôle le lanceur. D'un lancement qui
- *   ne fait que viser un de ses personnages, il ne peut que retirer ses personnages
- *   (bouton « Me retirer », ou !buff clear sur son token). Le MJ gère tout, et lui seul
- *   crée des effets cachés (--hidden).
+ * PERMISSIONS
+ *   Anyone can cast an effect on anyone. A player edits or removes the casts
+ *   they created and those whose caster they control. From a cast that only
+ *   targets one of their characters, they can only remove their characters
+ *   ("Me retirer" button, or !buff clear on their token). The GM manages everything,
+ *   and only the GM creates hidden effects (--hidden).
  *
- * CIBLES
- *   Un token lié à une fiche (une barre liée à un attribut, comme les PJ) : l'effet
- *   suit le PERSONNAGE, sur toutes les cartes. Un token non lié (monstres en série) :
- *   l'effet suit ce token seulement ; si le token est supprimé, il quitte l'effet.
- *   Un nom (cible ou lanceur) doit être exact (casse et accents ignorés) : token de la
- *   carte, sinon fiche de la partie. S'il n'est qu'une partie d'autres noms (« Moi »
- *   pour « Moine noir »), le script demande lequel avec des boutons, dont « Nom libre ».
- *   Sinon c'est un nom libre (un PNJ joué sans carte ni fiche), suivi par son nom.
- *   « =Moi » force le nom libre sans question.
- *   « PJ » = personnage contrôlé par au moins un joueur.
+ * TARGETS
+ *   A token linked to a sheet (a bar linked to an attribute, like PCs): the effect
+ *   follows the CHARACTER, on every page. An unlinked token (numbered monsters):
+ *   the effect follows that token only; if the token is deleted, it leaves the effect.
+ *   A name (target or caster) must be exact (case and accents ignored): a token on the
+ *   page, otherwise a sheet in the game. If it is only part of other names ("Moi"
+ *   for "Moine noir"), the script asks which one with buttons, including "Nom libre".
+ *   Otherwise it is a free name (an NPC played without a page or sheet), tracked by name.
+ *   "=Moi" forces the free name without asking.
+ *   "PC" = a character controlled by at least one player.
  *
- * AUTRES SCRIPTS
- *   globalThis.BuffTrackerAPI : observe(fn) appelle fn(buffs) après chaque changement ;
- *   buffs() ; tokensOf(cible) ; endTargets(fn(buff, cible) -> vrai) retire ces cibles
- *   de leurs effets et annonce la fin. Utilisé par invis.js et lumiere.js.
+ * OTHER SCRIPTS
+ *   globalThis.BuffTrackerAPI: observe(fn) calls fn(buffs) after every change;
+ *   buffs(); tokensOf(target); endTargets(fn(buff, target) -> true) removes these targets
+ *   from their effects and announces the end. Used by invis.js and lumiere.js.
  *
- * Données : state.BuffTracker. Ne touche pas aux fiches de personnage.
+ * Data: state.BuffTracker. Does not touch character sheets.
  */
 (() => {
   'use strict';
@@ -117,9 +117,9 @@
   const HANDOUT = 'Effets actifs';
   const CMD = '!buff';
 
-  // ======================================================= LOGIQUE PURE (testable)
+  // ======================================================= PURE LOGIC (testable)
 
-  // ---- durées (toujours en rounds)
+  // ---- durations (always in rounds)
   const UNITE = { r: 1, m: 10, h: 600, d: 14400 };
   const ALIAS_UNITE = {
     r: 'r', rd: 'r', rds: 'r', round: 'r', rounds: 'r', tour: 'r', tours: 'r',
@@ -130,7 +130,7 @@
   const PERMANENT = ['perm', 'permanent', 'inf', 'infinite', 'none', '-'];
 
   // "3r" -> {rounds:3, sign:0} ; "-1" -> {rounds:1, sign:-1} ; "perm" -> {rounds:null} ;
-  // invalide -> null
+  // invalid -> null
   const parseDuration = (txt) => {
     if (txt === undefined || txt === null || txt === true) return null;
     const t = String(txt).trim().toLowerCase();
@@ -143,9 +143,9 @@
     const rounds = Math.round(parseFloat(m[2].replace(',', '.')) * UNITE[u]);
     return { rounds, sign: m[1] === '-' ? -1 : (m[1] === '+' ? 1 : 0) };
   };
-  // durée en plusieurs morceaux : « 13h50 » (13 h 50 min), « 1j2h », « 2h 30min »,
-  // « 1min 5r ». Un nombre sans unité à la fin prend l'unité suivante (après h : min,
-  // après j : h, après min : rounds).
+  // duration in several parts: "13h50" (13 h 50 min), "1j2h", "2h 30min",
+  // "1min 5r". A number without a unit at the end takes the next unit (after h: min,
+  // after j: h, after min: rounds).
   const UNITE_SUIVANTE = { d: 'h', h: 'm', m: 'r' };
   const parseCompound = (t) => {
     const g = t.match(/^([+-])?\s*(.+)$/);
@@ -158,7 +158,7 @@
         if (parts[i][2] || i !== parts.length - 1 || !prec || !UNITE_SUIVANTE[prec]) return null;
         u = UNITE_SUIVANTE[prec];
       }
-      if (prec && UNITE[u] >= UNITE[prec]) return null; // unités dans l'ordre : j, h, min, r
+      if (prec && UNITE[u] >= UNITE[prec]) return null; // units in order: j, h, min, r
       rounds += parseInt(parts[i][1], 10) * UNITE[u];
       prec = u;
     }
@@ -181,7 +181,7 @@
     return h ? `${j} j ${h} h` : `${j} j`;
   };
 
-  // forme courte, relisible par parseDuration (valeur par défaut des boutons)
+  // short form, readable again by parseDuration (default value of the buttons)
   const compactDuration = (r) => {
     if (r === null || r === undefined) return 'perm';
     if (r && r % 14400 === 0) return `${r / 14400}j`;
@@ -194,18 +194,18 @@
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
     .toLowerCase().replace(/\s+/g, ' ').trim();
 
-  // HTML sûr pour le chat et les handouts ; [ ] { } échappés pour que Roll20 n'y
-  // voie ni jet en ligne ni requête
+  // HTML-safe for chat and handouts; [ ] { } escaped so that Roll20 sees
+  // neither an inline roll nor a query in them
   const escapeHtml = (s) => String(s === undefined || s === null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
     .replace(/\[/g, '&#91;').replace(/\]/g, '&#93;').replace(/\{/g, '&#123;').replace(/\}/g, '&#125;')
     .replace(/\r?\n/g, ' ');
 
-  // valeur par défaut d'une requête ?{...|défaut} : sans les caractères qui la
-  // casseraient (le navigateur décode les entités HTML de href avant Roll20)
+  // default value of a ?{...|default} query: without the characters that would
+  // break it (the browser decodes HTML entities in href before Roll20 does)
   const pourRequete = (s) => String(s || '').replace(/[{}|[\]"<>@&,]/g, ' ').replace(/\s+/g, ' ').trim();
 
-  // ---- commande
+  // ---- command
   // "!buff edit 3 --dur -1 confirm 2" -> {sub:'edit', args:['3'], opts:{dur:'-1'}, confirm:2}
   const parseCommand = (content) => {
     let s = String(content || '').trim();
@@ -228,11 +228,11 @@
     return { sub: (words.shift() || 'menu').toLowerCase(), args: words, opts, confirm };
   };
 
-  // valeur texte d'une option ; une requête laissée vide en fin de commande arrive
-  // comme une option sans valeur (true) : c'est une chaîne vide
+  // text value of an option; a query left empty at the end of the command arrives
+  // as an option without a value (true): it is an empty string
   const texte = (v) => (v === true ? '' : (typeof v === 'string' ? v.trim() : undefined));
 
-  // "yes"/"no" pour --hidden ; true (option sans valeur) = oui
+  // "yes"/"no" for --hidden; true (option without a value) = yes
   const parseBool = (v) => {
     if (v === true) return true;
     const t = normalize(v);
@@ -241,7 +241,7 @@
     return null;
   };
 
-  // --targets : un des mots réservés, ou une liste de noms / ids
+  // --targets: one of the reserved words, or a list of names / ids
   const TARGET_MODES = ['group', 'me', 'selected', 'pick'];
   const parseTargets = (v) => {
     const t = texte(v);
@@ -251,16 +251,16 @@
     return names.length ? { mode: 'names', names } : { mode: 'default' };
   };
 
-  // ---- entités : {kind:'char'|'token', id}
-  // clé « char.-Mabc » : pas de « : », Roll20 retire des boutons du chat les liens
-  // qui ressemblent à une adresse (char:...) et le bouton ne réagit plus
+  // ---- entities: {kind:'char'|'token', id}
+  // key "char.-Mabc": no ":", Roll20 strips links that look like an address
+  // (char:...) from chat buttons, and the button stops working
   const entityKey = (e) => `${e.kind}.${e.id}`;
   const lireCle = (k) => String(k || '').replace(/^(char|token|name):/, '$1.');
   const sameEntity = (a, b) => !!(a && b && a.kind === b.kind && a.id === b.id);
 
-  // ---- décompte
-  // Retire n rounds aux effets choisis. Renvoie ceux qui expirent (0) et ceux qui
-  // passent à leur dernier round (1). Les effets permanents ne bougent pas.
+  // ---- countdown
+  // Removes n rounds from the chosen effects. Returns those that expire (0) and those
+  // that reach their last round (1). Permanent effects do not change.
   const tick = (buffs, pred, n) => {
     const expired = [], warned = [];
     buffs.forEach((b) => {
@@ -274,7 +274,7 @@
     return { expired, warned };
   };
 
-  // Le tracker a-t-il avancé d'un tour (premier passé à la fin), reculé, ou autre chose ?
+  // Did the tracker move forward one turn (first one moved to the end), back, or something else?
   const cleEntree = (e) => String(e && e.id) + '|' + String((e && e.custom) || '');
   const memesCles = (a, b) => a.length === b.length && a.every((e, i) => cleEntree(e) === cleEntree(b[i]));
   const detectAdvance = (prev, next) => {
@@ -284,34 +284,34 @@
     return 'other';
   };
 
-  // Entrée personnalisée qui marque le début du round : son texte contient le mot
-  // « round » ou « tour » (« Round », « Tour 3 », « -- Début du round -- »...)
+  // Custom entry that marks the start of the round: its text contains the word
+  // "round" or "tour" ("Round", "Tour 3", "-- Début du round --"...)
   const estPerso = (e) => String(e && e.id) === '-1';
   const isRoundEntry = (e) => estPerso(e) && /(^|[^a-z])(round|tour)s?([^a-z]|$)/.test(normalize(e.custom));
-  // Début d'un nouveau round (à n'appeler qu'après une avance) : l'entrée de round
-  // arrive en tête, ou, sans elle, l'initiative remonte (ordre décroissant : on est
-  // revenu au plus haut). Les autres entrées personnalisées (torche...) sont ignorées.
+  // Start of a new round (call only after a forward move): the round entry
+  // comes to the top, or, without one, the initiative goes back up (descending order:
+  // we are back at the highest). Other custom entries (torch...) are ignored.
   const isNewRound = (prev, next) => {
     if (!next || !next.length) return false;
     const idx = next.findIndex(isRoundEntry);
     if (idx >= 0) return idx === 0;
     if (estPerso(next[0])) return false;
-    let j = next.length - 1; // le token qui vient de jouer
+    let j = next.length - 1; // the token that just played
     while (j > 0 && estPerso(next[j])) j--;
     if (j <= 0) return false;
     const a = parseFloat(next[j].pr), b = parseFloat(next[0].pr);
     return !isNaN(a) && !isNaN(b) && b > a;
   };
 
-  // ---- marqueurs d'état : le script n'en pose plus (les joueurs s'en servent pour
-  // autre chose). Retire d'une chaîne statusmarkers ceux qu'une ancienne version a
-  // posés (owned) ; les autres marqueurs du token ne bougent pas.
+  // ---- status markers: the script no longer sets any (players use them for
+  // something else). Removes from a statusmarkers string those an older version
+  // set (owned); the token's other markers do not change.
   const stripMarkers = (current, owned) => {
     const mine = new Set(owned || []);
     return String(current || '').split(',').filter((m) => m && !mine.has(m.split('@')[0])).join(',');
   };
 
-  // ---- recherche par nom (accents et casse ignorés) : égalité, puis début, puis contenu
+  // ---- search by name (accents and case ignored): equal, then starts with, then contains
   const resolveByName = (query, candidates) => {
     const q = normalize(query);
     if (!q) return [];
@@ -322,10 +322,10 @@
     return [];
   };
 
-  // ---- relance : le nouveau lancement remplace l'ancien sur ses cibles (pas de cumul).
-  // Retire ces cibles des lancements du même nom, du même lanceur (et de même
-  // visibilité) ; le même sort d'un autre lanceur garde sa propre durée. Renvoie les
-  // cibles relancées et la liste sans les lancements devenus vides.
+  // ---- recast: the new cast replaces the old one on its targets (no stacking).
+  // Removes these targets from casts with the same name and caster (and same
+  // visibility); the same spell from another caster keeps its own duration. Returns the
+  // recast targets and the list without the casts that became empty.
   const memeLanceur = (a, b) => {
     if (!a || !b) return !a && !b;
     if (a.id && b.id && a.kind && b.kind) return sameEntity(a, b);
@@ -345,7 +345,7 @@
     return { buffs: buffs.filter((b) => b.targets.length), relaunched };
   };
 
-  // ---- sorts courants : durée = niveau de lanceur x unité (ou durée fixe)
+  // ---- common spells: duration = caster level x unit (or fixed duration)
   const FAVORITES = [
     { key: 'bless', name: 'Bénédiction', per: 'm', mult: 1, effect: '+1 moral attaque et JS contre la terreur' },
     { key: 'prayer', name: 'Prière', per: 'r', mult: 1, effect: '+1 chance alliés, -1 ennemis (attaque, dégâts, JS, compétences)' },
@@ -382,8 +382,8 @@
   const val = (r) => (r === null || r === undefined ? Infinity : r);
   const parDuree = (a, b) => val(a.remaining) - val(b.remaining) || normalize(a.name).localeCompare(normalize(b.name));
 
-  // ---- vue par personnage (fenêtre) : une ligne par effet et par cible
-  // nameOf(entité) -> nom ; casterNameOf(buff) -> nom
+  // ---- view by character (window): one line per effect and per target
+  // nameOf(entity) -> name ; casterNameOf(buff) -> name
   const buildView = (buffs, nameOf, casterNameOf, includeHidden) => {
     const groups = new Map();
     buffs.forEach((b) => {
@@ -398,7 +398,7 @@
       });
     });
     const out = [...groups.values()];
-    // le même sort de deux lanceurs ne se cumule pas : une seule ligne, la plus longue
+    // the same spell from two casters does not stack: one line, the longest
     out.forEach((g) => {
       g.rows.sort(parDuree);
       const vus = new Map();
@@ -413,8 +413,8 @@
     return out;
   };
 
-  // Cibles à annoncer (dernier round, fin) : sans celles qu'un autre lancement du même
-  // sort couvre encore au moins min rounds. Renvoie [{b, targets}] non vides.
+  // Targets to announce (last round, end): without those that another cast of the same
+  // spell still covers for at least min rounds. Returns non-empty [{b, targets}].
   const aAnnoncer = (liste, buffs, min) => liste.map((b) => ({
     b,
     targets: b.targets.filter((t) => !buffs.some((o) => o !== b && !liste.includes(o) &&
@@ -422,9 +422,9 @@
       val(o.remaining) >= min && o.targets.some((x) => sameEntity(x, t))))
   })).filter((x) => x.targets.length);
 
-  // ---- vue par lancement (menu) : une ligne par effet avec la liste de ses cibles
-  // editable(b) : boutons complets ; selfOnly(b) : seulement « Me retirer » (un joueur
-  // ciblé par le lancement d'un autre)
+  // ---- view by cast (menu): one line per effect with the list of its targets
+  // editable(b): full buttons; selfOnly(b): only "Me retirer" (a player
+  // targeted by someone else's cast)
   const buildCastView = (buffs, nameOf, casterNameOf, editable, includeHidden, selfOnly = () => false) => buffs
     .filter((b) => includeHidden || !b.hidden)
     .map((b) => {
@@ -444,7 +444,7 @@
     return '#2e7d32';
   };
 
-  // ---- handout (fenêtre « Effets actifs »)
+  // ---- handout ("Effets actifs" window)
   const renderHandout = (view, opts = {}) => {
     const n = view.reduce((s, g) => s + g.rows.length, 0);
     let h = `<h3>${escapeHtml(opts.title || HANDOUT)}</h3>`;
@@ -466,7 +466,7 @@
     return h;
   };
 
-  // ---- chat (une seule ligne : pas de retour à la ligne dans sendChat)
+  // ---- chat (a single line: no line break in sendChat)
   const STYLE_BOITE = 'border:1px solid #888888;border-radius:4px;padding:4px 6px;background:#ffffff;color:#222222';
   const STYLE_BTN = 'display:inline-block;background:#4a4a4a;color:#ffffff;border:none;border-radius:3px;padding:0 5px;margin:1px;font-size:11px;text-decoration:none';
   const STYLE_BTN_ON = 'display:inline-block;background:#2e7d32;color:#ffffff;border:none;border-radius:3px;padding:0 5px;margin:1px;font-size:11px;text-decoration:none';
@@ -476,7 +476,7 @@
   const lienFenetre = (id, label) => bouton(label || 'Ouvrir la fenêtre', handoutUrl(id));
 
   const Q_DUREE = 'Durée : 3r 10min 2h 1j ou perm';
-  // bouton Durée d'un effet en cours : nouvelle durée, ou calcul sur la durée restante
+  // Durée button of a running effect: new duration, or a calculation on the remaining duration
   const Q_DUREE_EDIT = 'Nouvelle durée (10min 2h perm) ou en plus/moins : -25r +1h';
   const Q_LANCEUR = 'Lanceur';
   const Q_CIBLES = '?{Cibles|Tout le groupe,group|Moi seul,me|Tokens sélectionnés,selected|Choisir...,pick}';
@@ -506,7 +506,7 @@
     return h + '</div>';
   };
 
-  // boutons à cocher : candidates = [{key, name, on}]
+  // check buttons: candidates = [{key, name, on}]
   const renderPicker = (title, candidates) => {
     const n = candidates.filter((c) => c.on).length;
     return `<div style="${STYLE_BOITE}"><div style="font-weight:bold">${escapeHtml(title)}</div>` +
@@ -521,7 +521,7 @@
       '</div></div>';
   };
 
-  // choix d'un nom : un bouton par possibilité, le nom libre, Annuler
+  // choosing a name: one button per possibility, the free name, Annuler
   const renderChoix = (nom, role, labels) => `<div style="${STYLE_BOITE}">` +
     `<div style="font-weight:bold">« ${escapeHtml(nom)} » (${escapeHtml(role)}) : lequel ?</div><div>` +
     labels.map((l, i) => bouton(labels.indexOf(l) !== i || labels.lastIndexOf(l) !== i ? `${l} (${i + 1})` : l, `${CMD} choose ${i + 1}`)).join('') +
@@ -541,16 +541,16 @@
     buildCastView, renderHandout, renderMenu, renderPicker, renderChoix
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = exportsPurs;
-  if (typeof on !== 'function') return; // hors Roll20 : on s'arrête ici
+  if (typeof on !== 'function') return; // outside Roll20: stop here
 
-  // ============================================================== PARTIE ROLL20
+  // ============================================================== ROLL20 PART
 
   const etat = () => {
     const s = state[ETAT] = state[ETAT] || {};
     s.nextId = s.nextId || 1;
     s.buffs = s.buffs || [];
-    s.drafts = s.drafts || {};   // id du joueur -> choix de cibles en cours
-    if (s.version !== 2) {       // v1 : une cible par effet
+    s.drafts = s.drafts || {};   // player id -> target choice in progress
+    if (s.version !== 2) {       // v1: one target per effect
       s.buffs.forEach((b) => {
         if (b.targets) return;
         b.targets = b.target ? [{ kind: b.target.kind, id: b.target.id, name: b.targetName || '' }] : [];
@@ -562,9 +562,9 @@
     return s;
   };
 
-  // ---- entités : un personnage (token lié à sa fiche) ou un token seul
-  // token lié à sa fiche, ou token d'un PJ même sans barre liée : c'est le personnage
-  // (sinon un PJ posé avec un token non lié apparaissait deux fois dans la fenêtre)
+  // ---- entities: a character (token linked to its sheet) or a lone token
+  // token linked to its sheet, or a PC's token even without a linked bar: it is the character
+  // (otherwise a PC placed with an unlinked token appeared twice in the window)
   const entiteDuToken = (tok) => {
     const cid = tok.get('represents');
     const c = cid && getObj('character', cid);
@@ -578,8 +578,8 @@
     const c = getObj('character', tok.get('represents'));
     return c ? c.get('name') : '';
   };
-  // nom libre : un PNJ sans token ni fiche (scène jouée sans carte)
-  // (id sans espace : il sert d'argument aux boutons à cocher)
+  // free name: an NPC without a token or sheet (scene played without a page)
+  // (id without spaces: it is used as an argument of the check buttons)
   const entiteNom = (nom) => ({ kind: 'name', id: normalize(nom).replace(/[^a-z0-9]+/g, '-'), name: String(nom || '').trim() });
   const entiteDuPerso = (c) => ({ kind: 'char', id: c.id, name: c.get('name') });
   const nomEntite = (e) => {
@@ -603,7 +603,7 @@
   };
   const tokensPage = (pageid) => (pageid ? findObjs({ _type: 'graphic', _subtype: 'token', _pageid: pageid }) : []);
 
-  // ---- joueurs et droits
+  // ---- players and permissions
   const liste = (s) => String(s || '').split(',').map((x) => x.trim()).filter(Boolean);
   const controleurs = (e) => {
     if (!e || !e.id || e.kind === 'name') return [];
@@ -618,13 +618,13 @@
     const l = controleurs(e);
     return l.includes('all') || l.includes(pid);
   };
-  // gérer un lancement (durée, cibles, retrait pour tous) : le MJ, son créateur, ou qui
-  // contrôle son lanceur. Un joueur seulement ciblé peut juste en retirer ses personnages.
+  // manage a cast (duration, targets, removal for all): the GM, its creator, or whoever
+  // controls its caster. A player who is only targeted can just remove their characters from it.
   const peutGerer = (pid, b) => playerIsGM(pid) ||
     (!b.hidden && (b.owner === pid || (!!b.caster && controle(pid, b.caster))));
   const mesCibles = (pid, b) => (b.hidden ? [] : b.targets.filter((t) => controle(pid, t)));
 
-  // PJ = personnage contrôlé par au moins un joueur, présent sur la carte
+  // PC = character controlled by at least one player, present on the page
   const pjsDeLaPage = (pageid) => entitesUniques(tokensPage(pageid).filter((t) => {
     const c = getObj('character', t.get('represents'));
     return !!c && liste(c.get('controlledby')).length > 0;
@@ -632,20 +632,20 @@
   const fiches = () => findObjs({ _type: 'character' }).filter((c) => !c.get('archived'));
   const pjsDeLaPartie = () => fiches().filter((c) => liste(c.get('controlledby')).length > 0).map(entiteDuPerso)
     .sort((a, b) => normalize(a.name).localeCompare(normalize(b.name)));
-  // PJ de la carte, sinon (scène sans carte, ou PJ absents) tous les PJ de la partie
+  // PCs on the page, otherwise (scene without a page, or PCs absent) all PCs in the game
   const pjsDuGroupe = (pageid) => { const l = pjsDeLaPage(pageid); return l.length ? l : pjsDeLaPartie(); };
-  // personnages de ce joueur (contrôlés nommément, pas par « all ») : sur la carte, sinon dans la partie
+  // this player's characters (controlled by name, not through "all"): on the page, otherwise in the game
   const persosDuJoueur = (pid, pageid) => {
     const siens = (e) => controleurs(e).includes(pid);
     const l = pjsDeLaPage(pageid).filter(siens);
     return l.length ? l : pjsDeLaPartie().filter(siens);
   };
 
-  // nom -> entité, sans deviner. Clé (char.<id>, token.<id>) ou id de token ; « =Nom »
-  // force un nom libre ; nom exact (casse et accents ignorés) d'un token de la carte,
-  // sinon d'une fiche. Un nom qui n'est qu'une partie de noms existants (« Moi » pour
-  // « Moine noir ») renvoie {choices} : le joueur choisit, ou garde le nom libre.
-  // Renvoie {entity} ou {choices: [entités]}.
+  // name -> entity, without guessing. Key (char.<id>, token.<id>) or token id; "=Name"
+  // forces a free name; exact name (case and accents ignored) of a token on the page,
+  // otherwise of a sheet. A name that is only part of existing names ("Moi" for
+  // "Moine noir") returns {choices}: the player chooses, or keeps the free name.
+  // Returns {entity} or {choices: [entities]}.
   const MAX_CHOIX = 6;
   const trouverEntite = (nom, pageid) => {
     const brut = String(nom || '').trim();
@@ -666,7 +666,7 @@
     const exactes = toutes.filter((c) => normalize(c.get('name')) === q).map(entiteDuPerso);
     if (exactes.length === 1) return { entity: exactes[0] };
     if (exactes.length > 1) return { choices: exactes.slice(0, MAX_CHOIX) };
-    // proches : tokens de la carte qui contiennent le nom, fiches dont un mot commence par lui
+    // close matches: tokens on the page that contain the name, sheets with a word starting with it
     const proches = entitesUniques(toks.filter((c) => normalize(c.name).includes(q)).map((c) => c.tok));
     toutes.forEach((c) => {
       const n = normalize(c.get('name'));
@@ -678,8 +678,8 @@
   };
 
   const selection = (msg) => (msg.selected || []).map((x) => getObj('graphic', x._id)).filter(Boolean);
-  // carte du joueur : celle des tokens sélectionnés, sinon celle où il se trouve
-  // (pour le MJ, la dernière carte qu'il a ouverte, pas forcément celle des joueurs)
+  // the player's page: the one of the selected tokens, otherwise the one they are on
+  // (for the GM, the last page they opened, not necessarily the players' one)
   const pageDu = (msg) => {
     const sel = selection(msg);
     if (sel.length) return sel[0].get('_pageid');
@@ -709,7 +709,7 @@
   const boite = (html) => `<div style="${STYLE_BOITE}">${html}</div>`;
   const erreur = (pid, txt) => dire(pid, boite(`<span style="color:#c62828">${escapeHtml(txt)}</span>`));
 
-  // ---- handout, annonces
+  // ---- handout, announcements
   let dernierHandout = { id: null, notes: null, gmnotes: null };
   const handout = () => {
     const s = etat();
@@ -720,7 +720,7 @@
     s.handoutId = h.id;
     return h;
   };
-  // items : [{b, targets}] (aAnnoncer)
+  // items: [{b, targets}] (aAnnoncer)
   const annoncer = (items, texteAnnonce) => {
     const pub = items.filter((x) => !x.b.hidden), mj = items.filter((x) => x.b.hidden);
     const noms = (x) => x.targets.map((t) => nomEntite(t) || '?').join(', ');
@@ -740,7 +740,7 @@
     dernierHandout.notes = notes;
     dernierHandout.gmnotes = gmnotes;
   };
-  // marqueurs posés par une version précédente : retirés une fois au démarrage
+  // markers set by a previous version: removed once at startup
   const nettoyerMarqueurs = () => {
     const s = etat();
     if (!s.markers) return;
@@ -753,13 +753,13 @@
     });
     delete s.markers;
   };
-  // ---- autres scripts (invis.js) : prévenus après chaque changement des effets
+  // ---- other scripts (invis.js): notified after every change to the effects
   const ecouteurs = [];
   const prevenir = () => ecouteurs.forEach((fn) => {
-    try { fn(etat().buffs); } catch (e) { log(`${NOM} : erreur d'un script à l'écoute ${e && e.stack ? e.stack : e}`); }
+    try { fn(etat().buffs); } catch (e) { log(`${NOM}: error in a listening script ${e && e.stack ? e.stack : e}`); }
   });
   const rafraichir = () => { majHandout(); prevenir(); };
-  // retire des cibles de leurs effets (fn(buff, cible) -> vrai) et annonce la fin
+  // removes targets from their effects (fn(buff, target) -> true) and announces the end
   const finirCibles = (fn) => {
     const s = etat();
     const items = [];
@@ -782,10 +782,10 @@
     endTargets: finirCibles
   };
 
-  // retire les effets expirés, les annonce, et met tout à jour
+  // removes expired effects, announces them, and updates everything
   const traiter = (res, { avertir = true } = {}) => {
     const s = etat();
-    // une cible encore couverte par le même sort d'un autre lanceur n'est pas annoncée
+    // a target still covered by the same spell from another caster is not announced
     if (avertir && res.warned.length) annoncer(aAnnoncer(res.warned, s.buffs, 2), 'Dernier round');
     if (res.expired.length) {
       const fin = new Set(res.expired);
@@ -797,16 +797,16 @@
 
   const trouver = (id) => etat().buffs.find((b) => b.id === String(id || '').replace(/^#/, ''));
 
-  // ---- lanceur donné par son nom : token de la carte, fiche, sinon nom libre (suivi
-  // par son nom dans le tracker). Renvoie {caster} (null sans nom) ou {choices}.
+  // ---- caster given by name: token on the page, sheet, otherwise free name (tracked
+  // by name in the tracker). Returns {caster} (null without a name) or {choices}.
   const trouverLanceur = (nom, pageid) => {
     const q = String(nom || '').trim();
     if (!q) return { caster: null };
     const r = trouverEntite(q, pageid);
     return r.choices ? r : { caster: copieEntite(r.entity) };
   };
-  // lanceur proposé par Ajouter et Sorts courants : le token sélectionné (le premier),
-  // sinon le personnage du joueur s'il n'en a qu'un
+  // caster suggested by Ajouter and Sorts courants: the selected token (the first one),
+  // otherwise the player's character if they have only one
   const lanceurParDefaut = (pid, pageid, msg) => {
     const sel = msg ? entitesUniques(selection(msg)) : [];
     if (sel.length) return sel[0].name || '';
@@ -814,7 +814,7 @@
     return l.length === 1 ? l[0].name : '';
   };
 
-  // ---- cibles : renvoie {targets}, {pick: preselection}, {choose: {index, nom, choices}} ou {error}
+  // ---- targets: returns {targets}, {pick: preselection}, {choose: {index, nom, choices}} or {error}
   const resoudreCibles = (spec, msg, caster, pageid) => {
     const pid = msg.playerid;
     const sel = entitesUniques(selection(msg));
@@ -844,7 +844,7 @@
   };
   const copieEntite = (e) => ({ kind: e.kind, id: e.id, name: e.name || nomEntite(e) });
 
-  // ---- boutons à cocher
+  // ---- check buttons
   const montrerChoix = (pid) => {
     const d = etat().drafts[pid];
     if (!d) return;
@@ -864,10 +864,10 @@
     montrerChoix(pid);
   };
 
-  // ---- création d'un lancement (relance : remplace l'ancien sur ces cibles)
+  // ---- creating a cast (recast: replaces the old one on these targets)
   const lancer = (pid, d) => {
     const s = etat();
-    // même sort sous une autre graphie (casse, accents) : on garde celle déjà en jeu
+    // same spell spelled differently (case, accents): keep the one already in play
     const existant = s.buffs.find((b) => normalize(b.name) === normalize(d.name));
     if (existant) d.name = existant.name;
     const res = replaceTargets(s.buffs, d.name, d.hidden, d.targets, d.caster);
@@ -884,7 +884,7 @@
     return b;
   };
 
-  // ---------------------------------------------------------------- commandes
+  // ---------------------------------------------------------------- commands
   const cmdMenu = (msg) => {
     const pid = msg.playerid, gm = playerIsGM(pid), s = etat();
     const pageid = pageDu(msg);
@@ -941,8 +941,8 @@
     lancer(pid, d);
   };
 
-  // ---- choix d'un nom qui n'est pas exact : on garde la commande, on demande lequel,
-  // puis on la relance avec la clé choisie (ou « =Nom » pour le nom libre)
+  // ---- choosing a name that is not exact: keep the command, ask which one,
+  // then run it again with the chosen key (or "=Name" for the free name)
   const demanderChoix = (msg, c, champ, index, nom, choices) => {
     const pid = msg.playerid, s = etat();
     s.choix = s.choix || {};
@@ -1032,8 +1032,8 @@
       if (!gm) return erreur(pid, 'Seul le MJ peut cacher un effet.');
       if (parseBool(o.hidden) === null) return erreur(pid, '--hidden attend yes ou no.');
     }
-    // la carte de celui qui modifie (pas celle d'un token des cibles : un PJ a des tokens
-    // sur plusieurs cartes, et « Cibles » proposait alors les PJ d'une autre carte)
+    // the page of the person editing (not that of a target's token: a PC has tokens
+    // on several pages, and "Cibles" then offered the PCs of another page)
     const pageid = pageDu(msg);
     let nouveauLanceur;
     if (texte(o.caster) !== undefined) {
@@ -1071,12 +1071,12 @@
     dire(pid, boite(`<b>${escapeHtml(libelle(b))}</b> : ${escapeHtml(faits.join(', '))}.`));
   };
 
-  // suppression de lancements entiers, avec essai à blanc puis « confirm N »
+  // removal of whole casts, with a dry run then "confirm N"
   const cmdRemove = (msg, c) => {
     const pid = msg.playerid, s = etat(), gm = playerIsGM(pid);
     const ids = c.args.join(' ').split(/[,\s]+/).filter(Boolean);
     if (!ids.length) return erreur(pid, 'Donne le numéro de l\'effet : !buff remove 3');
-    // {b, seul} : seul = null (tout le lancement) ou les seuls personnages du joueur
+    // {b, seul}: seul = null (the whole cast) or only the player's characters
     const cibles = [];
     for (const id of ids) {
       const b = trouver(id);
@@ -1085,7 +1085,7 @@
       if (peutGerer(pid, b)) { cibles.push({ b, seul: null }); continue; }
       const miens = mesCibles(pid, b);
       if (!miens.length) return erreur(pid, `Tu ne peux pas retirer ${libelle(b)}.`);
-      // tous ses personnages et personne d'autre : c'est tout le lancement
+      // all their characters and nobody else: it is the whole cast
       cibles.push({ b, seul: miens.length === b.targets.length ? null : miens });
     }
     const noms = cibles.map(({ b, seul }) => `<b>${escapeHtml(b.name)}</b> (${escapeHtml(seul ? seul.map(nomEntite).join(', ') + ' seulement' : nomsCibles(b))})`).join(', ');
@@ -1101,7 +1101,7 @@
     dire(pid, boite(`Retiré : ${noms}`));
   };
 
-  // !buff clear : retire des personnages (sélection, ou --keys) de tous leurs effets
+  // !buff clear: removes characters (selection, or --keys) from all their effects
   const cmdClear = (msg, c) => {
     const pid = msg.playerid, s = etat();
     if (normalize(c.args[0]) === 'all') {
@@ -1121,7 +1121,7 @@
       : entitesUniques(selection(msg)).map(entityKey);
     if (!keys.length) return erreur(pid, 'Sélectionne des tokens (ou !buff clear all pour le MJ).');
     const paires = [];
-    // ses propres personnages se retirent de tout ; les autres, des lancements qu'on gère
+    // their own characters leave everything; others, only the casts they manage
     s.buffs.forEach((b) => {
       if (b.hidden && !playerIsGM(pid)) return;
       const gere = peutGerer(pid, b);
@@ -1180,20 +1180,20 @@
       'Durées : 3r ou 3 (rounds), 10min, 2h, 13h50, 1j, perm. Nom libre forcé : =Nom.'));
   };
 
-  // ------------------------------------------------------- tracker d'initiative
+  // ------------------------------------------------------- turn tracker
   const lireOrdre = (v) => { try { const o = JSON.parse(v || '[]'); return Array.isArray(o) ? o : []; } catch (e) { return []; } };
 
   const tourSuivant = (prev, next) => {
     const s = etat();
-    if (!next.length) { s.dernierTour = null; return; } // tracker vidé : fin du combat
+    if (!next.length) { s.dernierTour = null; return; } // tracker emptied: end of combat
     if (detectAdvance(prev, next) !== 'forward') return;
-    // revenir en arrière puis repasser au même tour ne décompte pas deux fois
+    // going back then moving to the same turn again does not count twice
     const signature = next.map(cleEntree).join(';');
     if (signature === s.dernierTour) return;
     s.dernierTour = signature;
     if (!s.buffs.length) return;
     const toks = next.map((e) => (e && e.id && !estPerso(e) ? getObj('graphic', e.id) : null));
-    // position du lanceur dans le tracker, ou -1 (pas de lanceur, ou absent)
+    // the caster's position in the tracker, or -1 (no caster, or absent)
     const ancre = (b) => {
       if (!b.caster) return -1;
       let i = b.caster.id ? toks.findIndex((t) => tokenEst(b.caster, t)) : -1;
@@ -1206,12 +1206,12 @@
     traiter({ expired: r1.expired.concat(r2.expired), warned: r1.warned.concat(r2.warned) });
   };
 
-  // ------------------------------------------------------------------ évènements
+  // ------------------------------------------------------------------ events
   on('ready', () => {
     etat();
     nettoyerMarqueurs();
     rafraichir();
-    log(`${NOM} (bufftracker.js) prêt : ${etat().buffs.length} effet(s) suivis.`);
+    log(`${NOM} (bufftracker.js) ready: ${etat().buffs.length} effect(s) tracked.`);
   });
 
   on('chat:message', (msg) => {
@@ -1234,7 +1234,7 @@
         default: return erreur(msg.playerid, `Commande inconnue : ${c.sub}. Voir !buff help.`);
       }
     } catch (e) {
-      log(`${NOM} : erreur ${e && e.stack ? e.stack : e}`);
+      log(`${NOM}: error ${e && e.stack ? e.stack : e}`);
       erreur(msg.playerid, `Erreur du script : ${e && e.message ? e.message : e}`);
     }
   });
@@ -1242,7 +1242,7 @@
   on('change:campaign:turnorder', (obj, prev) => {
     try {
       tourSuivant(lireOrdre(prev && prev.turnorder), lireOrdre(obj.get('turnorder')));
-    } catch (e) { log(`${NOM} : erreur tracker ${e && e.stack ? e.stack : e}`); }
+    } catch (e) { log(`${NOM}: tracker error ${e && e.stack ? e.stack : e}`); }
   });
 
   on('destroy:graphic', (tok) => {

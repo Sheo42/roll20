@@ -1,11 +1,11 @@
 /*
- * lumiere.test.js — tests de lumiere.js (script API Roll20) avec bufftracker.js
+ * lumiere.test.js — tests for lumiere.js (Roll20 API script) with bufftracker.js
  *
- * Lancer :  node tests/lumiere.test.js
+ * Run:     node tests/lumiere.test.js
  *
- * Aucune dépendance : Node.js suffit. Logique pure, puis flux complet dans un FAUX
- * Roll20 où bufftracker.js, invis.js et lumiere.js sont chargés ensemble.
- * Non vérifié ici : le rendu réel de la lumière dans Roll20 (partie de test).
+ * No dependency: Node.js is enough. Pure logic, then full flow in a FAKE
+ * Roll20 where bufftracker.js, invis.js and lumiere.js are loaded together.
+ * Not checked here: the real rendering of light in Roll20 (test game).
  */
 const fs = require('fs');
 const path = require('path');
@@ -34,7 +34,7 @@ function describe(nom, fn) {
   }
 }
 
-// =============================================================== LOGIQUE PURE
+// =============================================================== PURE LOGIC
 describe('Noms des effets', () => {
   [['Lumière', 'Lumière'], ['lumiere', 'Lumière'], ['Light', 'Lumière'], ['Lumière du jour', 'Lumière du jour'], ['Daylight', 'Lumière du jour'],
     ['Lumières dansantes', 'Lumières dansantes'], ['Torche (Paz)', 'Torche'], ['Sunrod', 'Bâton éclairant'], ['Lanterne sourde', 'Lanterne sourde']]
@@ -62,7 +62,7 @@ describe('Commandes', () => {
   check(L.parseCommand('!lumieres') === null && L.parseCommand('!buff') === null, 'autres commandes ignorées');
 });
 
-// ================================================================= FAUX ROLL20
+// ================================================================= FAKE ROLL20
 const NOIR = { emits_bright_light: false, emits_low_light: false, bright_light_distance: 0, low_light_distance: 0, light_angle: 360, lightColor: 'transparent', dim_light_opacity: 0.5 };
 
 function partie() {
@@ -140,7 +140,7 @@ describe('Lumière d\'avant remise, plusieurs effets', () => {
 describe('Lumière changée à la main pendant l\'effet', () => {
   const p = partie();
   p.dire('gm', `!buff add --spell light --cl 5 --targets ${p.t.lune.id}`);
-  p.t.lune.set({ bright_light_distance: 9, low_light_distance: 9 }); // macro Lumière
+  p.t.lune.set({ bright_light_distance: 9, low_light_distance: 9 }); // Lumière macro
   p.dire('gm', '!buff clear all confirm 1');
   check(p.t.lune.props.bright_light_distance === 9 && p.t.lune.props.emits_bright_light, 'pas éteinte : le joueur a choisi une autre lumière');
   check(p.eteint(p.t.lune2), 'son autre token, inchangé, est remis');
@@ -165,5 +165,5 @@ describe('Autres effets, nouveau token, redémarrage', () => {
   check(p.dire('pD', '!lumiere list').includes('réservée au MJ'), 'list : MJ seulement');
 });
 
-console.log(`\n${total - echecs.length}/${total} vérifications réussies`);
-if (echecs.length) { console.log('\nÉCHECS :\n' + echecs.join('\n')); process.exit(1); }
+console.log(`\n${total - echecs.length}/${total} checks passed`);
+if (echecs.length) { console.log('\nFAILURES:\n' + echecs.join('\n')); process.exit(1); }

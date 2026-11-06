@@ -1,13 +1,13 @@
-// tokeninfo.js - diagnostic Roll20, LECTURE SEULE, réservé au MJ.
+// tokeninfo.js - Roll20 diagnostic, READ ONLY, GM only.
 //
-//   !tokeninfo <personnage>   Nom stocké dans le token par défaut du personnage, présence éventuelle
-//                             du marqueur %%NUMBERED%% (TokenNameNumber), et tokens déjà posés qui
-//                             le représentent (nom, page).
-//   !tokenwatch on | off      Chuchote au MJ chaque création de token lié à un personnage et chaque
-//                             changement de nom (nom avant / après). S'arrête seul après 15 minutes.
+//   !tokeninfo <character>   Name stored in the character's default token, whether it has
+//                            the %%NUMBERED%% marker (TokenNameNumber), and tokens already placed that
+//                            represent it (name, page).
+//   !tokenwatch on | off      Whispers to the GM every creation of a token linked to a character and every
+//                             name change (name before / after). Stops by itself after 15 minutes.
 //
-// But: savoir si le nom "Personnage 1" est déjà dans le token par défaut, ou s'il est ajouté
-// APRÈS la création par un script (et à quel moment). Ne modifie aucun objet du jeu.
+// Goal: find out whether the name "Character 1" is already in the default token, or whether it is added
+// AFTER creation by a script (and when). Does not change any game object.
 
 (function () {
   var WATCH_MAX_MS = 15 * 60 * 1000;
@@ -26,14 +26,14 @@
     watchWho = null;
   };
 
-  // --- surveillance ---
+  // --- watching ---
   on('add:graphic', function (t) {
     if (!watchWho || t.get('_subtype') !== 'token' || !t.get('represents')) return;
     var id = t.id;
     var first = t.get('name');
     var c = getObj('character', t.get('represents'));
     whisper(watchWho, stamp() + ' CRÉÉ : nom=' + clean(first) + ' | personnage=' + clean(c ? c.get('name') : '?') + ' | id=' + id);
-    // instantané 1,5 s plus tard: un script qui renomme "plus tard" apparaît ici
+    // snapshot 1.5 s later: a script that renames "later" shows up here
     setTimeout(function () {
       var again = getObj('graphic', id);
       if (watchWho && again && again.get('name') !== first) {
@@ -47,7 +47,7 @@
     whisper(watchWho, stamp() + ' RENOMMÉ : ' + clean(prev.name) + ' -> ' + clean(t.get('name')) + ' | id=' + t.id);
   });
 
-  // --- commandes ---
+  // --- commands ---
   on('chat:message', function (msg) {
     if (msg.type !== 'api' || !playerIsGM(msg.playerid)) return;
     var who = msg.who.replace(/ \(GM\)$/, '');
@@ -82,7 +82,7 @@
         lines.push('- ' + clean(t.get('name')) + ' (page ' + clean(p ? p.get('name') : '?') + ', liens barres : ' + [1, 2, 3].map(function (n) { return t.get('bar' + n + '_link') ? 'oui' : 'non'; }).join('/') + ')');
       });
 
-      // le token par défaut est lu en différé (valeur asynchrone dans l'API)
+      // the default token is read later (asynchronous value in the API)
       ch.get('defaulttoken', function (raw) {
         var dt = '(aucun token par défaut enregistré)';
         var marker = false;
@@ -93,7 +93,7 @@
             marker = /%%NUMBERED%%/.test(o.name || '');
             lines.push('nom du token par défaut : ' + dt + (marker ? ' <b>(contient %%NUMBERED%%)</b>' : ''));
             lines.push('le token par défaut représente le personnage : ' + (o.represents === ch.id ? 'oui' : 'non / vide'));
-            // liens de barres du token par défaut (ce que PFCompanion teste pour décider si c'est un "mook")
+            // bar links of the default token (what PFCompanion tests to decide whether it is a "mook")
             var bars = [1, 2, 3].map(function (n) { return 'barre' + n + ' = ' + (o['bar' + n + '_link'] ? clean(o['bar' + n + '_link']) : '(aucun lien)'); });
             var noLink = [1, 2, 3].every(function (n) { return !o['bar' + n + '_link']; });
             lines.push('liens de barres du token par défaut : ' + bars.join(', '));

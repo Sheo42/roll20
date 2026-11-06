@@ -1,16 +1,16 @@
-// attrscan.js - diagnostic Roll20, LECTURE SEULE, réservé au MJ.
+// attrscan.js - Roll20 diagnostic, READ ONLY, GM only.
 //
-//   !attrscan <personnage>             vue d'ensemble
-//   !attrscan <personnage> <section>   détail d'une section répétable (ex: ability): champs et valeurs courtes
-//   !abilitycheck <personnage>         applique la condition exacte de la feuille (showinmenu vrai + ability_type) et liste les lignes suspectes
+//   !attrscan <character>             overview
+//   !attrscan <character> <section>   detail of a repeating section (e.g. ability): fields and short values
+//   !abilitycheck <character>         applies the sheet's exact condition (showinmenu true + ability_type) and lists suspicious rows
 //
-// Cherche ce qui peut alourdir une fiche (et donc la page à l'ouverture / à l'instanciation):
-//   - nombre total d'attributs
-//   - sections répétables (repeating_*): nombre de lignes par section, et lignes entièrement vides
-//   - attributs dont le nom contient "macro" (liste, avec la longueur de leur valeur)
-//   - les valeurs les plus longues (en caractères)
-//   - les préfixes de noms les plus fréquents
-// Un seul passage sur les attributs (pas de getAttrByName). Ne modifie aucun objet du jeu.
+// Looks for what can make a sheet heavy (and therefore the page when opened / instantiated):
+//   - total number of attributes
+//   - repeating sections (repeating_*): number of rows per section, and fully empty rows
+//   - attributes whose name contains "macro" (list, with the length of their value)
+//   - the longest values (in characters)
+//   - the most frequent name prefixes
+// A single pass over the attributes (no getAttrByName). Does not change any game object.
 
 (function () {
   var clean = function (v, max) {
@@ -27,7 +27,7 @@
     var args = msg.content.replace(/^!attrscan\s*/, '').trim().toLowerCase();
     var section = null;
     var sm = args.match(/\s+(ability|item|weapon|buff2|buff|spell\w*|[a-z0-9]+)$/);
-    // le dernier mot est une section seulement si un personnage porte le nom sans ce mot
+    // the last word is a section only if a character has the name without that word
     var name = args;
     if (sm && !findObjs({ _type: 'character' }).some(function (c) { return (c.get('name') || '').toLowerCase() === args; })) {
       section = sm[1];
@@ -42,7 +42,7 @@
     var attrs = findObjs({ _type: 'attribute', _characterid: c.id });
 
     if (section) {
-      // détail d'une section: pour chaque champ, répartition des valeurs courtes (<= 15 caractères)
+      // detail of a section: for each field, distribution of short values (<= 15 characters)
       var fields = {}, rows = {};
       attrs.forEach(function (a) {
         var m = (a.get('name') || '').match(ROW);
@@ -113,7 +113,7 @@
     reply(out.join('<br>'));
   });
 
-  // --- !abilitycheck: capacités dont le type n'est pas un type valide (candidates au message "could not find top macro for 0")
+  // --- !abilitycheck: abilities whose type is not a valid type (candidates for the "could not find top macro for 0" message)
   on('chat:message', function (msg) {
     if (msg.type !== 'api' || !/^!abilitycheck(\s|$)/.test(msg.content)) return;
     if (!playerIsGM(msg.playerid)) return;
@@ -131,14 +131,14 @@
       var r = rows[m[2]] = rows[m[2]] || {};
       r[m[3]] = String(a.get('current') === undefined || a.get('current') === null ? '' : a.get('current'));
     });
-    // Condition exacte de la feuille (PFAbility.getTopOfMenu / getAbilityTypes):
-    // seules les lignes dont showinmenu est vrai comptent; leur ability_type (en minuscules) donne les "types".
-    // Un type non vide autre que ex/sp/su provoque "could not find top macro for <type>".
+    // Exact condition of the sheet (PFAbility.getTopOfMenu / getAbilityTypes):
+    // only rows whose showinmenu is true count; their ability_type (lower case) gives the "types".
+    // A non-empty type other than ex/sp/su causes "could not find top macro for <type>".
     var ids = Object.keys(rows);
     var menu = ids.filter(function (id) { return (parseInt(rows[id].showinmenu, 10) || 0) !== 0; });
     var suspects = menu.filter(function (id) {
       var t = rows[id].ability_type;
-      if (t === undefined) return true;                    // attribut absent
+      if (t === undefined) return true;                    // attribute missing
       t = String(t).toLowerCase();
       return t !== '' && t !== 'ex' && t !== 'sp' && t !== 'su';
     });

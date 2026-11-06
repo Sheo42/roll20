@@ -1,12 +1,12 @@
 /*
- * invis.test.js — tests de invis.js (script API Roll20), seul et avec bufftracker.js
+ * invis.test.js — tests for invis.js (Roll20 API script), alone and with bufftracker.js
  *
- * Lancer :  node tests/invis.test.js
+ * Run:     node tests/invis.test.js
  *
- * Aucune dépendance : Node.js suffit. Logique pure, puis flux complet dans un FAUX
- * Roll20 où invis.js et bufftracker.js sont chargés ensemble (comme dans une partie).
- * Non vérifié ici : le rendu réel dans Roll20 (image transparente, nom et barres vus
- * seulement par le propriétaire), qui se vérifie dans la partie de test.
+ * No dependency: Node.js is enough. Pure logic, then full flow in a FAKE
+ * Roll20 where invis.js and bufftracker.js are loaded together (as in a game).
+ * Not checked here: the real rendering in Roll20 (transparent image, name and bars seen
+ * only by the owner), which is checked in the test game.
  */
 const fs = require('fs');
 const path = require('path');
@@ -34,7 +34,7 @@ function describe(nom, fn) {
   }
 }
 
-// =============================================================== LOGIQUE PURE
+// =============================================================== PURE LOGIC
 describe('Noms des effets', () => {
   ['Invisibilité', 'invisibilite', 'Invisibilité suprême', 'Invisibilité de groupe', 'Greater Invisibility', 'Invisibility']
     .forEach((n) => check(I.isInvisBuff(n), `« ${n} » rend invisible`));
@@ -73,7 +73,7 @@ describe('Ce qui est noté et remis', () => {
     'remis : face, image, taille, et la visibilité de chaque barre telle quelle');
 });
 
-// ================================================================= FAUX ROLL20
+// ================================================================= FAKE ROLL20
 const IMG1 = 'https://s3.amazonaws.com/files.d20.io/images/1/lune/thumb.png?1';
 const IMG2 = 'https://s3.amazonaws.com/files.d20.io/images/2/vide/thumb.png?2';
 const SIDES = [IMG1, IMG2].map(encodeURIComponent).join('|');
@@ -139,7 +139,7 @@ describe('Bascule à la main', () => {
   let r = p.dire('pD', '!invis', [p.t.lune]);
   check(p.cache(p.t.lune) && r.includes('Lune est invisible') && r.includes('/w "Denis"'), 'le joueur cache son token');
   check(p.t.lune.props.light_radius === 6 && p.t.lune.props.statusmarkers === 'red', 'lumière et marqueurs gardés');
-  p.t.lune.props.width = 140; // Roll20 a redimensionné (changement de face)
+  p.t.lune.props.width = 140; // Roll20 resized it (side change)
   r = p.dire('pD', '!invis', [p.t.lune]);
   check(p.intact(p.t.lune) && r.includes('Lune est visible'), 'rebascule : tout remis, taille comprise, barre 2 toujours cachée');
   check(!p.cache(p.t.lune2), "l'autre token de Lune (autre carte) n'est pas touché à la main");
@@ -158,7 +158,7 @@ describe('Bascule à la main', () => {
 
 describe('Token caché par l\'ancienne macro', () => {
   const p = partie({ avecBuff: false });
-  // ancienne macro Invisible : 2e face, nom et barres cachés, rien de noté
+  // old Invisible macro: 2nd side, name and bars hidden, nothing saved
   Object.assign(p.t.lune.props, { currentside: 1, imgsrc: IMG2, showplayers_name: false, showplayers_bar1: false, showplayers_bar3: false });
   let r = p.dire('pD', '!invis', [p.t.lune]);
   check(p.t.lune.props.currentside === 0 && p.t.lune.props.imgsrc.startsWith(IMG1.split('?')[0]) && p.t.lune.props.showplayers_name &&
@@ -184,7 +184,7 @@ describe('Avec bufftracker : Invisibilité', () => {
   check(msgs.includes(`!invis break --ids ${p.t.lune.id}`) && msgs.includes('/w "Denis"'), 'Denis reçoit le bouton Rompre');
   check((msgs.match(/est invisible/g) || []).length === 1, 'un seul message pour ses 2 tokens');
   check(!/\/w gm[^\n]*est invisible/.test(msgs), "pas de doublon pour le MJ (il a l'annonce de bufftracker)");
-  // un nouveau token de Lune posé sur la carte
+  // a new Lune token placed on the page
   const t3 = p.tok('Lune', p.lune);
   p.fire('add:graphic', t3);
   p.timers.splice(0).forEach((f) => f());
@@ -205,12 +205,12 @@ describe('Avec bufftracker : fin de durée et suprême', () => {
   check(p.cache(p.t.lune) && p.buffs().length === 1 && r.includes("pas d'invisibilité qui se rompt"), 'Rompre ne termine pas la suprême');
   p.dire('gm', '!buff time 2r confirm 1');
   check(p.buffs().length === 0 && p.intact(p.t.lune) && p.intact(p.t.lune2), "fin de l'effet : visible");
-  // les deux à la fois : rompre l'invisibilité simple laisse la suprême
+  // both at once: breaking plain invisibility leaves the greater one
   p.dire('gm', `!buff add --name Invisibilité --dur 10min --targets ${p.t.lune.id}`);
   p.dire('gm', `!buff add --name Invisibilité suprême --dur 5r --targets ${p.t.lune.id}`);
   r = p.dire('pD', `!invis break --ids ${p.t.lune.id}`);
   check(p.cache(p.t.lune) && p.buffs().length === 1 && r.includes('reste invisible'), 'simple rompue, suprême gardée');
-  // off : tout se termine
+  // off: everything ends
   r = p.dire('pD', '!invis off', [p.t.lune]);
   check(p.buffs().length === 0 && p.intact(p.t.lune) && r.includes('fin de son invisibilité'), 'off termine les effets et remet le token');
 });
@@ -233,7 +233,7 @@ describe('Avec bufftracker : à la main puis effet, et autres effets', () => {
   const n = p.chat.length;
   p.dire('gm', '!buff time 1r confirm 4');
   check(!p.chat.slice(n).some((m) => m.includes('2e face')), 'prévenu une seule fois');
-  // token supprimé pendant qu'il est invisible
+  // token deleted while invisible
   p.dire('pD', '!invis on', [p.t.lune2]);
   p.t.lune2.remove();
   check(!p.sb.state.Invis.tokens[p.t.lune2.id], 'token supprimé : oublié');
@@ -248,5 +248,5 @@ describe('Redémarrage du script', () => {
   check(p.intact(p.t.lune) && p.intact(p.t.lune2), 'clear all : visible');
 });
 
-console.log(`\n${total - echecs.length}/${total} vérifications réussies`);
-if (echecs.length) { console.log('\nÉCHECS :\n' + echecs.join('\n')); process.exit(1); }
+console.log(`\n${total - echecs.length}/${total} checks passed`);
+if (echecs.length) { console.log('\nFAILURES:\n' + echecs.join('\n')); process.exit(1); }

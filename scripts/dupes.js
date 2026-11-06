@@ -1,19 +1,19 @@
-// dupes.js - script API Roll20, LECTURE SEULE, réservé au MJ.
-// Usage dans le chat :
-//   !dupes Nom du Personnage          -> résumé + liste des doublons dont les valeurs DIFFÈRENT
-//   !dupes Nom du Personnage all      -> idem + noms des doublons identiques
+// dupes.js - Roll20 API script, READ ONLY, GM only.
+// Usage in chat:
+//   !dupes Character Name          -> summary + list of duplicates whose values DIFFER
+//   !dupes Character Name all      -> same + names of identical duplicates
 //
-// Pour chaque nom d'attribut présent plusieurs fois sur le personnage, compare les
-// exemplaires (valeur courante et max). Les ids Roll20 sont des "push ids" Firebase:
-// leurs 8 premiers caractères encodent la date de création, ce qui permet de savoir
-// quel exemplaire est le plus ancien et quand chacun a été créé (heure UTC;
-// Paris = UTC+2 en octobre).
-// Ne modifie, ne supprime et ne crée aucun objet du jeu.
+// For each attribute name present several times on the character, compares the
+// copies (current value and max). Roll20 ids are Firebase "push ids":
+// their first 8 characters encode the creation date, which tells
+// which copy is the oldest and when each one was created (UTC time;
+// Paris = UTC+2 in October).
+// Does not change, delete or create any game object.
 
 (function () {
   var PUSH_CHARS = '-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
 
-  // date de création encodée dans un id Firebase (ms depuis 1970), ou null
+  // creation date encoded in a Firebase id (ms since 1970), or null
   var idTime = function (id) {
     if (!id || id.length < 8) return null;
     var t = 0;
@@ -30,7 +30,7 @@
     if (isNaN(d.getTime())) return '?';
     return d.toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
   };
-  // retire ce qui pourrait être interprété comme un jet de dés ou du HTML dans le chat
+  // removes anything that could be read as a dice roll or HTML in chat
   var clean = function (v, max) {
     return String(v === undefined || v === null ? '' : v)
       .replace(/[\[\]{}<>@&"]/g, '')
@@ -44,7 +44,7 @@
 
     var who = msg.who.replace(/ \(GM\)$/, '');
     var reply = function (t) { sendChat('dupes', '/w "' + who + '" ' + t); };
-    // envoie plusieurs messages espacés (évite de saturer le chat)
+    // sends several spaced-out messages (avoids flooding the chat)
     var replyLines = function (lines, perMsg) {
       var chunks = [];
       for (var i = 0; i < lines.length; i += perMsg) chunks.push(lines.slice(i, i + perMsg).join('<br>'));
@@ -63,7 +63,7 @@
     if (!chars.length) { reply('Aucun personnage nommé ' + clean(name) + '.'); return; }
 
     chars.forEach(function (c) {
-      // un seul passage sur les attributs
+      // a single pass over the attributes
       var attrs = findObjs({ _type: 'attribute', _characterid: c.id });
       var groups = {};
       attrs.forEach(function (a) {
@@ -80,7 +80,7 @@
       var identical = [];
       var different = [];
       var extraObjects = 0;
-      var tMin = null, tMax = null;     // fenêtre de création des exemplaires SURNUMÉRAIRES (non les plus anciens)
+      var tMin = null, tMax = null;     // creation window of the EXTRA copies (not the oldest ones)
 
       dupNames.forEach(function (n) {
         var g = groups[n].slice().sort(function (x, y) { return x.id < y.id ? -1 : (x.id > y.id ? 1 : 0); });

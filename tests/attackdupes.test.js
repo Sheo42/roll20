@@ -1,16 +1,16 @@
-// node tests/attackdupes.test.js : tests sans dépendance de scripts/attackdupes.js (logique pure + flux complet avec un faux Roll20)
+// node tests/attackdupes.test.js: dependency-free tests for scripts/attackdupes.js (pure logic + full flow with a fake Roll20)
 'use strict';
 var fs = require('fs'), path = require('path'), vm = require('vm');
 var D = require('../scripts/attackdupes.js');
 
 var pass = 0, fail = 0;
-function ok(cond, label) { if (cond) pass++; else { fail++; console.log('ÉCHEC: ' + label); } }
+function ok(cond, label) { if (cond) pass++; else { fail++; console.log('FAIL: ' + label); } }
 function eq(a, b, label) { ok(JSON.stringify(a) === JSON.stringify(b), label + ' -> ' + JSON.stringify(a) + ' attendu ' + JSON.stringify(b)); }
 
-// fabrique un id Firebase dont les 8 premiers caractères encodent la date donnée
+// builds a Firebase id whose first 8 characters encode the given date
 var PUSH = '-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
 var seq = 0;
-// comme les ids de ligne Roll20, sans « _ » : on décale d'1 ms si besoin
+// like Roll20 row ids, without "_": shift by 1 ms if needed
 function pid(iso) {
   var ms = Date.parse(iso), s;
   do {
@@ -32,7 +32,7 @@ eq(D.parseArgs(' Selea '), { name: 'Selea', all: false }, 'nom seul');
 eq(D.parseArgs('Paz Tarpou ALL'), { name: 'Paz Tarpou', all: true }, 'option all');
 eq(D.parseArgs('*'), { name: '*', all: false }, 'tous les personnages');
 
-// --- fiche de test
+// --- test sheet
 var OLD = '2026-09-01T18:00:00Z', NEW1 = '2026-10-10T19:42:00Z', NEW2 = '2026-10-11T08:05:00Z';
 var ITEM = pid(OLD), SPELL = pid(OLD), ABIL = pid(OLD);
 var W1 = pid(OLD), W2 = pid(NEW1), W3 = pid(OLD), W4 = pid(NEW2), W5 = pid(OLD), W6 = pid(OLD), W7 = pid(NEW1), W8 = pid(OLD), W9 = pid(NEW2);
@@ -43,16 +43,16 @@ var ATTRS = [
   A('repeating_item_' + ITEM + '_name', 'Épée longue +2'),
   A('repeating_spells_' + SPELL + '_name', 'Rayon ardent'),
   A('repeating_ability_' + ABIL + '_name', 'Souffle'),
-  // épée liée à l'objet, puis une copie récente liée au même objet (même nom)
+  // sword linked to the item, then a recent copy linked to the same item (same name)
   W(W1, 'name', 'Épée longue +2'), W(W1, 'source-item', ITEM), W(W1, 'enhance', '2'),
   W(W2, 'name', 'Épée longue +2', NEW1), W(W2, 'source-item', ITEM, NEW1),
-  // sort : copie au nom écrit autrement (casse, espaces) et id en minuscules ; variante renommée
+  // spell: copy with the name written differently (case, spaces) and lower-case id; renamed variant
   W(W3, 'name', 'Rayon ardent'), W(W3, 'source-spell', SPELL),
   W(W4, 'name', ' rayon  ARDENT ', NEW2), W(W4, 'source-spell', SPELL.toLowerCase(), NEW2),
   W(W8, 'name', 'Rayon ardent (variante)'), W(W8, 'source-spell', SPELL),
-  // capacité sans doublon
+  // ability without a duplicate
   W(W6, 'name', 'Souffle'), W(W6, 'source-ability', ABIL),
-  // deux attaques manuelles du même nom, et une du même nom liée à un objet disparu (autre source)
+  // two manual attacks with the same name, and one with the same name linked to a missing item (other source)
   W(W5, 'name', 'Coup de poing'),
   W(W9, 'name', 'coup de poing', NEW2),
   W(W7, 'name', 'coup de poing ', NEW1), W(W7, 'source-item', pid(OLD), NEW1), W(W7, 'source-item-name', 'Gantelet', NEW1)
@@ -95,7 +95,7 @@ var sum = D.summary([{ name: 'Selea', attrs: ATTRS }, { name: 'Lune', attrs: [] 
 ok(/1 personnages sur 2/.test(sum) && sum.indexOf('Selea : 3 groupes, dernière copie ' + day(NEW2)) >= 0, 'résumé global');
 ok(/Aucun personnage/.test(D.summary([{ name: 'Lune', attrs: [] }]).join('')), 'résumé global vide');
 
-// --- flux complet avec un faux Roll20
+// --- full flow with a fake Roll20
 function fakeRoll20(isGM) {
   var handlers = {}, sent = [], timers = [];
   var objs = [{ type: 'character', id: 'C1', name: 'Selea' }, { type: 'character', id: 'C2', name: 'Lune' }];
@@ -136,5 +136,5 @@ ok(/Toutes les lignes/.test(r.say('!attackdupes Selea all')), 'option all dans l
 eq(r.say('!attackdupesX selea'), '', 'autre commande ignorée');
 eq(fakeRoll20(false).say('!attackdupes Selea'), '', 'joueur non MJ ignoré');
 
-console.log(pass + ' réussis, ' + fail + ' échecs');
+console.log(pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
