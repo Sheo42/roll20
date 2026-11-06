@@ -191,6 +191,14 @@ Un joueur agit sur les tokens qu'il contrôle, le MJ sur tous. Le token doit avo
 
 **Tests** : `node tests/invis.test.js` (Node, sans dépendance) lance 62 vérifications, seul et avec bufftracker.js dans un faux Roll20. Ils ne remplacent pas un essai en partie réelle.
 
+## Lumière des sorts et des objets (lumiere)
+
+`scripts/lumiere.js` marche avec **bufftracker.js** (2.7 ou plus) : un effet nommé comme une source de lumière allume tous les tokens de ses cibles, sur toutes les cartes, et les éteint à la fin de l'effet. Portées Pathfinder 1e : lumière vive, puis autant de lumière faible au-delà (dans Roll20, la portée de lumière faible s'ajoute à la vive). Lumière, Flamme éternelle, Lumières dansantes, Torche, Torche éternelle : 6 m + 6 m ; Lumière du jour : 18 m + 18 m ; Lampe : 4,5 m + 4,5 m ; Lanterne à capote, Bâton éclairant : 9 m + 9 m ; Lanterne sourde : cône de 90°, 18 m + 18 m ; Bougie : 1,5 m de lumière faible. Les noms anglais marchent aussi (Light, Daylight, Torch, Sunrod...) et une précision entre parenthèses est ignorée (« Torche (Paz) »). Les flammes sont orangées, les sorts blancs. Les distances suivent l'unité de la carte (mètres ou pieds).
+
+Avant d'allumer un token, le script note sa lumière et la remet à la fin de l'effet, sauf si elle a été changée entre-temps (par exemple avec la macro Lumière). Plusieurs effets sur un token : le plus grand éclaire. Lumière, Lumière du jour et Lumières dansantes sont dans les sorts courants du suivi des effets. `!lumiere list` (MJ) liste les tokens allumés par un effet.
+
+**Tests** : `node tests/lumiere.test.js` (Node, sans dépendance) lance 41 vérifications avec bufftracker.js et invis.js dans un faux Roll20. Ils ne remplacent pas un essai en partie réelle.
+
 ## Synchroniser les scripts API avec GitHub (userscript)
 
 `sync/roll20-github-sync.user.js` ajoute un bouton « ⟳ GitHub » sur la page des scripts API de Roll20

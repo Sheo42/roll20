@@ -184,6 +184,14 @@ Players act on tokens they control; the GM on all. The token needs at least 2 si
 
 **Tests**: `node tests/invis.test.js` (Node, no dependency) runs 62 checks, alone and together with bufftracker.js in a fake Roll20. They are no substitute for a try-out in a real game.
 
+## Light from spells and items (lumiere)
+
+`scripts/lumiere.js` works with **bufftracker.js** (2.7 or later): an effect named after a light source lights all its targets' tokens, on every page, and turns them off when it ends. Pathfinder 1e ranges: bright light, then as much dim light beyond (in Roll20 the low-light distance is added to the bright one). Lumière, Flamme éternelle, Lumières dansantes, Torche, Torche éternelle: 6 m + 6 m; Lumière du jour: 18 m + 18 m; Lampe: 4.5 m + 4.5 m; Lanterne à capote, Bâton éclairant: 9 m + 9 m; Lanterne sourde: 90° cone, 18 m + 18 m; Bougie: 1.5 m of dim light. English names work too (Light, Daylight, Torch, Sunrod...), and a note in brackets is ignored ("Torche (Paz)"). Flames get an orange tint, spells stay white. Distances follow the page unit (meters or feet).
+
+Before lighting a token, the script saves its light and puts it back when the effect ends, unless the light was changed in the meantime (for example with the Lumière macro). With several effects on a token, the biggest one shines. Lumière, Lumière du jour and Lumières dansantes are in the buff tracker's common spells. `!lumiere list` (GM) lists the tokens lit by an effect.
+
+**Tests**: `node tests/lumiere.test.js` (Node, no dependency) runs 41 checks with bufftracker.js and invis.js in a fake Roll20. They are no substitute for a try-out in a real game.
+
 ## Sync the API scripts with GitHub (userscript)
 
 `sync/roll20-github-sync.user.js` adds a "⟳ GitHub" button to the Roll20 API Scripts page

@@ -13,6 +13,8 @@
  *               d'annonce de fin tant qu'un autre lancement le couvre.
  * Version 2.6 — sort courant « Invisibilité suprême » ; interface BuffTrackerAPI pour
  *               les autres scripts (invis.js cache les tokens invisibles).
+ * Version 2.7 — sorts courants Lumière, Lumière du jour, Lumières dansantes (lumiere.js
+ *               allume et éteint les tokens ciblés).
  *
  * MISE EN PLACE (une seule fois)
  *   1. Coller ce fichier dans un nouveau script API, enregistrer.
@@ -103,7 +105,7 @@
  * AUTRES SCRIPTS
  *   globalThis.BuffTrackerAPI : observe(fn) appelle fn(buffs) après chaque changement ;
  *   buffs() ; tokensOf(cible) ; endTargets(fn(buff, cible) -> vrai) retire ces cibles
- *   de leurs effets et annonce la fin. Utilisé par invis.js.
+ *   de leurs effets et annonce la fin. Utilisé par invis.js et lumiere.js.
  *
  * Données : state.BuffTracker. Ne touche pas aux fiches de personnage.
  */
@@ -364,6 +366,9 @@
     { key: 'fly', name: 'Vol', per: 'm', mult: 1, effect: 'vol 18 m (bonne manœuvrabilité)' },
     { key: 'heroism', name: 'Héroïsme', per: 'm', mult: 10, effect: '+2 moral attaque, JS et compétences' },
     { key: 'resistenergy', name: 'Résistance aux énergies', per: 'm', mult: 10, effect: 'résistance 10 (20 au niv 7, 30 au niv 11)' },
+    { key: 'light', name: 'Lumière', per: 'm', mult: 10, effect: 'lumière 6 m (+6 m faible)' },
+    { key: 'daylight', name: 'Lumière du jour', per: 'm', mult: 10, effect: 'lumière vive 18 m (+18 m faible)' },
+    { key: 'dancinglights', name: 'Lumières dansantes', per: 'm', mult: 1, effect: 'lumière 6 m (+6 m faible)' },
     { key: 'darkvision', name: 'Vision dans le noir', per: 'h', mult: 1, effect: 'vision dans le noir 18 m' }
   ];
   const findFavorite = (q) => {
