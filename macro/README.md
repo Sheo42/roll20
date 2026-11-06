@@ -13,7 +13,7 @@ scripts API dont elles dépendent sont à installer dans la partie (Game Setting
 | `Invisible` | `!invis` : bascule le token sélectionné entre invisible (2ᵉ face transparente, nom, barres et auras cachés aux autres joueurs) et visible (tout est remis tel quel, taille comprise). Remplace aussi l'ancienne macro « Visible ». | `scripts/invis.js` |
 | `Perception-passive` | `!group-check --Perception` : jet de Perception pour tous les tokens sélectionnés. | GroupCheck |
 | `Vision` | Menu de vision pour le token sélectionné : Activée, Désactivée, Vision en aveugle (10), Vision dans le noir 18, 27 ou 36 m, Vision dans le noir désactivée. Chuchote « changed vision » au MJ. | TokenMod |
-| `lumiere` | Menu de source de lumière : Off, Proximité, Bougie, Lampe, Torche, Lanterne à capote, Lanterne sourde (cône de 90°), Lumière, Lumières dansantes, Lumière du jour. Fixe aussi l'opacité de la lumière faible à 30. | TokenMod |
+| `lumiere` | Menu de source de lumière (portées PF1 en mètres, lumière vive + anneau de lumière faible) : Éteindre, Proximité, Bougie, Lampe, Torche, Torche éternelle, Lanterne à capote, Lanterne sourde (cône de 90°), Bâton éclairant, Lumière, Flamme éternelle, Lumières dansantes, Lumière du jour. Teinte orangée pour les flammes. Agit sur tous les tokens sélectionnés et fixe l'opacité de la lumière faible à 30. | TokenMod |
 | `restartPfc` | `!pfc --i` : initialise PFCompanion. | PFCompanion |
 | `gabarit` | Lance le gabarit de zone d'effet : choix de la forme et de la taille, création du Viseur. | `scripts/gabarit.js` |
 
